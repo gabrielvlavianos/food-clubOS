@@ -266,12 +266,11 @@ export default function CalculatorPage() {
 
               <div>
                 <Label htmlFor="vegetable">Receita de Legumes (Opcional)</Label>
-                <Select value={selectedVegetableId} onValueChange={setSelectedVegetableId}>
+                <Select value={selectedVegetableId || undefined} onValueChange={setSelectedVegetableId}>
                   <SelectTrigger id="vegetable">
-                    <SelectValue placeholder="Selecione o legume" />
+                    <SelectValue placeholder="Nenhum" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
                     {vegetableRecipes.map((recipe) => (
                       <SelectItem key={recipe.id} value={recipe.id}>
                         {recipe.name}
@@ -283,12 +282,11 @@ export default function CalculatorPage() {
 
               <div>
                 <Label htmlFor="salad">Receita de Salada (Opcional)</Label>
-                <Select value={selectedSaladId} onValueChange={setSelectedSaladId}>
+                <Select value={selectedSaladId || undefined} onValueChange={setSelectedSaladId}>
                   <SelectTrigger id="salad">
-                    <SelectValue placeholder="Selecione a salada" />
+                    <SelectValue placeholder="Nenhuma" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhuma</SelectItem>
                     {saladRecipes.map((recipe) => (
                       <SelectItem key={recipe.id} value={recipe.id}>
                         {recipe.name}
@@ -300,12 +298,11 @@ export default function CalculatorPage() {
 
               <div>
                 <Label htmlFor="sauce">Molho (Opcional)</Label>
-                <Select value={selectedSauceId} onValueChange={setSelectedSauceId}>
+                <Select value={selectedSauceId || undefined} onValueChange={setSelectedSauceId}>
                   <SelectTrigger id="sauce">
-                    <SelectValue placeholder="Selecione o molho" />
+                    <SelectValue placeholder="Nenhum" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
                     {sauceRecipes.map((recipe) => (
                       <SelectItem key={recipe.id} value={recipe.id}>
                         {recipe.name}
