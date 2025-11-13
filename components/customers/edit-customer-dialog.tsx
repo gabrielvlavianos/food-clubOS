@@ -18,6 +18,8 @@ import {
   FREQUENCY_OPTIONS,
   INTENSITY_OPTIONS,
   GENDER_OPTIONS,
+  DAYS_OF_WEEK,
+  MEAL_TYPES
 } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
@@ -27,6 +29,14 @@ interface EditCustomerDialogProps {
   onOpenChange: (open: boolean) => void;
   onUpdated: () => void;
   customer: CustomerWithAddresses | null;
+}
+
+interface DeliveryScheduleForm {
+  [key: string]: {
+    id?: string;
+    time: string;
+    address: string;
+  };
 }
 
 export function EditCustomerDialog({
@@ -44,6 +54,7 @@ export function EditCustomerDialog({
   const [mainGoal, setMainGoal] = useState('');
   const [selectedAllergies, setSelectedAllergies] = useState<string[]>([]);
   const [foodRestrictions, setFoodRestrictions] = useState('');
+  const [deliverySchedules, setDeliverySchedules] = useState<DeliveryScheduleForm>({});
   const [height, setHeight] = useState('');
   const [currentWeight, setCurrentWeight] = useState('');
   const [goalWeight, setGoalWeight] = useState('');
@@ -66,35 +77,57 @@ export function EditCustomerDialog({
   const { toast } = useToast();
 
   useEffect(() => {
-    if (customer && open) {
-      setName(customer.name || '');
-      setPhone(customer.phone || '');
-      setBirthDate(customer.birth_date || '');
-      setGender(customer.gender || '');
-      setNutritionistName(customer.nutritionist_name || 'não tenho');
-      setNutritionistPhone(customer.nutritionist_phone || '');
-      setMainGoal(customer.main_goal || '');
-      setSelectedAllergies(customer.allergies || []);
-      setFoodRestrictions(customer.food_restrictions || '');
-      setHeight(customer.height_cm?.toString() || '');
-      setCurrentWeight(customer.current_weight_kg?.toString() || '');
-      setGoalWeight(customer.goal_weight_kg?.toString() || '');
-      setBodyFat(customer.body_fat_percentage?.toString() || '');
-      setMuscleMass(customer.skeletal_muscle_mass?.toString() || '');
-      setWorkRoutine(customer.work_routine || '');
-      setAerobicFrequency(customer.aerobic_frequency || '');
-      setAerobicIntensity(customer.aerobic_intensity || '');
-      setStrengthFrequency(customer.strength_frequency || '');
-      setStrengthIntensity(customer.strength_intensity || '');
-      setClinicalConditions(customer.clinical_conditions || '');
-      setMealsPerDay(customer.meals_per_day?.toString() || '');
-      setLunchCarbs(customer.lunch_carbs?.toString() || '');
-      setLunchProtein(customer.lunch_protein?.toString() || '');
-      setLunchFat(customer.lunch_fat?.toString() || '');
-      setDinnerCarbs(customer.dinner_carbs?.toString() || '');
-      setDinnerProtein(customer.dinner_protein?.toString() || '');
-      setDinnerFat(customer.dinner_fat?.toString() || '');
+    async function loadCustomerData() {
+      if (customer && open) {
+        setName(customer.name || '');
+        setPhone(customer.phone || '');
+        setBirthDate(customer.birth_date || '');
+        setGender(customer.gender || '');
+        setNutritionistName(customer.nutritionist_name || 'não tenho');
+        setNutritionistPhone(customer.nutritionist_phone || '');
+        setMainGoal(customer.main_goal || '');
+        setSelectedAllergies(customer.allergies || []);
+        setFoodRestrictions(customer.food_restrictions || '');
+        setHeight(customer.height_cm?.toString() || '');
+        setCurrentWeight(customer.current_weight_kg?.toString() || '');
+        setGoalWeight(customer.goal_weight_kg?.toString() || '');
+        setBodyFat(customer.body_fat_percentage?.toString() || '');
+        setMuscleMass(customer.skeletal_muscle_mass?.toString() || '');
+        setWorkRoutine(customer.work_routine || '');
+        setAerobicFrequency(customer.aerobic_frequency || '');
+        setAerobicIntensity(customer.aerobic_intensity || '');
+        setStrengthFrequency(customer.strength_frequency || '');
+        setStrengthIntensity(customer.strength_intensity || '');
+        setClinicalConditions(customer.clinical_conditions || '');
+        setMealsPerDay(customer.meals_per_day?.toString() || '');
+        setLunchCarbs(customer.lunch_carbs?.toString() || '');
+        setLunchProtein(customer.lunch_protein?.toString() || '');
+        setLunchFat(customer.lunch_fat?.toString() || '');
+        setDinnerCarbs(customer.dinner_carbs?.toString() || '');
+        setDinnerProtein(customer.dinner_protein?.toString() || '');
+        setDinnerFat(customer.dinner_fat?.toString() || '');
+
+        const { data: schedules } = await supabase
+          .from('delivery_schedules')
+          .select('*')
+          .eq('customer_id', customer.id);
+
+        if (schedules) {
+          const schedulesMap: DeliveryScheduleForm = {};
+          schedules.forEach((schedule: any) => {
+            const key = `${schedule.day_of_week}_${schedule.meal_type}`;
+            schedulesMap[key] = {
+              id: schedule.id,
+              time: schedule.delivery_time || '',
+              address: schedule.delivery_address || '',
+            };
+          });
+          setDeliverySchedules(schedulesMap);
+        }
+      }
     }
+
+    loadCustomerData();
   }, [customer, open]);
 
   function handleAllergyToggle(allergen: string) {
@@ -103,6 +136,17 @@ export function EditCustomerDialog({
         ? prev.filter(a => a !== allergen)
         : [...prev, allergen]
     );
+  }
+
+  function handleDeliveryScheduleChange(day: string, meal: string, field: 'time' | 'address', value: string) {
+    const key = `${day}_${meal}`;
+    setDeliverySchedules(prev => ({
+      ...prev,
+      [key]: {
+        ...prev[key],
+        [field]: value
+      }
+    }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -149,6 +193,32 @@ export function EditCustomerDialog({
 
       if (customerError) throw customerError;
 
+      await supabase
+        .from('delivery_schedules')
+        .delete()
+        .eq('customer_id', customer.id);
+
+      const schedules = Object.entries(deliverySchedules)
+        .filter(([_, schedule]) => schedule.time || schedule.address)
+        .map(([key, schedule]) => {
+          const [day, meal] = key.split('_');
+          return {
+            customer_id: customer.id,
+            day_of_week: day,
+            meal_type: meal,
+            delivery_time: schedule.time || null,
+            delivery_address: schedule.address || null,
+          };
+        });
+
+      if (schedules.length > 0) {
+        const { error: scheduleError } = await supabase
+          .from('delivery_schedules')
+          .insert(schedules as any);
+
+        if (scheduleError) throw scheduleError;
+      }
+
       toast({
         title: 'Cliente atualizado',
         description: 'Informações do cliente atualizadas com sucesso',
@@ -174,40 +244,43 @@ export function EditCustomerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Editar Cliente</DialogTitle>
+          <DialogTitle>Editar Cliente - {customer.name}</DialogTitle>
         </DialogHeader>
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <Tabs defaultValue="personal" className="w-full">
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="personal">Pessoal</TabsTrigger>
               <TabsTrigger value="goals">Objetivos</TabsTrigger>
-              <TabsTrigger value="macros">Macros</TabsTrigger>
-              <TabsTrigger value="body">Corpo</TabsTrigger>
-              <TabsTrigger value="health">Saúde</TabsTrigger>
+              <TabsTrigger value="macros">Macronutrientes</TabsTrigger>
+              <TabsTrigger value="delivery">Entrega</TabsTrigger>
+              <TabsTrigger value="health">Saúde & Fitness</TabsTrigger>
             </TabsList>
 
             <TabsContent value="personal" className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="name">Nome *</Label>
+                <div className="col-span-2">
+                  <Label htmlFor="name">Nome Completo *</Label>
                   <Input
                     id="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    placeholder="Nome completo"
                     required
                   />
                 </div>
+
                 <div>
-                  <Label htmlFor="phone">Telefone/WhatsApp</Label>
+                  <Label htmlFor="phone">Telefone *</Label>
                   <Input
                     id="phone"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+5511912345678"
+                    required
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="birthDate">Data de Nascimento</Label>
                   <Input
@@ -217,10 +290,11 @@ export function EditCustomerDialog({
                     onChange={(e) => setBirthDate(e.target.value)}
                   />
                 </div>
-                <div>
-                  <Label htmlFor="gender">Gênero</Label>
+
+                <div className="col-span-2">
+                  <Label htmlFor="gender">Sexo</Label>
                   <Select value={gender} onValueChange={setGender}>
-                    <SelectTrigger id="gender">
+                    <SelectTrigger>
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent>
@@ -234,21 +308,26 @@ export function EditCustomerDialog({
                 </div>
               </div>
 
+              <Separator />
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="nutritionistName">Nome do Nutricionista</Label>
+                  <Label htmlFor="nutritionistName">Nutricionista</Label>
                   <Input
                     id="nutritionistName"
                     value={nutritionistName}
                     onChange={(e) => setNutritionistName(e.target.value)}
+                    placeholder="Nome do nutricionista ou 'não tenho'"
                   />
                 </div>
+
                 <div>
-                  <Label htmlFor="nutritionistPhone">Telefone do Nutricionista</Label>
+                  <Label htmlFor="nutritionistPhone">Contato do Nutricionista</Label>
                   <Input
                     id="nutritionistPhone"
                     value={nutritionistPhone}
                     onChange={(e) => setNutritionistPhone(e.target.value)}
+                    placeholder="Telefone ou WhatsApp"
                   />
                 </div>
               </div>
@@ -258,8 +337,8 @@ export function EditCustomerDialog({
               <div>
                 <Label htmlFor="mainGoal">Objetivo Principal</Label>
                 <Select value={mainGoal} onValueChange={setMainGoal}>
-                  <SelectTrigger id="mainGoal">
-                    <SelectValue placeholder="Selecione" />
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o objetivo principal" />
                   </SelectTrigger>
                   <SelectContent>
                     {MAIN_GOALS.map((goal) => (
@@ -271,18 +350,20 @@ export function EditCustomerDialog({
                 </Select>
               </div>
 
+              <Separator />
+
               <div>
-                <Label>Alergias</Label>
-                <div className="grid grid-cols-3 gap-2 mt-2">
+                <Label className="mb-3 block">Alergias Alimentares</Label>
+                <div className="grid grid-cols-3 gap-3">
                   {COMMON_ALLERGENS.map((allergen) => (
                     <div key={allergen} className="flex items-center space-x-2">
                       <Checkbox
-                        id={`allergen-${allergen}`}
+                        id={`edit-allergen-${allergen}`}
                         checked={selectedAllergies.includes(allergen)}
                         onCheckedChange={() => handleAllergyToggle(allergen)}
                       />
                       <Label
-                        htmlFor={`allergen-${allergen}`}
+                        htmlFor={`edit-allergen-${allergen}`}
                         className="text-sm font-normal cursor-pointer"
                       >
                         {allergen}
@@ -293,19 +374,210 @@ export function EditCustomerDialog({
               </div>
 
               <div>
-                <Label htmlFor="foodRestrictions">Restrições Alimentares</Label>
+                <Label htmlFor="foodRestrictions">Restrições Alimentares ou Preferências</Label>
                 <Textarea
                   id="foodRestrictions"
                   value={foodRestrictions}
                   onChange={(e) => setFoodRestrictions(e.target.value)}
-                  placeholder="Ex: Vegetariano, não come carne vermelha..."
+                  placeholder="Ex: Vegetariano, não come carne vermelha, prefere frango..."
+                  rows={3}
                 />
               </div>
+            </TabsContent>
+
+            <TabsContent value="macros" className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Defina as metas de macronutrientes para cada refeição do dia.
+              </p>
+
+              <div className="border rounded-lg p-4 space-y-4">
+                <h4 className="font-semibold text-lg text-gray-900">Almoço</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="lunchCarbs">Carboidratos (g)</Label>
+                    <Input
+                      id="lunchCarbs"
+                      type="number"
+                      step="0.01"
+                      value={lunchCarbs}
+                      onChange={(e) => setLunchCarbs(e.target.value)}
+                      placeholder="Ex: 50"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="lunchProtein">Proteínas (g)</Label>
+                    <Input
+                      id="lunchProtein"
+                      type="number"
+                      step="0.01"
+                      value={lunchProtein}
+                      onChange={(e) => setLunchProtein(e.target.value)}
+                      placeholder="Ex: 35"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="lunchFat">Gorduras (g)</Label>
+                    <Input
+                      id="lunchFat"
+                      type="number"
+                      step="0.01"
+                      value={lunchFat}
+                      onChange={(e) => setLunchFat(e.target.value)}
+                      placeholder="Ex: 15"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border rounded-lg p-4 space-y-4">
+                <h4 className="font-semibold text-lg text-gray-900">Jantar</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="dinnerCarbs">Carboidratos (g)</Label>
+                    <Input
+                      id="dinnerCarbs"
+                      type="number"
+                      step="0.01"
+                      value={dinnerCarbs}
+                      onChange={(e) => setDinnerCarbs(e.target.value)}
+                      placeholder="Ex: 40"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="dinnerProtein">Proteínas (g)</Label>
+                    <Input
+                      id="dinnerProtein"
+                      type="number"
+                      step="0.01"
+                      value={dinnerProtein}
+                      onChange={(e) => setDinnerProtein(e.target.value)}
+                      placeholder="Ex: 30"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="dinnerFat">Gorduras (g)</Label>
+                    <Input
+                      id="dinnerFat"
+                      type="number"
+                      step="0.01"
+                      value={dinnerFat}
+                      onChange={(e) => setDinnerFat(e.target.value)}
+                      placeholder="Ex: 12"
+                    />
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="delivery" className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Configure os dias, horários e endereços de entrega. Deixe em branco os dias que não receberá.
+              </p>
+
+              {DAYS_OF_WEEK.map(({ key: day, label: dayLabel }) => (
+                <div key={day} className="border rounded-lg p-4 space-y-3">
+                  <h4 className="font-medium">{dayLabel}</h4>
+
+                  {MEAL_TYPES.map(({ key: meal, label: mealLabel }) => (
+                    <div key={meal} className="space-y-2 pl-4">
+                      <p className="text-sm font-medium text-gray-700">{mealLabel}</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor={`${day}-${meal}-time`} className="text-xs">Horário</Label>
+                          <Input
+                            id={`${day}-${meal}-time`}
+                            type="time"
+                            value={deliverySchedules[`${day}_${meal}`]?.time || ''}
+                            onChange={(e) => handleDeliveryScheduleChange(day, meal, 'time', e.target.value)}
+                            placeholder="HH:MM"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor={`${day}-${meal}-address`} className="text-xs">Endereço</Label>
+                          <Input
+                            id={`${day}-${meal}-address`}
+                            value={deliverySchedules[`${day}_${meal}`]?.address || ''}
+                            onChange={(e) => handleDeliveryScheduleChange(day, meal, 'address', e.target.value)}
+                            placeholder="Rua, número, CEP, complemento"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </TabsContent>
+
+            <TabsContent value="health" className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="height">Altura (cm)</Label>
+                  <Input
+                    id="height"
+                    type="number"
+                    value={height}
+                    onChange={(e) => setHeight(e.target.value)}
+                    placeholder="175"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="currentWeight">Peso Atual (kg)</Label>
+                  <Input
+                    id="currentWeight"
+                    type="number"
+                    step="0.1"
+                    value={currentWeight}
+                    onChange={(e) => setCurrentWeight(e.target.value)}
+                    placeholder="82"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="goalWeight">Meta de Peso (kg)</Label>
+                  <Input
+                    id="goalWeight"
+                    type="number"
+                    step="0.1"
+                    value={goalWeight}
+                    onChange={(e) => setGoalWeight(e.target.value)}
+                    placeholder="82"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="bodyFat">% Gordura Corporal</Label>
+                  <Input
+                    id="bodyFat"
+                    type="number"
+                    step="0.1"
+                    value={bodyFat}
+                    onChange={(e) => setBodyFat(e.target.value)}
+                    placeholder="16"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="muscleMass">Massa Muscular Esquelética (kg)</Label>
+                  <Input
+                    id="muscleMass"
+                    type="number"
+                    step="0.1"
+                    value={muscleMass}
+                    onChange={(e) => setMuscleMass(e.target.value)}
+                    placeholder="35"
+                  />
+                </div>
+              </div>
+
+              <Separator />
 
               <div>
                 <Label htmlFor="workRoutine">Rotina de Trabalho</Label>
                 <Select value={workRoutine} onValueChange={setWorkRoutine}>
-                  <SelectTrigger id="workRoutine">
+                  <SelectTrigger>
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
@@ -318,82 +590,89 @@ export function EditCustomerDialog({
                 </Select>
               </div>
 
-              <Separator />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="aerobicFrequency">Frequência de Atividade Aeróbica</Label>
+                  <Select value={aerobicFrequency} onValueChange={setAerobicFrequency}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FREQUENCY_OPTIONS.map((freq) => (
+                        <SelectItem key={freq} value={freq}>
+                          {freq}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-3">
-                <h4 className="font-medium">Exercícios Aeróbicos</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="aerobicFrequency">Frequência</Label>
-                    <Select value={aerobicFrequency} onValueChange={setAerobicFrequency}>
-                      <SelectTrigger id="aerobicFrequency">
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {FREQUENCY_OPTIONS.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="aerobicIntensity">Intensidade</Label>
-                    <Select value={aerobicIntensity} onValueChange={setAerobicIntensity}>
-                      <SelectTrigger id="aerobicIntensity">
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {INTENSITY_OPTIONS.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div>
+                  <Label htmlFor="aerobicIntensity">Intensidade Aeróbica</Label>
+                  <Select value={aerobicIntensity} onValueChange={setAerobicIntensity}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INTENSITY_OPTIONS.map((intensity) => (
+                        <SelectItem key={intensity} value={intensity}>
+                          {intensity}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <h4 className="font-medium">Musculação</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="strengthFrequency">Frequência</Label>
-                    <Select value={strengthFrequency} onValueChange={setStrengthFrequency}>
-                      <SelectTrigger id="strengthFrequency">
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {FREQUENCY_OPTIONS.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="strengthIntensity">Intensidade</Label>
-                    <Select value={strengthIntensity} onValueChange={setStrengthIntensity}>
-                      <SelectTrigger id="strengthIntensity">
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {INTENSITY_OPTIONS.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="strengthFrequency">Frequência de Treino de Força</Label>
+                  <Select value={strengthFrequency} onValueChange={setStrengthFrequency}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FREQUENCY_OPTIONS.map((freq) => (
+                        <SelectItem key={freq} value={freq}>
+                          {freq}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                <div>
+                  <Label htmlFor="strengthIntensity">Intensidade do Treino de Força</Label>
+                  <Select value={strengthIntensity} onValueChange={setStrengthIntensity}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INTENSITY_OPTIONS.map((intensity) => (
+                        <SelectItem key={intensity} value={intensity}>
+                          {intensity}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <Label htmlFor="clinicalConditions">Condições Clínicas ou Medicações</Label>
+                <Textarea
+                  id="clinicalConditions"
+                  value={clinicalConditions}
+                  onChange={(e) => setClinicalConditions(e.target.value)}
+                  placeholder="Descreva condições clínicas relevantes ou medicações em uso"
+                  rows={3}
+                />
               </div>
 
               <div>
-                <Label htmlFor="mealsPerDay">Refeições por Dia</Label>
+                <Label htmlFor="mealsPerDay">Número de Refeições por Dia</Label>
                 <Input
                   id="mealsPerDay"
                   type="number"
@@ -401,160 +680,19 @@ export function EditCustomerDialog({
                   max="10"
                   value={mealsPerDay}
                   onChange={(e) => setMealsPerDay(e.target.value)}
-                />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="macros" className="space-y-4">
-              <div className="space-y-3">
-                <h4 className="font-medium text-lg">Almoço</h4>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="lunchCarbs">Carboidratos (g)</Label>
-                    <Input
-                      id="lunchCarbs"
-                      type="number"
-                      step="0.1"
-                      value={lunchCarbs}
-                      onChange={(e) => setLunchCarbs(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="lunchProtein">Proteínas (g)</Label>
-                    <Input
-                      id="lunchProtein"
-                      type="number"
-                      step="0.1"
-                      value={lunchProtein}
-                      onChange={(e) => setLunchProtein(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="lunchFat">Gorduras (g)</Label>
-                    <Input
-                      id="lunchFat"
-                      type="number"
-                      step="0.1"
-                      value={lunchFat}
-                      onChange={(e) => setLunchFat(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-3">
-                <h4 className="font-medium text-lg">Jantar</h4>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="dinnerCarbs">Carboidratos (g)</Label>
-                    <Input
-                      id="dinnerCarbs"
-                      type="number"
-                      step="0.1"
-                      value={dinnerCarbs}
-                      onChange={(e) => setDinnerCarbs(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="dinnerProtein">Proteínas (g)</Label>
-                    <Input
-                      id="dinnerProtein"
-                      type="number"
-                      step="0.1"
-                      value={dinnerProtein}
-                      onChange={(e) => setDinnerProtein(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="dinnerFat">Gorduras (g)</Label>
-                    <Input
-                      id="dinnerFat"
-                      type="number"
-                      step="0.1"
-                      value={dinnerFat}
-                      onChange={(e) => setDinnerFat(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="body" className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="height">Altura (cm)</Label>
-                  <Input
-                    id="height"
-                    type="number"
-                    step="0.1"
-                    value={height}
-                    onChange={(e) => setHeight(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="currentWeight">Peso Atual (kg)</Label>
-                  <Input
-                    id="currentWeight"
-                    type="number"
-                    step="0.1"
-                    value={currentWeight}
-                    onChange={(e) => setCurrentWeight(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="goalWeight">Peso Desejado (kg)</Label>
-                  <Input
-                    id="goalWeight"
-                    type="number"
-                    step="0.1"
-                    value={goalWeight}
-                    onChange={(e) => setGoalWeight(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="bodyFat">Gordura Corporal (%)</Label>
-                  <Input
-                    id="bodyFat"
-                    type="number"
-                    step="0.1"
-                    value={bodyFat}
-                    onChange={(e) => setBodyFat(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="muscleMass">Massa Muscular Esquelética (%)</Label>
-                <Input
-                  id="muscleMass"
-                  type="number"
-                  step="0.1"
-                  value={muscleMass}
-                  onChange={(e) => setMuscleMass(e.target.value)}
-                />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="health" className="space-y-4">
-              <div>
-                <Label htmlFor="clinicalConditions">Condições Clínicas</Label>
-                <Textarea
-                  id="clinicalConditions"
-                  value={clinicalConditions}
-                  onChange={(e) => setClinicalConditions(e.target.value)}
-                  placeholder="Ex: Diabetes, hipertensão..."
+                  placeholder="3"
                 />
               </div>
             </TabsContent>
           </Tabs>
 
           <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>
