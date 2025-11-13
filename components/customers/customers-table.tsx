@@ -1,10 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import { CustomerWithAddresses } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Edit } from 'lucide-react';
+import { MapPin, Edit, Trash2 } from 'lucide-react';
+import { EditCustomerDialog } from './edit-customer-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { supabase } from '@/lib/supabase';
+import { useToast } from '@/hooks/use-toast';
 
 interface CustomersTableProps {
   customers: CustomerWithAddresses[];
@@ -12,6 +17,42 @@ interface CustomersTableProps {
 }
 
 export function CustomersTable({ customers, onUpdate }: CustomersTableProps) {
+  const [editingCustomer, setEditingCustomer] = useState<CustomerWithAddresses | null>(null);
+  const [deletingCustomer, setDeletingCustomer] = useState<CustomerWithAddresses | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { toast } = useToast();
+
+  async function handleDelete() {
+    if (!deletingCustomer) return;
+
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('customers')
+        .delete()
+        .eq('id', deletingCustomer.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Cliente removido',
+        description: 'Cliente removido com sucesso',
+      });
+
+      setDeletingCustomer(null);
+      onUpdate();
+    } catch (error) {
+      console.error('Error deleting customer:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível remover o cliente',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   if (customers.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500 bg-white rounded-lg border">
@@ -21,6 +62,7 @@ export function CustomersTable({ customers, onUpdate }: CustomersTableProps) {
   }
 
   return (
+    <>
     <div className="bg-white rounded-lg border">
       <Table>
         <TableHeader>
@@ -108,9 +150,22 @@ export function CustomersTable({ customers, onUpdate }: CustomersTableProps) {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm">
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingCustomer(customer)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeletingCustomer(customer)}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             );
@@ -118,5 +173,35 @@ export function CustomersTable({ customers, onUpdate }: CustomersTableProps) {
         </TableBody>
       </Table>
     </div>
+
+    <EditCustomerDialog
+      open={!!editingCustomer}
+      onOpenChange={(open) => !open && setEditingCustomer(null)}
+      onUpdated={onUpdate}
+      customer={editingCustomer}
+    />
+
+    <AlertDialog open={!!deletingCustomer} onOpenChange={(open) => !open && setDeletingCustomer(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Esta ação não pode ser desfeita. Isso removerá permanentemente o cliente{' '}
+            <strong>{deletingCustomer?.name}</strong> e todos os dados relacionados.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            {isDeleting ? 'Removendo...' : 'Remover'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
