@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ChefHat, Calendar, Clock, MapPin, Package, RefreshCw, Utensils } from 'lucide-react';
+import { ChefHat, Calendar, Clock, MapPin, Package, RefreshCw, Utensils, Check } from 'lucide-react';
 import type { Recipe } from '@/types';
 
 interface OrderWithDetails {
@@ -282,20 +282,31 @@ export default function KitchenDashboardPage() {
                       <Badge className={statusColors[order.status]}>
                         {statusLabels[order.status]}
                       </Badge>
-                      <Select
-                        value={order.status}
-                        onValueChange={(value: any) => updateOrderStatus(order.id, value)}
-                      >
-                        <SelectTrigger className="w-[140px] h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pendente</SelectItem>
-                          <SelectItem value="preparing">Preparando</SelectItem>
-                          <SelectItem value="ready">Pronto</SelectItem>
-                          <SelectItem value="delivered">Entregue</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      {order.status !== 'ready' && order.status !== 'delivered' ? (
+                        <Button
+                          onClick={() => updateOrderStatus(order.id, 'ready')}
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          Finalizar Preparo
+                        </Button>
+                      ) : (
+                        <Select
+                          value={order.status}
+                          onValueChange={(value: any) => updateOrderStatus(order.id, value)}
+                        >
+                          <SelectTrigger className="w-[140px] h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pendente</SelectItem>
+                            <SelectItem value="preparing">Preparando</SelectItem>
+                            <SelectItem value="ready">Pronto</SelectItem>
+                            <SelectItem value="delivered">Entregue</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
