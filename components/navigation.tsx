@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { Home, Users, BookOpen, ChefHat, ShoppingCart, CalendarDays, Calculator, UtensilsCrossed, Truck } from 'lucide-react';
+import { Home, Users, BookOpen, ChefHat, ShoppingCart, CalendarDays, Calculator, UtensilsCrossed, Truck, LayoutDashboard } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: Home },
+  { href: '/manager', label: 'Gerencial', icon: LayoutDashboard },
   { href: '/kitchen', label: 'Cozinha', icon: UtensilsCrossed },
   { href: '/deliveries', label: 'Entregas', icon: Truck },
   { href: '/menu', label: 'Cardápio Mensal', icon: CalendarDays },
