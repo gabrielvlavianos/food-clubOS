@@ -44,7 +44,37 @@ const CUSTOMER_COLUMNS: ExcelColumn[] = [
   { header: 'Carboidratos Jantar (g)', key: 'dinner_carbs', example: '40' },
   { header: 'Proteínas Jantar (g)', key: 'dinner_protein', example: '30' },
   { header: 'Gorduras Jantar (g)', key: 'dinner_fat', example: '12' },
-  { header: 'Ativo', key: 'is_active', example: 'Sim' }
+  { header: 'Ativo', key: 'is_active', example: 'Sim' },
+  { header: 'Segunda-Feira Almoço', key: 'monday_lunch', example: 'Sim' },
+  { header: 'Horário Seg Almoço', key: 'monday_lunch_time', example: '12:00' },
+  { header: 'Endereço Seg Almoço', key: 'monday_lunch_address', example: 'Rua A, 123' },
+  { header: 'Segunda-Feira Jantar', key: 'monday_dinner', example: 'Não' },
+  { header: 'Horário Seg Jantar', key: 'monday_dinner_time', example: '19:00' },
+  { header: 'Endereço Seg Jantar', key: 'monday_dinner_address', example: 'Rua A, 123' },
+  { header: 'Terça-Feira Almoço', key: 'tuesday_lunch', example: 'Sim' },
+  { header: 'Horário Ter Almoço', key: 'tuesday_lunch_time', example: '12:00' },
+  { header: 'Endereço Ter Almoço', key: 'tuesday_lunch_address', example: 'Rua A, 123' },
+  { header: 'Terça-Feira Jantar', key: 'tuesday_dinner', example: 'Não' },
+  { header: 'Horário Ter Jantar', key: 'tuesday_dinner_time', example: '19:00' },
+  { header: 'Endereço Ter Jantar', key: 'tuesday_dinner_address', example: 'Rua A, 123' },
+  { header: 'Quarta-Feira Almoço', key: 'wednesday_lunch', example: 'Sim' },
+  { header: 'Horário Qua Almoço', key: 'wednesday_lunch_time', example: '12:00' },
+  { header: 'Endereço Qua Almoço', key: 'wednesday_lunch_address', example: 'Rua A, 123' },
+  { header: 'Quarta-Feira Jantar', key: 'wednesday_dinner', example: 'Não' },
+  { header: 'Horário Qua Jantar', key: 'wednesday_dinner_time', example: '19:00' },
+  { header: 'Endereço Qua Jantar', key: 'wednesday_dinner_address', example: 'Rua A, 123' },
+  { header: 'Quinta-Feira Almoço', key: 'thursday_lunch', example: 'Sim' },
+  { header: 'Horário Qui Almoço', key: 'thursday_lunch_time', example: '12:00' },
+  { header: 'Endereço Qui Almoço', key: 'thursday_lunch_address', example: 'Rua A, 123' },
+  { header: 'Quinta-Feira Jantar', key: 'thursday_dinner', example: 'Não' },
+  { header: 'Horário Qui Jantar', key: 'thursday_dinner_time', example: '19:00' },
+  { header: 'Endereço Qui Jantar', key: 'thursday_dinner_address', example: 'Rua A, 123' },
+  { header: 'Sexta-Feira Almoço', key: 'friday_lunch', example: 'Sim' },
+  { header: 'Horário Sex Almoço', key: 'friday_lunch_time', example: '12:00' },
+  { header: 'Endereço Sex Almoço', key: 'friday_lunch_address', example: 'Rua A, 123' },
+  { header: 'Sexta-Feira Jantar', key: 'friday_dinner', example: 'Não' },
+  { header: 'Horário Sex Jantar', key: 'friday_dinner_time', example: '19:00' },
+  { header: 'Endereço Sex Jantar', key: 'friday_dinner_address', example: 'Rua A, 123' }
 ];
 
 export default function CustomersPage() {
@@ -217,14 +247,51 @@ export default function CustomersPage() {
             is_active: row.is_active === 'Sim' || row.is_active === true || row.is_active === 'TRUE'
           };
 
-          const { error } = await supabase
+          const { data: insertedCustomer, error } = await (supabase as any)
             .from('customers')
-            .insert(customerData);
+            .insert(customerData)
+            .select()
+            .single();
 
           if (error) {
             console.error('Error importing customer:', error);
             errorCount++;
           } else {
+            const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+            const meals = ['lunch', 'dinner'];
+            const dayOfWeekMap: { [key: string]: number } = {
+              'monday': 1,
+              'tuesday': 2,
+              'wednesday': 3,
+              'thursday': 4,
+              'friday': 5
+            };
+
+            for (const day of days) {
+              for (const meal of meals) {
+                const activeKey = `${day}_${meal}`;
+                const timeKey = `${day}_${meal}_time`;
+                const addressKey = `${day}_${meal}_address`;
+
+                const isActive = row[activeKey] === 'Sim' || row[activeKey] === 'sim' || row[activeKey] === 'TRUE';
+                const deliveryTime = row[timeKey];
+                const deliveryAddress = row[addressKey];
+
+                if (isActive && deliveryTime && deliveryAddress) {
+                  await (supabase as any)
+                    .from('delivery_schedules')
+                    .insert({
+                      customer_id: insertedCustomer.id,
+                      day_of_week: dayOfWeekMap[day],
+                      meal_type: meal,
+                      delivery_time: deliveryTime,
+                      delivery_address: deliveryAddress,
+                      is_active: true
+                    });
+                }
+              }
+            }
+
             successCount++;
           }
         } catch (error) {
