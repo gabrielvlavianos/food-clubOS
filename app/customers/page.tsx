@@ -97,12 +97,15 @@ export default function CustomersPage() {
 
   async function loadCustomers() {
     try {
-      const { data: customersData, error: customersError } = await supabase
+      const { data: customersData, error: customersError } = await (supabase as any)
         .from('customers')
         .select('*')
         .order('name');
 
-      if (customersError) throw customersError;
+      if (customersError) {
+        console.error('Error loading customers:', customersError);
+        throw customersError;
+      }
 
       if (!customersData) {
         setCustomers([]);
@@ -111,12 +114,15 @@ export default function CustomersPage() {
 
       const customersWithAddresses: CustomerWithAddresses[] = await Promise.all(
         customersData.map(async (customer: Customer) => {
-          const { data: addressesData, error: addressesError } = await supabase
+          const { data: addressesData, error: addressesError } = await (supabase as any)
             .from('addresses')
             .select('*')
             .eq('customer_id', customer.id);
 
-          if (addressesError) throw addressesError;
+          if (addressesError) {
+            console.error('Error loading addresses:', addressesError);
+            throw addressesError;
+          }
 
           return {
             ...customer,
