@@ -129,9 +129,10 @@ function parseBoolean(value: any): boolean {
 }
 
 function parseTime(value: any): string | null {
-  if (!value) return null;
+  if (!value || value === 'null' || value === '') return null;
 
   const timeStr = value.toString().trim();
+  if (timeStr === '' || timeStr === 'null') return null;
 
   const hhmmssMatch = timeStr.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
   if (hhmmssMatch) {
@@ -399,7 +400,14 @@ export default function CustomersPage() {
                   const rawAddress = row[addressKey];
 
                   const deliveryTime = parseTime(rawTime);
-                  const deliveryAddress = rawAddress ? rawAddress.toString().trim() : null;
+
+                  let deliveryAddress = null;
+                  if (rawAddress && rawAddress !== 'null' && rawAddress !== '') {
+                    const addressStr = rawAddress.toString().trim();
+                    if (addressStr !== '' && addressStr !== 'null') {
+                      deliveryAddress = addressStr;
+                    }
+                  }
 
                   console.log(`  ${day} ${meal}: active=${isActive}, time="${rawTime}"→"${deliveryTime}", address="${deliveryAddress}"`);
 
