@@ -77,6 +77,57 @@ const CUSTOMER_COLUMNS: ExcelColumn[] = [
   { header: 'Endereço Sex Jantar', key: 'friday_dinner_address', example: 'Rua A, 123' }
 ];
 
+function parseExcelDate(value: any): string | null {
+  if (!value) return null;
+
+  if (typeof value === 'number') {
+    const date = new Date((value - 25569) * 86400 * 1000);
+    return date.toISOString().split('T')[0];
+  }
+
+  if (typeof value === 'string') {
+    const dmyMatch = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (dmyMatch) {
+      const [, day, month, year] = dmyMatch;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+
+    const ymdMatch = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (ymdMatch) {
+      const [, year, month, day] = ymdMatch;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+  }
+
+  return null;
+}
+
+function cleanPhone(value: any): string | null {
+  if (!value) return null;
+  return value.toString().replace(/[^\d+]/g, '');
+}
+
+function parseNumber(value: any): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const num = parseFloat(value.toString().replace(',', '.'));
+  return isNaN(num) ? null : num;
+}
+
+function parseIntSafe(value: any): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const num = Number.parseInt(value.toString());
+  return isNaN(num) ? null : num;
+}
+
+function parseBoolean(value: any): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const lower = value.toLowerCase().trim();
+    return lower === 'sim' || lower === 'true' || lower === 's' || lower === '1';
+  }
+  return false;
+}
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<CustomerWithAddresses[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<CustomerWithAddresses[]>([]);
@@ -221,39 +272,45 @@ export default function CustomersPage() {
 
       for (const row of data) {
         try {
+          if (!row.name || !row.whatsapp) {
+            console.warn('Skipping row - missing required fields (name or whatsapp):', row);
+            errorCount++;
+            continue;
+          }
+
           const customerData: any = {
-            name: row.name,
-            whatsapp: row.whatsapp,
-            email: row.email || null,
-            phone: row.phone || null,
-            birth_date: row.birth_date || null,
-            gender: row.gender || null,
-            nutritionist_name: row.nutritionist_name || 'não tenho',
-            nutritionist_phone: row.nutritionist_phone || null,
-            main_goal: row.main_goal || null,
-            allergies: row.allergies ? row.allergies.split(',').map((s: string) => s.trim()) : [],
-            food_restrictions: row.food_restrictions || null,
-            clinical_conditions: row.clinical_conditions || null,
-            medication_use: row.medication_use || null,
-            height_cm: row.height_cm ? parseFloat(row.height_cm) : null,
-            current_weight_kg: row.current_weight_kg ? parseFloat(row.current_weight_kg) : null,
-            goal_weight_kg: row.goal_weight_kg ? parseFloat(row.goal_weight_kg) : null,
-            body_fat_percentage: row.body_fat_percentage ? parseFloat(row.body_fat_percentage) : null,
-            skeletal_muscle_mass: row.skeletal_muscle_mass ? parseFloat(row.skeletal_muscle_mass) : null,
-            work_routine: row.work_routine || null,
-            aerobic_frequency: row.aerobic_frequency || null,
-            aerobic_intensity: row.aerobic_intensity || null,
-            strength_frequency: row.strength_frequency || null,
-            strength_intensity: row.strength_intensity || null,
-            meals_per_day: row.meals_per_day ? parseInt(row.meals_per_day) : null,
-            dietary_notes: row.dietary_notes || null,
-            lunch_carbs: row.lunch_carbs ? parseFloat(row.lunch_carbs) : null,
-            lunch_protein: row.lunch_protein ? parseFloat(row.lunch_protein) : null,
-            lunch_fat: row.lunch_fat ? parseFloat(row.lunch_fat) : null,
-            dinner_carbs: row.dinner_carbs ? parseFloat(row.dinner_carbs) : null,
-            dinner_protein: row.dinner_protein ? parseFloat(row.dinner_protein) : null,
-            dinner_fat: row.dinner_fat ? parseFloat(row.dinner_fat) : null,
-            is_active: row.is_active === 'Sim' || row.is_active === true || row.is_active === 'TRUE'
+            name: row.name.toString().trim(),
+            whatsapp: cleanPhone(row.whatsapp),
+            email: row.email ? row.email.toString().trim() : null,
+            phone: cleanPhone(row.phone),
+            birth_date: parseExcelDate(row.birth_date),
+            gender: row.gender ? row.gender.toString().trim() : null,
+            nutritionist_name: row.nutritionist_name ? row.nutritionist_name.toString().trim() : 'não tenho',
+            nutritionist_phone: cleanPhone(row.nutritionist_phone),
+            main_goal: row.main_goal ? row.main_goal.toString().trim() : null,
+            allergies: row.allergies ? row.allergies.toString().split(',').map((s: string) => s.trim()) : [],
+            food_restrictions: row.food_restrictions ? row.food_restrictions.toString().trim() : null,
+            clinical_conditions: row.clinical_conditions ? row.clinical_conditions.toString().trim() : null,
+            medication_use: row.medication_use ? row.medication_use.toString().trim() : null,
+            height_cm: parseNumber(row.height_cm),
+            current_weight_kg: parseNumber(row.current_weight_kg),
+            goal_weight_kg: parseNumber(row.goal_weight_kg),
+            body_fat_percentage: parseNumber(row.body_fat_percentage),
+            skeletal_muscle_mass: parseNumber(row.skeletal_muscle_mass),
+            work_routine: row.work_routine ? row.work_routine.toString().trim() : null,
+            aerobic_frequency: row.aerobic_frequency ? row.aerobic_frequency.toString().trim() : null,
+            aerobic_intensity: row.aerobic_intensity ? row.aerobic_intensity.toString().trim() : null,
+            strength_frequency: row.strength_frequency ? row.strength_frequency.toString().trim() : null,
+            strength_intensity: row.strength_intensity ? row.strength_intensity.toString().trim() : null,
+            meals_per_day: parseIntSafe(row.meals_per_day),
+            dietary_notes: row.dietary_notes ? row.dietary_notes.toString().trim() : null,
+            lunch_carbs: parseNumber(row.lunch_carbs),
+            lunch_protein: parseNumber(row.lunch_protein),
+            lunch_fat: parseNumber(row.lunch_fat),
+            dinner_carbs: parseNumber(row.dinner_carbs),
+            dinner_protein: parseNumber(row.dinner_protein),
+            dinner_fat: parseNumber(row.dinner_fat),
+            is_active: parseBoolean(row.is_active)
           };
 
           console.log('Attempting to insert customer:', customerData);
