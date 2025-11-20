@@ -1,11 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import { Recipe } from '@/types';
+import { Database } from '@/types/database';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Edit, Copy } from 'lucide-react';
 import { formatMacro, formatCost } from '@/lib/calculations';
+import { supabase } from '@/lib/supabase';
+import { useToast } from '@/hooks/use-toast';
 
 interface RecipesTableProps {
   recipes: Recipe[];
@@ -13,6 +18,40 @@ interface RecipesTableProps {
 }
 
 export function RecipesTable({ recipes, onUpdate }: RecipesTableProps) {
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  async function handleToggleStatus(recipeId: string, currentStatus: boolean) {
+    setUpdatingStatus(recipeId);
+    try {
+      const newStatus = !currentStatus;
+
+      const { error } = await supabase
+        .from('recipes')
+        // @ts-expect-error - TypeScript has issues with Supabase update typing
+        .update({ is_active: newStatus })
+        .eq('id', recipeId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Status atualizado',
+        description: `Receita ${newStatus ? 'ativada' : 'desativada'} com sucesso`,
+      });
+
+      onUpdate();
+    } catch (error) {
+      console.error('Error updating recipe status:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível atualizar o status',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingStatus(null);
+    }
+  }
+
   function getCategoryColor(category: string) {
     const colors: Record<string, string> = {
       'Proteína': 'bg-red-100 text-red-800',
@@ -77,9 +116,18 @@ export function RecipesTable({ recipes, onUpdate }: RecipesTableProps) {
               <TableCell className="text-right">{formatMacro(recipe.fat_per_100g)}g</TableCell>
               <TableCell className="text-right font-medium">{formatCost(recipe.cost_per_100g)}</TableCell>
               <TableCell>
-                <Badge variant={recipe.is_active ? 'default' : 'secondary'}>
-                  {recipe.is_active ? 'Ativo' : 'Inativo'}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={recipe.is_active}
+                    onCheckedChange={() => handleToggleStatus(recipe.id, recipe.is_active)}
+                    disabled={updatingStatus === recipe.id}
+                  />
+                  <span className={`text-sm font-medium ${
+                    recipe.is_active ? 'text-gray-900' : 'text-gray-400'
+                  }`}>
+                    {recipe.is_active ? 'Ativo' : 'Inativo'}
+                  </span>
+                </div>
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-1">
