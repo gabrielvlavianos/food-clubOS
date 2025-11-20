@@ -128,6 +128,33 @@ function parseBoolean(value: any): boolean {
   return false;
 }
 
+function parseTime(value: any): string | null {
+  if (!value) return null;
+
+  const timeStr = value.toString().trim();
+
+  const hhmmssMatch = timeStr.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+  if (hhmmssMatch) {
+    const [, hours, minutes] = hhmmssMatch;
+    return `${hours.padStart(2, '0')}:${minutes}`;
+  }
+
+  const hhmmMatch = timeStr.match(/^(\d{1,2}):(\d{2})$/);
+  if (hhmmMatch) {
+    const [, hours, minutes] = hhmmMatch;
+    return `${hours.padStart(2, '0')}:${minutes}`;
+  }
+
+  if (typeof value === 'number' && value > 0 && value < 1) {
+    const totalMinutes = Math.round(value * 24 * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  }
+
+  return null;
+}
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<CustomerWithAddresses[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<CustomerWithAddresses[]>([]);
@@ -342,31 +369,53 @@ export default function CustomersPage() {
               key.includes('wednesday_') || key.includes('thursday_') || key.includes('friday_')
             );
 
+            let schedulesInserted = 0;
+
             if (hasScheduleColumns) {
+              console.log(`Processing schedules for customer: ${customerData.name}`);
+
               for (const day of days) {
                 for (const meal of meals) {
                   const activeKey = `${day}_${meal}`;
                   const timeKey = `${day}_${meal}_time`;
                   const addressKey = `${day}_${meal}_address`;
 
-                  const isActive = row[activeKey] === 'Sim' || row[activeKey] === 'sim' || row[activeKey] === 'TRUE';
-                  const deliveryTime = row[timeKey];
-                  const deliveryAddress = row[addressKey];
+                  const isActive = parseBoolean(row[activeKey]);
+                  const rawTime = row[timeKey];
+                  const rawAddress = row[addressKey];
+
+                  const deliveryTime = parseTime(rawTime);
+                  const deliveryAddress = rawAddress ? rawAddress.toString().trim() : null;
+
+                  console.log(`  ${day} ${meal}: active=${isActive}, time="${rawTime}"→"${deliveryTime}", address="${deliveryAddress}"`);
 
                   if (isActive && deliveryTime && deliveryAddress) {
-                    await (supabase as any)
+                    const scheduleData = {
+                      customer_id: insertedCustomer.id,
+                      day_of_week: dayOfWeekMap[day],
+                      meal_type: meal,
+                      delivery_time: deliveryTime,
+                      delivery_address: deliveryAddress,
+                      is_active: true
+                    };
+
+                    console.log(`    → Inserting schedule:`, scheduleData);
+
+                    const { error: scheduleError } = await (supabase as any)
                       .from('delivery_schedules')
-                      .insert({
-                        customer_id: insertedCustomer.id,
-                        day_of_week: dayOfWeekMap[day],
-                        meal_type: meal,
-                        delivery_time: deliveryTime,
-                        delivery_address: deliveryAddress,
-                        is_active: true
-                      });
+                      .insert(scheduleData);
+
+                    if (scheduleError) {
+                      console.error(`    ✗ Error inserting schedule for ${day} ${meal}:`, scheduleError);
+                    } else {
+                      console.log(`    ✓ Schedule inserted successfully`);
+                      schedulesInserted++;
+                    }
                   }
                 }
               }
+
+              console.log(`  Total schedules inserted for ${customerData.name}: ${schedulesInserted}`);
             }
 
             successCount++;
