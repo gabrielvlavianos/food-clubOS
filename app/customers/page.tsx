@@ -341,10 +341,15 @@ export default function CustomersPage() {
             is_active: parseBoolean(row.is_active)
           };
 
-          console.log('Attempting to insert customer:', customerData);
-          console.log('  → work_routine:', customerData.work_routine);
-          console.log('  → aerobic_frequency:', customerData.aerobic_frequency);
-          console.log('  → strength_frequency:', customerData.strength_frequency);
+          console.log('Attempting to insert customer:', customerData.name);
+          console.log('  → RAW row data:');
+          console.log('    - row.work_routine:', row.work_routine);
+          console.log('    - row.aerobic_frequency:', row.aerobic_frequency);
+          console.log('    - row.strength_frequency:', row.strength_frequency);
+          console.log('  → PROCESSED data:');
+          console.log('    - work_routine:', customerData.work_routine);
+          console.log('    - aerobic_frequency:', customerData.aerobic_frequency);
+          console.log('    - strength_frequency:', customerData.strength_frequency);
 
           const { data: insertedCustomer, error } = await (supabase as any)
             .from('customers')
