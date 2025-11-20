@@ -50,15 +50,45 @@ export function parseExcelFile<T>(
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
 
-        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[];
         console.log('Raw data rows:', rawData.length);
         console.log('First row (headers):', rawData[0]);
 
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-          header: columns.map(col => col.key),
-          range: 1,
-          defval: null
+        if (rawData.length < 2) {
+          throw new Error('Arquivo Excel vazio ou sem dados');
+        }
+
+        const headers = rawData[0] as string[];
+        console.log('Detected headers:', headers);
+
+        const headerMap = new Map<string, string>();
+        columns.forEach(col => {
+          const headerIndex = headers.findIndex(h =>
+            h && h.toString().toLowerCase().trim() === col.header.toLowerCase().trim()
+          );
+          if (headerIndex >= 0) {
+            headerMap.set(headers[headerIndex], col.key);
+          }
         });
+
+        console.log('Header mapping created:', Object.fromEntries(headerMap));
+
+        const jsonData: any[] = [];
+        for (let i = 1; i < rawData.length; i++) {
+          const row = rawData[i] as any[];
+          const obj: any = {};
+
+          headers.forEach((header, index) => {
+            const key = headerMap.get(header);
+            if (key) {
+              obj[key] = row[index] !== undefined && row[index] !== null ? row[index] : null;
+            }
+          });
+
+          if (Object.keys(obj).length > 0) {
+            jsonData.push(obj);
+          }
+        }
 
         console.log('Parsed data rows:', jsonData.length);
         console.log('First parsed row:', jsonData[0]);

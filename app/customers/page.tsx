@@ -280,27 +280,34 @@ export default function CustomersPage() {
               'friday': 5
             };
 
-            for (const day of days) {
-              for (const meal of meals) {
-                const activeKey = `${day}_${meal}`;
-                const timeKey = `${day}_${meal}_time`;
-                const addressKey = `${day}_${meal}_address`;
+            const hasScheduleColumns = Object.keys(row).some(key =>
+              key.includes('monday_') || key.includes('tuesday_') ||
+              key.includes('wednesday_') || key.includes('thursday_') || key.includes('friday_')
+            );
 
-                const isActive = row[activeKey] === 'Sim' || row[activeKey] === 'sim' || row[activeKey] === 'TRUE';
-                const deliveryTime = row[timeKey];
-                const deliveryAddress = row[addressKey];
+            if (hasScheduleColumns) {
+              for (const day of days) {
+                for (const meal of meals) {
+                  const activeKey = `${day}_${meal}`;
+                  const timeKey = `${day}_${meal}_time`;
+                  const addressKey = `${day}_${meal}_address`;
 
-                if (isActive && deliveryTime && deliveryAddress) {
-                  await (supabase as any)
-                    .from('delivery_schedules')
-                    .insert({
-                      customer_id: insertedCustomer.id,
-                      day_of_week: dayOfWeekMap[day],
-                      meal_type: meal,
-                      delivery_time: deliveryTime,
-                      delivery_address: deliveryAddress,
-                      is_active: true
-                    });
+                  const isActive = row[activeKey] === 'Sim' || row[activeKey] === 'sim' || row[activeKey] === 'TRUE';
+                  const deliveryTime = row[timeKey];
+                  const deliveryAddress = row[addressKey];
+
+                  if (isActive && deliveryTime && deliveryAddress) {
+                    await (supabase as any)
+                      .from('delivery_schedules')
+                      .insert({
+                        customer_id: insertedCustomer.id,
+                        day_of_week: dayOfWeekMap[day],
+                        meal_type: meal,
+                        delivery_time: deliveryTime,
+                        delivery_address: deliveryAddress,
+                        is_active: true
+                      });
+                  }
                 }
               }
             }
