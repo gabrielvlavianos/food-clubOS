@@ -31,27 +31,50 @@ export function parseExcelFile<T>(
   columns: ExcelColumn[]
 ): Promise<T[]> {
   return new Promise((resolve, reject) => {
+    console.log('Starting to parse Excel file:', file.name, 'Size:', file.size);
+
     const reader = new FileReader();
 
     reader.onload = (e) => {
       try {
+        console.log('File loaded, processing...');
         const data = e.target?.result;
+
+        if (!data) {
+          throw new Error('No data read from file');
+        }
+
         const workbook = XLSX.read(data, { type: 'binary' });
+        console.log('Workbook sheets:', workbook.SheetNames);
+
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
 
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        console.log('Raw data rows:', rawData.length);
+        console.log('First row (headers):', rawData[0]);
+
         const jsonData = XLSX.utils.sheet_to_json(worksheet, {
           header: columns.map(col => col.key),
-          range: 1
+          range: 1,
+          defval: null
         });
+
+        console.log('Parsed data rows:', jsonData.length);
+        console.log('First parsed row:', jsonData[0]);
 
         resolve(jsonData as T[]);
       } catch (error) {
+        console.error('Error parsing Excel file:', error);
         reject(error);
       }
     };
 
-    reader.onerror = () => reject(reader.error);
+    reader.onerror = () => {
+      console.error('FileReader error:', reader.error);
+      reject(reader.error);
+    };
+
     reader.readAsBinaryString(file);
   });
 }
