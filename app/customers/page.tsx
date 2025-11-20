@@ -293,6 +293,7 @@ export default function CustomersPage() {
       const data = await parseExcelFile<any>(file, CUSTOMER_COLUMNS);
       console.log('Parsed Excel data, rows:', data.length);
       console.log('First row sample:', data[0]);
+      console.log('Keys detected in first row:', Object.keys(data[0]).sort());
 
       let successCount = 0;
       let errorCount = 0;
@@ -341,6 +342,9 @@ export default function CustomersPage() {
           };
 
           console.log('Attempting to insert customer:', customerData);
+          console.log('  → work_routine:', customerData.work_routine);
+          console.log('  → aerobic_frequency:', customerData.aerobic_frequency);
+          console.log('  → strength_frequency:', customerData.strength_frequency);
 
           const { data: insertedCustomer, error } = await (supabase as any)
             .from('customers')
