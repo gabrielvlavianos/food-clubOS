@@ -211,7 +211,10 @@ export default function CustomersPage() {
 
     setImporting(true);
     try {
+      console.log('Starting Excel import, file:', file.name);
       const data = await parseExcelFile<any>(file, CUSTOMER_COLUMNS);
+      console.log('Parsed Excel data, rows:', data.length);
+      console.log('First row sample:', data[0]);
 
       let successCount = 0;
       let errorCount = 0;
@@ -253,6 +256,8 @@ export default function CustomersPage() {
             is_active: row.is_active === 'Sim' || row.is_active === true || row.is_active === 'TRUE'
           };
 
+          console.log('Attempting to insert customer:', customerData);
+
           const { data: insertedCustomer, error } = await (supabase as any)
             .from('customers')
             .insert(customerData)
@@ -261,6 +266,8 @@ export default function CustomersPage() {
 
           if (error) {
             console.error('Error importing customer:', error);
+            console.error('Error details:', JSON.stringify(error, null, 2));
+            console.error('Failed customer data:', customerData);
             errorCount++;
           } else {
             const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
