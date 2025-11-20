@@ -68,10 +68,13 @@ export function parseExcelFile<T>(
           );
           if (headerIndex >= 0) {
             headerMap.set(headers[headerIndex], col.key);
+          } else {
+            console.log(`⚠️  Column not found: "${col.header}" (looking for key: ${col.key})`);
           }
         });
 
         console.log('Header mapping created:', Object.fromEntries(headerMap));
+        console.log('Total headers found:', headers.length, 'Total mapped:', headerMap.size);
 
         const jsonData: any[] = [];
         for (let i = 1; i < rawData.length; i++) {
@@ -81,7 +84,12 @@ export function parseExcelFile<T>(
           headers.forEach((header, index) => {
             const key = headerMap.get(header);
             if (key) {
-              obj[key] = row[index] !== undefined && row[index] !== null ? row[index] : null;
+              const value = row[index] !== undefined && row[index] !== null ? row[index] : null;
+              obj[key] = value;
+
+              if (i === 1 && (key === 'work_routine' || key === 'aerobic_frequency' || key === 'strength_frequency')) {
+                console.log(`  Mapping header "${header}" -> key "${key}" = value:`, value, `(type: ${typeof value})`);
+              }
             }
           });
 
