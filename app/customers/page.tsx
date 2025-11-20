@@ -306,6 +306,11 @@ export default function CustomersPage() {
             continue;
           }
 
+          console.log('DEBUG - Types and values:');
+          console.log('  work_routine:', typeof row.work_routine, '=', row.work_routine, 'truthy?', !!row.work_routine);
+          console.log('  aerobic_frequency:', typeof row.aerobic_frequency, '=', row.aerobic_frequency, 'truthy?', !!row.aerobic_frequency);
+          console.log('  strength_frequency:', typeof row.strength_frequency, '=', row.strength_frequency, 'truthy?', !!row.strength_frequency);
+
           const customerData: any = {
             name: row.name.toString().trim(),
             whatsapp: cleanPhone(row.whatsapp),
@@ -325,11 +330,11 @@ export default function CustomersPage() {
             goal_weight_kg: parseNumber(row.goal_weight_kg),
             body_fat_percentage: parseNumber(row.body_fat_percentage),
             skeletal_muscle_mass: parseNumber(row.skeletal_muscle_mass),
-            work_routine: row.work_routine ? row.work_routine.toString().trim() : null,
-            aerobic_frequency: row.aerobic_frequency ? row.aerobic_frequency.toString().trim() : null,
-            aerobic_intensity: row.aerobic_intensity ? row.aerobic_intensity.toString().trim() : null,
-            strength_frequency: row.strength_frequency ? row.strength_frequency.toString().trim() : null,
-            strength_intensity: row.strength_intensity ? row.strength_intensity.toString().trim() : null,
+            work_routine: (row.work_routine !== null && row.work_routine !== undefined && row.work_routine !== '') ? row.work_routine.toString().trim() : null,
+            aerobic_frequency: (row.aerobic_frequency !== null && row.aerobic_frequency !== undefined && row.aerobic_frequency !== '') ? row.aerobic_frequency.toString().trim() : null,
+            aerobic_intensity: (row.aerobic_intensity !== null && row.aerobic_intensity !== undefined && row.aerobic_intensity !== '') ? row.aerobic_intensity.toString().trim() : null,
+            strength_frequency: (row.strength_frequency !== null && row.strength_frequency !== undefined && row.strength_frequency !== '') ? row.strength_frequency.toString().trim() : null,
+            strength_intensity: (row.strength_intensity !== null && row.strength_intensity !== undefined && row.strength_intensity !== '') ? row.strength_intensity.toString().trim() : null,
             meals_per_day: parseIntSafe(row.meals_per_day),
             dietary_notes: row.dietary_notes ? row.dietary_notes.toString().trim() : null,
             lunch_carbs: parseNumber(row.lunch_carbs),
