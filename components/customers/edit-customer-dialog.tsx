@@ -113,14 +113,25 @@ export function EditCustomerDialog({
           .eq('customer_id', customer.id);
 
         if (schedules) {
+          const dayNumberToKey: Record<number, string> = {
+            1: 'monday',
+            2: 'tuesday',
+            3: 'wednesday',
+            4: 'thursday',
+            5: 'friday'
+          };
+
           const schedulesMap: DeliveryScheduleForm = {};
           schedules.forEach((schedule: any) => {
-            const key = `${schedule.day_of_week}_${schedule.meal_type}`;
-            schedulesMap[key] = {
-              id: schedule.id,
-              time: schedule.delivery_time || '',
-              address: schedule.delivery_address || '',
-            };
+            const dayKey = dayNumberToKey[schedule.day_of_week];
+            if (dayKey) {
+              const key = `${dayKey}_${schedule.meal_type}`;
+              schedulesMap[key] = {
+                id: schedule.id,
+                time: schedule.delivery_time || '',
+                address: schedule.delivery_address || '',
+              };
+            }
           });
           setDeliverySchedules(schedulesMap);
         }
@@ -198,13 +209,21 @@ export function EditCustomerDialog({
         .delete()
         .eq('customer_id', customer.id);
 
+      const dayKeyToNumber: Record<string, number> = {
+        'monday': 1,
+        'tuesday': 2,
+        'wednesday': 3,
+        'thursday': 4,
+        'friday': 5
+      };
+
       const schedules = Object.entries(deliverySchedules)
-        .filter(([_, schedule]) => schedule.time || schedule.address)
+        .filter(([_, schedule]) => schedule.time && schedule.address)
         .map(([key, schedule]) => {
           const [day, meal] = key.split('_');
           return {
             customer_id: customer.id,
-            day_of_week: day,
+            day_of_week: dayKeyToNumber[day],
             meal_type: meal,
             delivery_time: schedule.time || null,
             delivery_address: schedule.address || null,
