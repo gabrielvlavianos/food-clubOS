@@ -5,7 +5,7 @@ import { CustomerWithAddresses } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Edit, Trash2 } from 'lucide-react';
+import { Edit, Trash2 } from 'lucide-react';
 import { EditCustomerDialog } from './edit-customer-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { supabase } from '@/lib/supabase';
@@ -70,15 +70,12 @@ export function CustomersTable({ customers, onUpdate }: CustomersTableProps) {
             <TableHead>Nome</TableHead>
             <TableHead>Contato</TableHead>
             <TableHead>Macronutrientes</TableHead>
-            <TableHead>Endereço Padrão</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {customers.map((customer) => {
-            const defaultAddress = customer.addresses.find((a) => a.is_default) || customer.addresses[0];
-
             return (
               <TableRow key={customer.id}>
                 <TableCell>
@@ -91,7 +88,7 @@ export function CustomersTable({ customers, onUpdate }: CustomersTableProps) {
                 </TableCell>
                 <TableCell>
                   <div className="text-sm">
-                    {customer.whatsapp && <p>{customer.whatsapp}</p>}
+                    {customer.phone && <p>{customer.phone}</p>}
                     {customer.email && <p className="text-gray-600">{customer.email}</p>}
                   </div>
                 </TableCell>
@@ -117,32 +114,6 @@ export function CustomersTable({ customers, onUpdate }: CustomersTableProps) {
                       <span className="text-gray-400">Não definido</span>
                     )}
                   </div>
-                </TableCell>
-                <TableCell>
-                  {defaultAddress ? (
-                    <div className="flex items-start gap-2 text-sm">
-                      <MapPin className="h-4 w-4 text-gray-400 mt-0.5" />
-                      <div>
-                        <Badge variant="outline" className="mb-1 text-xs">
-                          {defaultAddress.label}
-                        </Badge>
-                        <p className="text-gray-600">
-                          {defaultAddress.street}
-                          {defaultAddress.number && `, ${defaultAddress.number}`}
-                        </p>
-                        <p className="text-gray-600">
-                          {defaultAddress.city} - {defaultAddress.state}
-                        </p>
-                        {customer.addresses.length > 1 && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            + {customer.addresses.length - 1} outro(s)
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <span className="text-sm text-gray-400">Nenhum endereço</span>
-                  )}
                 </TableCell>
                 <TableCell>
                   <Badge variant={customer.is_active ? 'default' : 'secondary'}>
