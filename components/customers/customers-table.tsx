@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { CustomerWithAddresses } from '@/types';
+import { Database } from '@/types/database';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Edit, Trash2 } from 'lucide-react';
 import { EditCustomerDialog } from './edit-customer-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -20,7 +21,39 @@ export function CustomersTable({ customers, onUpdate }: CustomersTableProps) {
   const [editingCustomer, setEditingCustomer] = useState<CustomerWithAddresses | null>(null);
   const [deletingCustomer, setDeletingCustomer] = useState<CustomerWithAddresses | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const { toast } = useToast();
+
+  async function handleToggleStatus(customerId: string, currentStatus: boolean) {
+    setUpdatingStatus(customerId);
+    try {
+      const newStatus = !currentStatus;
+
+      const { error } = await supabase
+        .from('customers')
+        // @ts-expect-error - TypeScript has issues with Supabase update typing
+        .update({ is_active: newStatus })
+        .eq('id', customerId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Status atualizado',
+        description: `Cliente ${newStatus ? 'ativado' : 'desativado'} com sucesso`,
+      });
+
+      onUpdate();
+    } catch (error) {
+      console.error('Error updating customer status:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível atualizar o status',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingStatus(null);
+    }
+  }
 
   async function handleDelete() {
     if (!deletingCustomer) return;
@@ -116,9 +149,18 @@ export function CustomersTable({ customers, onUpdate }: CustomersTableProps) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={customer.is_active ? 'default' : 'secondary'}>
-                    {customer.is_active ? 'Ativo' : 'Inativo'}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={customer.is_active}
+                      onCheckedChange={() => handleToggleStatus(customer.id, customer.is_active)}
+                      disabled={updatingStatus === customer.id}
+                    />
+                    <span className={`text-sm font-medium ${
+                      customer.is_active ? 'text-gray-900' : 'text-gray-400'
+                    }`}>
+                      {customer.is_active ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
