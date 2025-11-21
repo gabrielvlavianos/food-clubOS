@@ -18,14 +18,14 @@ import type { MonthlyMenu, Recipe } from '@/types';
 import { downloadExcelTemplate, parseExcelFile, exportToExcel, ExcelColumn } from '@/lib/excel-utils';
 
 const MENU_COLUMNS: ExcelColumn[] = [
-  { header: 'Data', key: 'menu_date', example: '2025-11-12' },
-  { header: 'Turno', key: 'meal_type', example: 'lunch ou dinner' },
-  { header: 'Receita de Proteína', key: 'protein_recipe_name', example: 'Frango Grelhado' },
-  { header: 'Receita de Carboidrato', key: 'carb_recipe_name', example: 'Arroz Integral' },
-  { header: 'Receita de Legumes', key: 'vegetable_recipe_name', example: 'Brócolis' },
-  { header: 'Receita de Salada', key: 'salad_recipe_name', example: 'Salada Verde' },
-  { header: 'Molho', key: 'sauce_recipe_name', example: 'Molho de Tomate' },
-  { header: 'Observações', key: 'notes', example: 'Cardápio leve' }
+  { header: 'Data', key: 'menu_date', example: '24/11/2025' },
+  { header: 'Turno', key: 'meal_type', example: 'Almoço' },
+  { header: 'Proteina', key: 'protein_recipe_name', example: 'Filé de frango grelhado' },
+  { header: 'Carboidrato', key: 'carb_recipe_name', example: 'Batata-doce assada com alecrim' },
+  { header: 'Legumes', key: 'vegetable_recipe_name', example: 'Abobrinha e cenoura grelhadas' },
+  { header: 'Salada', key: 'salad_recipe_name', example: 'Mix de folhas, tomate e pepino' },
+  { header: 'Molho Salada', key: 'sauce_recipe_name', example: 'Vinagrete clássico' },
+  { header: 'Observações', key: 'notes', example: '' }
 ];
 
 interface MenuWithRecipes extends MonthlyMenu {
@@ -272,22 +272,69 @@ export default function MenuPage() {
   }
 
   function handleExportData() {
-    const exportData = menus.map(menu => ({
-      menu_date: menu.menu_date,
-      meal_type: menu.meal_type,
-      protein_recipe_name: menu.protein_recipe?.name || '',
-      carb_recipe_name: menu.carb_recipe?.name || '',
-      vegetable_recipe_name: menu.vegetable_recipe?.name || '',
-      salad_recipe_name: menu.salad_recipe?.name || '',
-      sauce_recipe_name: menu.sauce_recipe?.name || '',
-      notes: menu.notes || ''
-    }));
+    const exportData = menus.map(menu => {
+      const [year, month, day] = menu.menu_date.split('-');
+      const formattedDate = `${day}/${month}/${year}`;
+      const mealTypeLabel = menu.meal_type === 'lunch' ? 'Almoço' : 'Jantar';
+
+      return {
+        menu_date: formattedDate,
+        meal_type: mealTypeLabel,
+        protein_recipe_name: menu.protein_recipe?.name || '',
+        carb_recipe_name: menu.carb_recipe?.name || '',
+        vegetable_recipe_name: menu.vegetable_recipe?.name || '',
+        salad_recipe_name: menu.salad_recipe?.name || '',
+        sauce_recipe_name: menu.sauce_recipe?.name || '',
+        notes: menu.notes || ''
+      };
+    });
 
     exportToExcel('cardapio.xlsx', exportData, MENU_COLUMNS);
     toast({
       title: 'Dados exportados',
       description: `${menus.length} cardápios exportados com sucesso.`
     });
+  }
+
+  function parseDateFromExcel(dateValue: any): string | null {
+    if (!dateValue) return null;
+
+    if (typeof dateValue === 'number') {
+      const excelEpoch = new Date(1899, 11, 30);
+      const date = new Date(excelEpoch.getTime() + dateValue * 86400000);
+      return format(date, 'yyyy-MM-dd');
+    }
+
+    if (typeof dateValue === 'string') {
+      const brDateMatch = dateValue.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (brDateMatch) {
+        const [, day, month, year] = brDateMatch;
+        return `${year}-${month}-${day}`;
+      }
+
+      const isoDateMatch = dateValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (isoDateMatch) {
+        return dateValue;
+      }
+    }
+
+    return null;
+  }
+
+  function parseMealType(mealValue: any): 'lunch' | 'dinner' | null {
+    if (!mealValue) return null;
+
+    const value = mealValue.toString().toLowerCase().trim();
+
+    if (value === 'almoço' || value === 'almoco' || value === 'lunch') {
+      return 'lunch';
+    }
+
+    if (value === 'jantar' || value === 'dinner') {
+      return 'dinner';
+    }
+
+    return null;
   }
 
   async function handleImport(event: React.ChangeEvent<HTMLInputElement>) {
@@ -303,15 +350,34 @@ export default function MenuPage() {
 
       for (const row of data) {
         try {
-          const proteinRecipe = recipes.find(r => r.name === row.protein_recipe_name);
-          const carbRecipe = recipes.find(r => r.name === row.carb_recipe_name);
-          const vegetableRecipe = recipes.find(r => r.name === row.vegetable_recipe_name);
-          const saladRecipe = recipes.find(r => r.name === row.salad_recipe_name);
-          const sauceRecipe = recipes.find(r => r.name === row.sauce_recipe_name);
+          const menuDate = parseDateFromExcel(row.menu_date);
+          const mealType = parseMealType(row.meal_type);
+
+          if (!menuDate || !mealType) {
+            console.error('Invalid date or meal type:', row);
+            errorCount++;
+            continue;
+          }
+
+          const proteinRecipe = recipes.find(r =>
+            r.name.toLowerCase().trim() === row.protein_recipe_name?.toLowerCase().trim()
+          );
+          const carbRecipe = recipes.find(r =>
+            r.name.toLowerCase().trim() === row.carb_recipe_name?.toLowerCase().trim()
+          );
+          const vegetableRecipe = recipes.find(r =>
+            r.name.toLowerCase().trim() === row.vegetable_recipe_name?.toLowerCase().trim()
+          );
+          const saladRecipe = recipes.find(r =>
+            r.name.toLowerCase().trim() === row.salad_recipe_name?.toLowerCase().trim()
+          );
+          const sauceRecipe = recipes.find(r =>
+            r.name.toLowerCase().trim() === row.sauce_recipe_name?.toLowerCase().trim()
+          );
 
           const menuData: any = {
-            menu_date: row.menu_date,
-            meal_type: row.meal_type,
+            menu_date: menuDate,
+            meal_type: mealType,
             protein_recipe_id: proteinRecipe?.id || null,
             carb_recipe_id: carbRecipe?.id || null,
             vegetable_recipe_id: vegetableRecipe?.id || null,
