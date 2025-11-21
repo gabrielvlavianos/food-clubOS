@@ -43,7 +43,7 @@ export const RECIPE_CATEGORIES = [
   'Legumes',
   'Salada',
   'Marinada',
-  'Molho',
+  'Molho Salada',
 ] as const;
 
 export type RecipeCategory = typeof RECIPE_CATEGORIES[number];

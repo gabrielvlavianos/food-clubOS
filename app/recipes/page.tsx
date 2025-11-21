@@ -196,7 +196,7 @@ export default function RecipesPage() {
               <SelectItem value="Legumes">Legumes</SelectItem>
               <SelectItem value="Salada">Salada</SelectItem>
               <SelectItem value="Marinada">Marinada</SelectItem>
-              <SelectItem value="Molho">Molho</SelectItem>
+              <SelectItem value="Molho Salada">Molho Salada</SelectItem>
             </SelectContent>
           </Select>
 

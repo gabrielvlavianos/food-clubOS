@@ -438,7 +438,7 @@ export default function MenuPage() {
   const carbRecipes = recipes.filter(r => r.category === 'Carboidrato');
   const vegetableRecipes = recipes.filter(r => r.category === 'Legumes');
   const saladRecipes = recipes.filter(r => r.category === 'Salada');
-  const sauceRecipes = recipes.filter(r => r.category === 'Molho');
+  const sauceRecipes = recipes.filter(r => r.category === 'Molho Salada');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -708,7 +708,7 @@ export default function MenuPage() {
                               <p><strong>Carboidrato:</strong> {lunchMenu.carb_recipe?.name || '-'}</p>
                               <p><strong>Legumes:</strong> {lunchMenu.vegetable_recipe?.name || '-'}</p>
                               <p><strong>Salada:</strong> {lunchMenu.salad_recipe?.name || '-'}</p>
-                              <p><strong>Molho:</strong> {lunchMenu.sauce_recipe?.name || '-'}</p>
+                              <p><strong>Molho Salada:</strong> {lunchMenu.sauce_recipe?.name || '-'}</p>
                             </div>
                           ) : (
                             <p className="text-sm text-gray-500">Nenhum cardápio definido</p>
@@ -762,7 +762,7 @@ export default function MenuPage() {
                               <p><strong>Carboidrato:</strong> {dinnerMenu.carb_recipe?.name || '-'}</p>
                               <p><strong>Legumes:</strong> {dinnerMenu.vegetable_recipe?.name || '-'}</p>
                               <p><strong>Salada:</strong> {dinnerMenu.salad_recipe?.name || '-'}</p>
-                              <p><strong>Molho:</strong> {dinnerMenu.sauce_recipe?.name || '-'}</p>
+                              <p><strong>Molho Salada:</strong> {dinnerMenu.sauce_recipe?.name || '-'}</p>
                             </div>
                           ) : (
                             <p className="text-sm text-gray-500">Nenhum cardápio definido</p>

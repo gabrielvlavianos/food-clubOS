@@ -178,7 +178,7 @@ export default function KitchenDashboardPage() {
   const carbRecipes = recipes.filter(r => r.category === 'Carboidrato');
   const vegetableRecipes = recipes.filter(r => r.category === 'Legumes');
   const saladRecipes = recipes.filter(r => r.category === 'Salada');
-  const sauceRecipes = recipes.filter(r => r.category === 'Molho');
+  const sauceRecipes = recipes.filter(r => r.category === 'Molho Salada');
 
   return (
     <div className="min-h-screen bg-gray-50">

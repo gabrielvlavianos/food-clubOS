@@ -20,7 +20,7 @@ export function calculateSessionSummary(items: PrepItemWithRecipe[]): PrepSessio
     'Legumes': { kcal: 0, protein: 0, carb: 0, fat: 0, cost: 0, weightGr: 0 },
     'Salada': { kcal: 0, protein: 0, carb: 0, fat: 0, cost: 0, weightGr: 0 },
     'Marinada': { kcal: 0, protein: 0, carb: 0, fat: 0, cost: 0, weightGr: 0 },
-    'Molho': { kcal: 0, protein: 0, carb: 0, fat: 0, cost: 0, weightGr: 0 },
+    'Molho Salada': { kcal: 0, protein: 0, carb: 0, fat: 0, cost: 0, weightGr: 0 },
   };
 
   const grandTotals: MacroTotals = {

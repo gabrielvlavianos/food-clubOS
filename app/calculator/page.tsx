@@ -151,7 +151,7 @@ export default function CalculatorPage() {
   const carbRecipes = recipes.filter(r => r.category === 'Carboidrato');
   const vegetableRecipes = recipes.filter(r => r.category === 'Legumes');
   const saladRecipes = recipes.filter(r => r.category === 'Salada');
-  const sauceRecipes = recipes.filter(r => r.category === 'Molho');
+  const sauceRecipes = recipes.filter(r => r.category === 'Molho Salada');
 
   const targetProtein = customer && selectedMealType === 'lunch' ? customer.lunch_protein : customer?.dinner_protein;
   const targetCarbs = customer && selectedMealType === 'lunch' ? customer.lunch_carbs : customer?.dinner_carbs;
