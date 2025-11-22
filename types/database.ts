@@ -475,6 +475,38 @@ export interface Database {
           updated_at?: string;
         };
       };
+      order_status: {
+        Row: {
+          id: string;
+          customer_id: string;
+          order_date: string;
+          meal_type: 'lunch' | 'dinner';
+          kitchen_status: 'pending' | 'preparing' | 'ready';
+          delivery_status: 'not_started' | 'driver_requested' | 'in_route' | 'delivered';
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          customer_id: string;
+          order_date: string;
+          meal_type: 'lunch' | 'dinner';
+          kitchen_status?: 'pending' | 'preparing' | 'ready';
+          delivery_status?: 'not_started' | 'driver_requested' | 'in_route' | 'delivered';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          customer_id?: string;
+          order_date?: string;
+          meal_type?: 'lunch' | 'dinner';
+          kitchen_status?: 'pending' | 'preparing' | 'ready';
+          delivery_status?: 'not_started' | 'driver_requested' | 'in_route' | 'delivered';
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
   };
 }
