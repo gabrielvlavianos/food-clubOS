@@ -293,6 +293,7 @@ export default function ExpeditionPage() {
                           onValueChange={(value: 'not_started' | 'driver_requested' | 'in_route' | 'delivered') =>
                             updateDeliveryStatus(index, value)
                           }
+                          disabled={order.kitchenStatus !== 'ready' && (order.deliveryStatus === 'not_started' || order.deliveryStatus === 'driver_requested')}
                         >
                           <SelectTrigger className={`w-[180px] border-2 ${deliveryStatusColors[order.deliveryStatus]}`}>
                             <SelectValue />
@@ -300,10 +301,25 @@ export default function ExpeditionPage() {
                           <SelectContent>
                             <SelectItem value="not_started">{deliveryStatusLabels.not_started}</SelectItem>
                             <SelectItem value="driver_requested">{deliveryStatusLabels.driver_requested}</SelectItem>
-                            <SelectItem value="in_route">{deliveryStatusLabels.in_route}</SelectItem>
-                            <SelectItem value="delivered">{deliveryStatusLabels.delivered}</SelectItem>
+                            <SelectItem
+                              value="in_route"
+                              disabled={order.kitchenStatus !== 'ready'}
+                            >
+                              {deliveryStatusLabels.in_route}
+                            </SelectItem>
+                            <SelectItem
+                              value="delivered"
+                              disabled={order.kitchenStatus !== 'ready'}
+                            >
+                              {deliveryStatusLabels.delivered}
+                            </SelectItem>
                           </SelectContent>
                         </Select>
+                        {order.kitchenStatus !== 'ready' && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            Aguardando finalização da cozinha
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
