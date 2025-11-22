@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Truck, Calendar, Clock, MapPin, Package, RefreshCw, Phone } from 'lucide-react';
 import { format, getDay } from 'date-fns';
 import type { Customer, DeliverySchedule } from '@/types';
+import { formatPhoneNumber } from '@/lib/format-utils';
 
 interface DeliveryOrder {
   customer: Customer;
@@ -62,6 +63,16 @@ export default function ExpeditionPage() {
 
       if (customersError) throw customersError;
 
+      const { data: statusData } = await supabase
+        .from('order_status')
+        .select('*')
+        .eq('order_date', selectedDate)
+        .eq('meal_type', selectedMealType);
+
+      const statusMap = new Map(
+        statusData?.map((s: any) => [s.customer_id, s]) || []
+      );
+
       const deliveryOrders: DeliveryOrder[] = [];
 
       for (const customer of customersData || []) {
@@ -75,12 +86,13 @@ export default function ExpeditionPage() {
 
         if (deliverySchedule && deliverySchedule.delivery_time && deliverySchedule.delivery_address) {
           const pickupTime = calculatePickupTime(deliverySchedule.delivery_time);
+          const orderStatus = statusMap.get(customerData.id);
 
           deliveryOrders.push({
             customer,
             deliverySchedule,
-            kitchenStatus: 'pending',
-            deliveryStatus: 'not_started',
+            kitchenStatus: orderStatus?.kitchen_status || 'pending',
+            deliveryStatus: orderStatus?.delivery_status || 'not_started',
             pickupTime,
           });
         }
@@ -101,15 +113,30 @@ export default function ExpeditionPage() {
     }
   }
 
-  function updateDeliveryStatus(
+  async function updateDeliveryStatus(
     index: number,
     newStatus: 'not_started' | 'driver_requested' | 'in_route' | 'delivered'
   ) {
-    setOrders(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], deliveryStatus: newStatus };
-      return updated;
-    });
+    const order = orders[index];
+
+    const { error } = await (supabase as any)
+      .from('order_status')
+      .upsert({
+        customer_id: order.customer.id,
+        order_date: selectedDate,
+        meal_type: selectedMealType,
+        delivery_status: newStatus,
+      }, {
+        onConflict: 'customer_id,order_date,meal_type'
+      });
+
+    if (!error) {
+      setOrders(prev => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], deliveryStatus: newStatus };
+        return updated;
+      });
+    }
   }
 
   const kitchenStatusColors = {
@@ -228,7 +255,7 @@ export default function ExpeditionPage() {
                         <div className="flex items-center gap-2 text-gray-700">
                           <Phone className="h-4 w-4 text-blue-600" />
                           <span className="font-medium">Telefone:</span>
-                          <span className="font-semibold">{order.customer.phone || 'Não cadastrado'}</span>
+                          <span className="font-semibold">{formatPhoneNumber(order.customer.phone)}</span>
                         </div>
 
                         <div className="flex items-center gap-2 text-gray-700">

@@ -135,6 +135,16 @@ export default function KitchenDashboardPage() {
 
       if (customersError) throw customersError;
 
+      const { data: statusData } = await supabase
+        .from('order_status')
+        .select('*')
+        .eq('order_date', selectedDate)
+        .eq('meal_type', selectedMealType);
+
+      const statusMap = new Map(
+        statusData?.map((s: any) => [s.customer_id, s]) || []
+      );
+
       const { data: menuData } = await supabase
         .from('monthly_menu')
         .select('*')
@@ -199,12 +209,14 @@ export default function KitchenDashboardPage() {
             menuRecipes.salad
           );
 
+          const orderStatus = statusMap.get(customerData.id);
+
           kitchenOrders.push({
             customer,
             deliverySchedule,
             menuRecipes,
             quantities,
-            status: 'pending',
+            status: orderStatus?.kitchen_status || 'pending',
           });
         }
       }
@@ -224,12 +236,27 @@ export default function KitchenDashboardPage() {
     }
   }
 
-  function updateOrderStatus(index: number, newStatus: 'pending' | 'preparing' | 'ready') {
-    setOrders(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], status: newStatus };
-      return updated;
-    });
+  async function updateOrderStatus(index: number, newStatus: 'pending' | 'preparing' | 'ready') {
+    const order = orders[index];
+
+    const { error } = await (supabase as any)
+      .from('order_status')
+      .upsert({
+        customer_id: order.customer.id,
+        order_date: selectedDate,
+        meal_type: selectedMealType,
+        kitchen_status: newStatus,
+      }, {
+        onConflict: 'customer_id,order_date,meal_type'
+      });
+
+    if (!error) {
+      setOrders(prev => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], status: newStatus };
+        return updated;
+      });
+    }
   }
 
   const statusColors = {
