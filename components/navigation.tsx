@@ -8,7 +8,7 @@ import { Users, BookOpen, ChefHat, CalendarDays, UtensilsCrossed, Truck, LayoutD
 const navItems = [
   { href: '/manager', label: 'Gerencial', icon: LayoutDashboard },
   { href: '/kitchen', label: 'Cozinha', icon: UtensilsCrossed },
-  { href: '/deliveries', label: 'Entregas', icon: Truck },
+  { href: '/deliveries', label: 'Expedição', icon: Truck },
   { href: '/menu', label: 'Cardápio Mensal', icon: CalendarDays },
   { href: '/customers', label: 'Clientes', icon: Users },
   { href: '/recipes', label: 'Receitas', icon: BookOpen },
