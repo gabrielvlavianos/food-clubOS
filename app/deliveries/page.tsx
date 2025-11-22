@@ -9,128 +9,90 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Truck, Calendar, Clock, MapPin, Package, RefreshCw, Check, Phone } from 'lucide-react';
-import type { Recipe } from '@/types';
+import { Truck, Calendar, Clock, MapPin, Package, RefreshCw, Phone } from 'lucide-react';
+import { format, getDay } from 'date-fns';
+import type { Customer, DeliverySchedule } from '@/types';
 
-interface OrderWithDetails {
-  id: string;
-  customer_id: string;
-  customer_name: string;
-  customer_phone: string;
-  order_date: string;
-  meal_type: 'lunch' | 'dinner';
-  protein_recipe: Recipe;
-  protein_amount_gr: number;
-  carb_recipe: Recipe;
-  carb_amount_gr: number;
-  vegetable_recipe?: Recipe;
-  vegetable_amount_gr?: number;
-  salad_recipe?: Recipe;
-  salad_amount_gr?: number;
-  sauce_recipe?: Recipe;
-  total_calories: number;
-  total_protein: number;
-  total_carbs: number;
-  total_fat: number;
-  delivery_address: string;
-  delivery_time: string;
-  status: 'pending' | 'preparing' | 'ready' | 'delivered';
-  notes?: string;
+interface DeliveryOrder {
+  customer: Customer;
+  deliverySchedule: DeliverySchedule;
+  kitchenStatus: 'pending' | 'preparing' | 'ready';
+  deliveryStatus: 'not_started' | 'driver_requested' | 'in_route' | 'delivered';
+  pickupTime: string;
 }
 
-export default function DeliveriesPage() {
+export default function ExpeditionPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedMealType, setSelectedMealType] = useState<'lunch' | 'dinner'>('lunch');
-  const [orders, setOrders] = useState<OrderWithDetails[]>([]);
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [orders, setOrders] = useState<DeliveryOrder[]>([]);
   const [loading, setLoading] = useState(false);
-  const [showDelivered, setShowDelivered] = useState(false);
-
-  useEffect(() => {
-    loadRecipes();
-  }, []);
 
   useEffect(() => {
     loadOrders();
-  }, [selectedDate, selectedMealType, showDelivered]);
+  }, [selectedDate, selectedMealType]);
 
-  async function loadRecipes() {
-    const { data } = await supabase
-      .from('recipes')
-      .select('*')
-      .eq('is_active', true)
-      .order('category, name');
-
-    if (data) setRecipes(data);
+  function calculatePickupTime(deliveryTime: string): string {
+    const [hours, minutes] = deliveryTime.split(':').map(Number);
+    const totalMinutes = hours * 60 + minutes - 30;
+    const pickupHours = Math.floor(totalMinutes / 60);
+    const pickupMinutes = totalMinutes % 60;
+    return `${String(pickupHours).padStart(2, '0')}:${String(pickupMinutes).padStart(2, '0')}`;
   }
 
   async function loadOrders() {
     setLoading(true);
     try {
-      const statusFilter = showDelivered ? ['delivered'] : ['ready'];
+      const dateObj = new Date(selectedDate + 'T12:00:00');
+      const dayOfWeek = getDay(dateObj);
+      const adjustedDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
 
-      const { data: ordersData, error } = await supabase
-        .from('orders')
+      if (adjustedDayOfWeek > 5) {
+        setOrders([]);
+        setLoading(false);
+        return;
+      }
+
+      const { data: customersData, error: customersError } = await supabase
+        .from('customers')
         .select(`
           *,
-          customers!orders_customer_id_fkey(name, phone)
+          delivery_schedules!delivery_schedules_customer_id_fkey(*)
         `)
-        .eq('order_date', selectedDate)
-        .eq('meal_type', selectedMealType)
-        .in('status', statusFilter)
-        .order('delivery_time');
+        .eq('is_active', true);
 
-      if (error) throw error;
+      if (customersError) throw customersError;
 
-      if (ordersData && ordersData.length > 0) {
-        const recipeIds = new Set<string>();
-        ordersData.forEach((order: any) => {
-          recipeIds.add(order.protein_recipe_id);
-          recipeIds.add(order.carb_recipe_id);
-          if (order.vegetable_recipe_id) recipeIds.add(order.vegetable_recipe_id);
-          if (order.salad_recipe_id) recipeIds.add(order.salad_recipe_id);
-          if (order.sauce_recipe_id) recipeIds.add(order.sauce_recipe_id);
-        });
+      const deliveryOrders: DeliveryOrder[] = [];
 
-        const { data: recipesData } = await supabase
-          .from('recipes')
-          .select('*')
-          .in('id', Array.from(recipeIds));
-
-        const recipesMap = new Map<string, Recipe>(
-          recipesData?.map((r: Recipe) => [r.id, r]) || []
+      for (const customer of customersData || []) {
+        const customerData = customer as any;
+        const deliverySchedule = customerData.delivery_schedules?.find(
+          (ds: any) =>
+            ds.day_of_week === adjustedDayOfWeek &&
+            ds.meal_type === selectedMealType &&
+            ds.is_active
         );
 
-        const ordersWithDetails: OrderWithDetails[] = ordersData.map((order: any) => ({
-          id: order.id,
-          customer_id: order.customer_id,
-          customer_name: order.customers.name,
-          customer_phone: order.customers.phone || 'Sem telefone',
-          order_date: order.order_date,
-          meal_type: order.meal_type,
-          protein_recipe: recipesMap.get(order.protein_recipe_id)!,
-          protein_amount_gr: order.protein_amount_gr,
-          carb_recipe: recipesMap.get(order.carb_recipe_id)!,
-          carb_amount_gr: order.carb_amount_gr,
-          vegetable_recipe: order.vegetable_recipe_id ? recipesMap.get(order.vegetable_recipe_id) : undefined,
-          vegetable_amount_gr: order.vegetable_amount_gr,
-          salad_recipe: order.salad_recipe_id ? recipesMap.get(order.salad_recipe_id) : undefined,
-          salad_amount_gr: order.salad_amount_gr,
-          sauce_recipe: order.sauce_recipe_id ? recipesMap.get(order.sauce_recipe_id) : undefined,
-          total_calories: order.total_calories,
-          total_protein: order.total_protein,
-          total_carbs: order.total_carbs,
-          total_fat: order.total_fat,
-          delivery_address: order.delivery_address,
-          delivery_time: order.delivery_time,
-          status: order.status,
-          notes: order.notes,
-        }));
+        if (deliverySchedule && deliverySchedule.delivery_time && deliverySchedule.delivery_address) {
+          const pickupTime = calculatePickupTime(deliverySchedule.delivery_time);
 
-        setOrders(ordersWithDetails);
-      } else {
-        setOrders([]);
+          deliveryOrders.push({
+            customer,
+            deliverySchedule,
+            kitchenStatus: 'pending',
+            deliveryStatus: 'not_started',
+            pickupTime,
+          });
+        }
       }
+
+      deliveryOrders.sort((a, b) => {
+        const timeA = a.deliverySchedule.delivery_time || '';
+        const timeB = b.deliverySchedule.delivery_time || '';
+        return timeA.localeCompare(timeB);
+      });
+
+      setOrders(deliveryOrders);
     } catch (error) {
       console.error('Error loading orders:', error);
       setOrders([]);
@@ -139,25 +101,41 @@ export default function DeliveriesPage() {
     }
   }
 
-  async function markAsDelivered(orderId: string) {
-    const { error } = await (supabase as any)
-      .from('orders')
-      .update({ status: 'delivered' })
-      .eq('id', orderId);
-
-    if (!error) {
-      loadOrders();
-    }
+  function updateDeliveryStatus(
+    index: number,
+    newStatus: 'not_started' | 'driver_requested' | 'in_route' | 'delivered'
+  ) {
+    setOrders(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], deliveryStatus: newStatus };
+      return updated;
+    });
   }
 
-  const statusColors = {
-    ready: 'bg-green-100 text-green-800',
-    delivered: 'bg-purple-100 text-purple-800',
+  const kitchenStatusColors = {
+    pending: 'bg-gray-100 text-gray-800 border-gray-300',
+    preparing: 'bg-blue-100 text-blue-800 border-blue-300',
+    ready: 'bg-green-100 text-green-800 border-green-300',
   };
 
-  const statusLabels = {
-    ready: 'Pronto para Entrega',
-    delivered: 'Entregue',
+  const kitchenStatusLabels = {
+    pending: 'Não iniciado',
+    preparing: 'Em preparo',
+    ready: 'Finalizado',
+  };
+
+  const deliveryStatusColors = {
+    not_started: 'bg-gray-100 text-gray-800 border-gray-300',
+    driver_requested: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+    in_route: 'bg-blue-100 text-blue-800 border-blue-300',
+    delivered: 'bg-green-100 text-green-800 border-green-300',
+  };
+
+  const deliveryStatusLabels = {
+    not_started: 'Não iniciado',
+    driver_requested: 'Motoboy solicitado',
+    in_route: 'Em rota de entrega',
+    delivered: 'Pedido entregue',
   };
 
   return (
@@ -167,9 +145,9 @@ export default function DeliveriesPage() {
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
             <Truck className="h-8 w-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard de Entregas</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Expedição</h1>
           </div>
-          <p className="text-gray-600">Gerencie as entregas prontas e finalize os pedidos entregues</p>
+          <p className="text-gray-600">Gerencie as entregas e acompanhe o status dos pedidos</p>
         </div>
 
         <Card className="mb-6">
@@ -180,7 +158,7 @@ export default function DeliveriesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="date">Data</Label>
                 <Input
@@ -199,18 +177,6 @@ export default function DeliveriesPage() {
                   <SelectContent>
                     <SelectItem value="lunch">Almoço</SelectItem>
                     <SelectItem value="dinner">Jantar</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="filter">Filtro</Label>
-                <Select value={showDelivered ? 'delivered' : 'ready'} onValueChange={(value) => setShowDelivered(value === 'delivered')}>
-                  <SelectTrigger id="filter">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ready">Prontos para Entrega</SelectItem>
-                    <SelectItem value="delivered">Já Entregues</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -233,14 +199,9 @@ export default function DeliveriesPage() {
           <Card>
             <CardContent className="text-center py-12">
               <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-600 text-lg">
-                {showDelivered ? 'Nenhuma entrega concluída' : 'Nenhum pedido pronto para entrega'}
-              </p>
+              <p className="text-gray-600 text-lg">Nenhuma entrega para este dia e turno</p>
               <p className="text-gray-500 text-sm mt-2">
-                {showDelivered
-                  ? 'Os pedidos entregues aparecem aqui após serem finalizados'
-                  : 'Os pedidos aparecem aqui quando a cozinha finaliza o preparo'
-                }
+                As entregas aparecem automaticamente quando há pedidos agendados
               </p>
             </CardContent>
           </Card>
@@ -250,124 +211,76 @@ export default function DeliveriesPage() {
               <h2 className="text-xl font-semibold text-gray-900">
                 {orders.length} {orders.length === 1 ? 'Entrega' : 'Entregas'}
               </h2>
-              <div className="flex gap-2">
-                <Badge variant="outline" className="text-sm">
-                  <Clock className="h-3 w-3 mr-1" />
-                  {selectedMealType === 'lunch' ? 'Almoço' : 'Jantar'}
-                </Badge>
-              </div>
+              <Badge variant="outline" className="text-sm">
+                <Clock className="h-3 w-3 mr-1" />
+                {format(new Date(selectedDate), 'dd/MM/yyyy')} - {selectedMealType === 'lunch' ? 'Almoço' : 'Jantar'}
+              </Badge>
             </div>
 
-            {orders.map((order) => (
-              <Card key={order.id} className="border-l-4 border-l-blue-500">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
+            {orders.map((order, index) => (
+              <Card key={`${order.customer.id}-${index}`} className="border-l-4 border-l-blue-500">
+                <CardHeader className="pb-4">
+                  <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <CardTitle className="text-lg">{order.customer_name}</CardTitle>
-                        <Badge className={statusColors[order.status as 'ready' | 'delivered']}>
-                          {statusLabels[order.status as 'ready' | 'delivered']}
+                      <CardTitle className="text-xl mb-3">{order.customer.name}</CardTitle>
+
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2 text-gray-700">
+                          <Phone className="h-4 w-4 text-blue-600" />
+                          <span className="font-medium">Telefone:</span>
+                          <span className="font-semibold">{order.customer.phone || 'Não cadastrado'}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-gray-700">
+                          <Clock className="h-4 w-4 text-orange-600" />
+                          <span className="font-medium">Solicitar motoboy:</span>
+                          <span className="text-base font-bold text-orange-600">{order.pickupTime}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-gray-700">
+                          <Clock className="h-4 w-4 text-green-600" />
+                          <span className="font-medium">Horário de entrega:</span>
+                          <span className="text-base font-bold text-green-600">{order.deliverySchedule.delivery_time}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-gray-700">
+                          <MapPin className="h-4 w-4 text-gray-600" />
+                          <span className="font-medium">Endereço:</span>
+                          <span>{order.deliverySchedule.delivery_address}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-xs text-gray-600 mb-1 block">Status Cozinha</Label>
+                        <Badge className={`${kitchenStatusColors[order.kitchenStatus]} text-xs px-3 py-1 border-2`}>
+                          {kitchenStatusLabels[order.kitchenStatus]}
                         </Badge>
                       </div>
-                      <div className="space-y-1 text-sm text-gray-600">
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4" />
-                          {order.customer_phone}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4" />
-                          Horário de entrega: {order.delivery_time || 'Sem horário'}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
-                          {order.delivery_address}
-                        </div>
+
+                      <div>
+                        <Label className="text-xs text-gray-600 mb-1 block">Status Expedição</Label>
+                        <Select
+                          value={order.deliveryStatus}
+                          onValueChange={(value: 'not_started' | 'driver_requested' | 'in_route' | 'delivered') =>
+                            updateDeliveryStatus(index, value)
+                          }
+                        >
+                          <SelectTrigger className={`w-[180px] border-2 ${deliveryStatusColors[order.deliveryStatus]}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="not_started">{deliveryStatusLabels.not_started}</SelectItem>
+                            <SelectItem value="driver_requested">{deliveryStatusLabels.driver_requested}</SelectItem>
+                            <SelectItem value="in_route">{deliveryStatusLabels.in_route}</SelectItem>
+                            <SelectItem value="delivered">{deliveryStatusLabels.delivered}</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
-                    {order.status === 'ready' && (
-                      <Button
-                        onClick={() => markAsDelivered(order.id)}
-                        size="lg"
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        <Check className="h-5 w-5 mr-2" />
-                        Confirmar Entrega
-                      </Button>
-                    )}
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-3">Itens do Pedido</h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center p-2 bg-red-50 border border-red-100 rounded">
-                          <span className="text-sm font-medium text-red-900">{order.protein_recipe.name}</span>
-                          <span className="text-sm font-bold text-red-900">{Math.round(order.protein_amount_gr)}g</span>
-                        </div>
-
-                        <div className="flex justify-between items-center p-2 bg-yellow-50 border border-yellow-100 rounded">
-                          <span className="text-sm font-medium text-yellow-900">{order.carb_recipe.name}</span>
-                          <span className="text-sm font-bold text-yellow-900">{Math.round(order.carb_amount_gr)}g</span>
-                        </div>
-
-                        {order.vegetable_recipe && (
-                          <div className="flex justify-between items-center p-2 bg-green-50 border border-green-100 rounded">
-                            <span className="text-sm font-medium text-green-900">{order.vegetable_recipe.name}</span>
-                            <span className="text-sm font-bold text-green-900">{Math.round(order.vegetable_amount_gr || 0)}g</span>
-                          </div>
-                        )}
-
-                        {order.salad_recipe && (
-                          <div className="flex justify-between items-center p-2 bg-emerald-50 border border-emerald-100 rounded">
-                            <span className="text-sm font-medium text-emerald-900">{order.salad_recipe.name}</span>
-                            <span className="text-sm font-bold text-emerald-900">{Math.round(order.salad_amount_gr || 0)}g</span>
-                          </div>
-                        )}
-
-                        {order.sauce_recipe && (
-                          <div className="flex justify-between items-center p-2 bg-orange-50 border border-orange-100 rounded">
-                            <span className="text-sm font-medium text-orange-900">{order.sauce_recipe.name}</span>
-                            <span className="text-sm text-orange-700">À gosto</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-3">Informações Nutricionais</h4>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                          <div className="text-xs text-blue-700 mb-1">Calorias</div>
-                          <div className="text-xl font-bold text-blue-900">{Math.round(order.total_calories)}</div>
-                          <div className="text-xs text-blue-600">kcal</div>
-                        </div>
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                          <div className="text-xs text-green-700 mb-1">Proteínas</div>
-                          <div className="text-xl font-bold text-green-900">{order.total_protein.toFixed(1)}</div>
-                          <div className="text-xs text-green-600">gramas</div>
-                        </div>
-                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                          <div className="text-xs text-orange-700 mb-1">Carboidratos</div>
-                          <div className="text-xl font-bold text-orange-900">{order.total_carbs.toFixed(1)}</div>
-                          <div className="text-xs text-orange-600">gramas</div>
-                        </div>
-                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                          <div className="text-xs text-purple-700 mb-1">Gorduras</div>
-                          <div className="text-xl font-bold text-purple-900">{order.total_fat.toFixed(1)}</div>
-                          <div className="text-xs text-purple-600">gramas</div>
-                        </div>
-                      </div>
-
-                      {order.notes && (
-                        <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                          <p className="text-sm font-medium text-amber-900 mb-1">Observações:</p>
-                          <p className="text-sm text-amber-700">{order.notes}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
               </Card>
             ))}
           </div>
