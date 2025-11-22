@@ -9,123 +9,213 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ChefHat, Calendar, Clock, MapPin, Package, RefreshCw, Utensils, Check } from 'lucide-react';
-import type { Recipe } from '@/types';
+import { ChefHat, Calendar, Clock, MapPin, Package, RefreshCw } from 'lucide-react';
+import { format, getDay } from 'date-fns';
+import type { Recipe, Customer, DeliverySchedule } from '@/types';
 
-interface OrderWithDetails {
-  id: string;
-  customer_id: string;
-  customer_name: string;
-  order_date: string;
-  meal_type: 'lunch' | 'dinner';
-  protein_recipe: Recipe;
-  protein_amount_gr: number;
-  carb_recipe: Recipe;
-  carb_amount_gr: number;
-  vegetable_recipe?: Recipe;
-  vegetable_amount_gr?: number;
-  salad_recipe?: Recipe;
-  salad_amount_gr?: number;
-  sauce_recipe?: Recipe;
-  total_calories: number;
-  total_protein: number;
-  total_carbs: number;
-  total_fat: number;
-  delivery_address: string;
-  delivery_time: string;
-  status: 'pending' | 'preparing' | 'ready' | 'delivered';
-  notes?: string;
+interface KitchenOrder {
+  id?: string;
+  customer: Customer;
+  deliverySchedule: DeliverySchedule;
+  menuRecipes: {
+    protein?: Recipe;
+    carb?: Recipe;
+    vegetable?: Recipe;
+    salad?: Recipe;
+    sauce?: Recipe;
+  };
+  quantities: {
+    protein: number;
+    carb: number;
+    vegetable: number;
+    salad: number;
+    sauce: number;
+  };
+  status: 'pending' | 'preparing' | 'ready';
 }
 
 export default function KitchenDashboardPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedMealType, setSelectedMealType] = useState<'lunch' | 'dinner'>('lunch');
-  const [orders, setOrders] = useState<OrderWithDetails[]>([]);
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const [loading, setLoading] = useState(false);
-  const [editingOrder, setEditingOrder] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadRecipes();
-  }, []);
 
   useEffect(() => {
     loadOrders();
   }, [selectedDate, selectedMealType]);
 
-  async function loadRecipes() {
-    const { data } = await supabase
-      .from('recipes')
-      .select('*')
-      .eq('is_active', true)
-      .order('category, name');
+  function calculateQuantities(
+    customer: any,
+    mealType: 'lunch' | 'dinner',
+    proteinRecipe?: Recipe,
+    carbRecipe?: Recipe,
+    vegetableRecipe?: Recipe,
+    saladRecipe?: Recipe
+  ) {
+    if (!proteinRecipe || !carbRecipe) {
+      return {
+        protein: 0,
+        carb: 0,
+        vegetable: 100,
+        salad: 100,
+        sauce: 30,
+      };
+    }
 
-    if (data) setRecipes(data);
+    const targetProtein = mealType === 'lunch' ? Number(customer.lunch_protein) : Number(customer.dinner_protein);
+    const targetCarbs = mealType === 'lunch' ? Number(customer.lunch_carbs) : Number(customer.dinner_carbs);
+    const targetFat = mealType === 'lunch' ? Number(customer.lunch_fat) : Number(customer.dinner_fat);
+
+    if (!targetProtein || !targetCarbs || !targetFat) {
+      return {
+        protein: 0,
+        carb: 0,
+        vegetable: 100,
+        salad: 100,
+        sauce: 30,
+      };
+    }
+
+    let proteinAmount = (targetProtein / proteinRecipe.protein_per_100g) * 100;
+
+    const carbsFromProteinRecipe = (proteinAmount / 100) * proteinRecipe.carb_per_100g;
+    const fatFromProteinRecipe = (proteinAmount / 100) * proteinRecipe.fat_per_100g;
+    const caloriesFromProteinRecipe = (proteinAmount / 100) * proteinRecipe.kcal_per_100g;
+
+    const remainingCarbs = targetCarbs - carbsFromProteinRecipe;
+    let carbAmount = (remainingCarbs / carbRecipe.carb_per_100g) * 100;
+
+    const fatFromCarbRecipe = (carbAmount / 100) * carbRecipe.fat_per_100g;
+    const caloriesFromCarbRecipe = (carbAmount / 100) * carbRecipe.kcal_per_100g;
+
+    const vegetableAmount = vegetableRecipe ? 100 : 0;
+    const saladAmount = saladRecipe ? 100 : 0;
+
+    const caloriesFromVegetable = vegetableRecipe ? (vegetableAmount / 100) * vegetableRecipe.kcal_per_100g : 0;
+    const caloriesFromSalad = saladRecipe ? (saladAmount / 100) * saladRecipe.kcal_per_100g : 0;
+
+    let totalCalories = caloriesFromProteinRecipe + caloriesFromCarbRecipe + caloriesFromVegetable + caloriesFromSalad;
+
+    const targetCalories = (targetProtein * 4) + (targetCarbs * 4) + (targetFat * 9);
+
+    const adjustmentFactor = targetCalories / totalCalories;
+
+    proteinAmount = proteinAmount * adjustmentFactor;
+    carbAmount = carbAmount * adjustmentFactor;
+
+    return {
+      protein: Math.round(proteinAmount),
+      carb: Math.round(carbAmount),
+      vegetable: vegetableAmount,
+      salad: saladAmount,
+      sauce: 30,
+    };
   }
 
   async function loadOrders() {
     setLoading(true);
     try {
-      const { data: ordersData, error } = await supabase
-        .from('orders')
+      const dateObj = new Date(selectedDate + 'T12:00:00');
+      const dayOfWeek = getDay(dateObj);
+      const adjustedDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
+
+      if (adjustedDayOfWeek > 5) {
+        setOrders([]);
+        setLoading(false);
+        return;
+      }
+
+      const { data: customersData, error: customersError } = await supabase
+        .from('customers')
         .select(`
           *,
-          customers!orders_customer_id_fkey(name)
+          delivery_schedules!delivery_schedules_customer_id_fkey(*)
         `)
-        .eq('order_date', selectedDate)
+        .eq('is_active', true);
+
+      if (customersError) throw customersError;
+
+      const { data: menuData } = await supabase
+        .from('monthly_menu')
+        .select('*')
+        .eq('menu_date', selectedDate)
         .eq('meal_type', selectedMealType)
-        .order('delivery_time');
+        .maybeSingle() as { data: any };
 
-      if (error) throw error;
+      let menuRecipes = {
+        protein: undefined,
+        carb: undefined,
+        vegetable: undefined,
+        salad: undefined,
+        sauce: undefined,
+      };
 
-      if (ordersData && ordersData.length > 0) {
-        const recipeIds = new Set<string>();
-        ordersData.forEach((order: any) => {
-          recipeIds.add(order.protein_recipe_id);
-          recipeIds.add(order.carb_recipe_id);
-          if (order.vegetable_recipe_id) recipeIds.add(order.vegetable_recipe_id);
-          if (order.salad_recipe_id) recipeIds.add(order.salad_recipe_id);
-          if (order.sauce_recipe_id) recipeIds.add(order.sauce_recipe_id);
-        });
+      if (menuData) {
+        const recipeIds = [
+          menuData.protein_recipe_id,
+          menuData.carb_recipe_id,
+          menuData.vegetable_recipe_id,
+          menuData.salad_recipe_id,
+          menuData.sauce_recipe_id,
+        ].filter(Boolean);
 
-        const { data: recipesData } = await supabase
-          .from('recipes')
-          .select('*')
-          .in('id', Array.from(recipeIds));
+        if (recipeIds.length > 0) {
+          const { data: recipesData } = await supabase
+            .from('recipes')
+            .select('*')
+            .in('id', recipeIds);
 
-        const recipesMap = new Map<string, Recipe>(
-          recipesData?.map((r: Recipe) => [r.id, r]) || []
+          if (recipesData) {
+            const recipesMap = new Map(recipesData.map((r: any) => [r.id, r]));
+            menuRecipes = {
+              protein: menuData.protein_recipe_id ? recipesMap.get(menuData.protein_recipe_id) : undefined,
+              carb: menuData.carb_recipe_id ? recipesMap.get(menuData.carb_recipe_id) : undefined,
+              vegetable: menuData.vegetable_recipe_id ? recipesMap.get(menuData.vegetable_recipe_id) : undefined,
+              salad: menuData.salad_recipe_id ? recipesMap.get(menuData.salad_recipe_id) : undefined,
+              sauce: menuData.sauce_recipe_id ? recipesMap.get(menuData.sauce_recipe_id) : undefined,
+            };
+          }
+        }
+      }
+
+      const kitchenOrders: KitchenOrder[] = [];
+
+      for (const customer of customersData || []) {
+        const customerData = customer as any;
+        const deliverySchedule = customerData.delivery_schedules?.find(
+          (ds: any) =>
+            ds.day_of_week === adjustedDayOfWeek &&
+            ds.meal_type === selectedMealType &&
+            ds.is_active
         );
 
-        const ordersWithDetails: OrderWithDetails[] = ordersData.map((order: any) => ({
-          id: order.id,
-          customer_id: order.customer_id,
-          customer_name: order.customers.name,
-          order_date: order.order_date,
-          meal_type: order.meal_type,
-          protein_recipe: recipesMap.get(order.protein_recipe_id)!,
-          protein_amount_gr: order.protein_amount_gr,
-          carb_recipe: recipesMap.get(order.carb_recipe_id)!,
-          carb_amount_gr: order.carb_amount_gr,
-          vegetable_recipe: order.vegetable_recipe_id ? recipesMap.get(order.vegetable_recipe_id) : undefined,
-          vegetable_amount_gr: order.vegetable_amount_gr,
-          salad_recipe: order.salad_recipe_id ? recipesMap.get(order.salad_recipe_id) : undefined,
-          salad_amount_gr: order.salad_amount_gr,
-          sauce_recipe: order.sauce_recipe_id ? recipesMap.get(order.sauce_recipe_id) : undefined,
-          total_calories: order.total_calories,
-          total_protein: order.total_protein,
-          total_carbs: order.total_carbs,
-          total_fat: order.total_fat,
-          delivery_address: order.delivery_address,
-          delivery_time: order.delivery_time,
-          status: order.status,
-          notes: order.notes,
-        }));
+        if (deliverySchedule && deliverySchedule.delivery_time && deliverySchedule.delivery_address) {
+          const quantities = calculateQuantities(
+            customerData,
+            selectedMealType,
+            menuRecipes.protein,
+            menuRecipes.carb,
+            menuRecipes.vegetable,
+            menuRecipes.salad
+          );
 
-        setOrders(ordersWithDetails);
-      } else {
-        setOrders([]);
+          kitchenOrders.push({
+            customer,
+            deliverySchedule,
+            menuRecipes,
+            quantities,
+            status: 'pending',
+          });
+        }
       }
+
+      kitchenOrders.sort((a, b) => {
+        const timeA = a.deliverySchedule.delivery_time || '';
+        const timeB = b.deliverySchedule.delivery_time || '';
+        return timeA.localeCompare(timeB);
+      });
+
+      setOrders(kitchenOrders);
     } catch (error) {
       console.error('Error loading orders:', error);
       setOrders([]);
@@ -134,51 +224,25 @@ export default function KitchenDashboardPage() {
     }
   }
 
-  async function updateOrderStatus(orderId: string, newStatus: 'pending' | 'preparing' | 'ready' | 'delivered') {
-    const { error } = await (supabase as any)
-      .from('orders')
-      .update({ status: newStatus })
-      .eq('id', orderId);
-
-    if (!error) {
-      loadOrders();
-    }
-  }
-
-  async function updateOrderRecipe(
-    orderId: string,
-    field: 'protein_recipe_id' | 'carb_recipe_id' | 'vegetable_recipe_id' | 'salad_recipe_id' | 'sauce_recipe_id',
-    recipeId: string
-  ) {
-    const { error } = await (supabase as any)
-      .from('orders')
-      .update({ [field]: recipeId })
-      .eq('id', orderId);
-
-    if (!error) {
-      loadOrders();
-    }
+  function updateOrderStatus(index: number, newStatus: 'pending' | 'preparing' | 'ready') {
+    setOrders(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], status: newStatus };
+      return updated;
+    });
   }
 
   const statusColors = {
-    pending: 'bg-gray-100 text-gray-800',
-    preparing: 'bg-blue-100 text-blue-800',
-    ready: 'bg-green-100 text-green-800',
-    delivered: 'bg-purple-100 text-purple-800',
+    pending: 'bg-gray-100 text-gray-800 border-gray-300',
+    preparing: 'bg-blue-100 text-blue-800 border-blue-300',
+    ready: 'bg-green-100 text-green-800 border-green-300',
   };
 
   const statusLabels = {
-    pending: 'Pendente',
-    preparing: 'Preparando',
-    ready: 'Pronto',
-    delivered: 'Entregue',
+    pending: 'Não iniciado',
+    preparing: 'Em preparo',
+    ready: 'Finalizado',
   };
-
-  const proteinRecipes = recipes.filter(r => r.category === 'Proteína');
-  const carbRecipes = recipes.filter(r => r.category === 'Carboidrato');
-  const vegetableRecipes = recipes.filter(r => r.category === 'Legumes');
-  const saladRecipes = recipes.filter(r => r.category === 'Salada');
-  const sauceRecipes = recipes.filter(r => r.category === 'Molho Salada');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -187,9 +251,9 @@ export default function KitchenDashboardPage() {
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
             <ChefHat className="h-8 w-8 text-orange-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard da Cozinha</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Cozinha</h1>
           </div>
-          <p className="text-gray-600">Gerencie as entregas do dia e prepare os pedidos</p>
+          <p className="text-gray-600">Gerencie o preparo dos pedidos do dia</p>
         </div>
 
         <Card className="mb-6">
@@ -253,250 +317,114 @@ export default function KitchenDashboardPage() {
               <h2 className="text-xl font-semibold text-gray-900">
                 {orders.length} {orders.length === 1 ? 'Pedido' : 'Pedidos'}
               </h2>
-              <div className="flex gap-2">
-                <Badge variant="outline" className="text-sm">
-                  <Clock className="h-3 w-3 mr-1" />
-                  {selectedMealType === 'lunch' ? 'Almoço' : 'Jantar'}
-                </Badge>
-              </div>
+              <Badge variant="outline" className="text-sm">
+                <Clock className="h-3 w-3 mr-1" />
+                {format(new Date(selectedDate), 'dd/MM/yyyy')} - {selectedMealType === 'lunch' ? 'Almoço' : 'Jantar'}
+              </Badge>
             </div>
 
-            {orders.map((order) => (
-              <Card key={order.id} className="border-l-4 border-l-orange-500">
-                <CardHeader className="pb-3">
+            {orders.map((order, index) => (
+              <Card key={`${order.customer.id}-${index}`} className="border-l-4 border-l-orange-500">
+                <CardHeader className="pb-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-lg mb-1">{order.customer_name}</CardTitle>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4" />
-                          {order.delivery_time || 'Sem horário'}
+                      <CardTitle className="text-xl mb-2">{order.customer.name}</CardTitle>
+                      <div className="flex flex-col gap-1 text-sm text-gray-600">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-orange-600" />
+                          <span className="font-semibold">Horário de entrega:</span>
+                          <span className="text-base font-bold text-orange-600">{order.deliverySchedule.delivery_time}</span>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-2">
                           <MapPin className="h-4 w-4" />
-                          {order.delivery_address}
+                          <span>{order.deliverySchedule.delivery_address}</span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <Badge className={statusColors[order.status]}>
-                        {statusLabels[order.status]}
-                      </Badge>
-                      {order.status !== 'ready' && order.status !== 'delivered' ? (
-                        <Button
-                          onClick={() => updateOrderStatus(order.id, 'ready')}
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <Check className="h-4 w-4 mr-1" />
-                          Finalizar Preparo
-                        </Button>
-                      ) : (
-                        <Select
-                          value={order.status}
-                          onValueChange={(value: any) => updateOrderStatus(order.id, value)}
-                        >
-                          <SelectTrigger className="w-[140px] h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pendente</SelectItem>
-                            <SelectItem value="preparing">Preparando</SelectItem>
-                            <SelectItem value="ready">Pronto</SelectItem>
-                            <SelectItem value="delivered">Entregue</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
+                    <div className="ml-4">
+                      <Select
+                        value={order.status}
+                        onValueChange={(value: 'pending' | 'preparing' | 'ready') => updateOrderStatus(index, value)}
+                      >
+                        <SelectTrigger className={`w-[160px] border-2 ${statusColors[order.status]}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">{statusLabels.pending}</SelectItem>
+                          <SelectItem value="preparing">{statusLabels.preparing}</SelectItem>
+                          <SelectItem value="ready">{statusLabels.ready}</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        <Utensils className="h-4 w-4" />
-                        Receitas e Quantidades
-                      </h4>
-                      <div className="space-y-3">
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-red-900">Proteína</span>
-                            <span className="text-lg font-bold text-red-900">{Math.round(order.protein_amount_gr)}g</span>
-                          </div>
-                          {editingOrder === order.id ? (
-                            <Select
-                              value={order.protein_recipe.id}
-                              onValueChange={(value) => updateOrderRecipe(order.id, 'protein_recipe_id', value)}
-                            >
-                              <SelectTrigger className="w-full bg-white">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {proteinRecipes.map((recipe) => (
-                                  <SelectItem key={recipe.id} value={recipe.id}>
-                                    {recipe.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <p className="text-sm text-red-700">{order.protein_recipe.name}</p>
-                          )}
+                  <div className="space-y-3">
+                    {order.menuRecipes.protein && order.quantities.protein > 0 ? (
+                      <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-lg p-3">
+                        <div>
+                          <span className="text-sm font-semibold text-red-900">Proteína: </span>
+                          <span className="text-sm text-red-700">{order.menuRecipes.protein.name}</span>
                         </div>
-
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-yellow-900">Carboidrato</span>
-                            <span className="text-lg font-bold text-yellow-900">{Math.round(order.carb_amount_gr)}g</span>
-                          </div>
-                          {editingOrder === order.id ? (
-                            <Select
-                              value={order.carb_recipe.id}
-                              onValueChange={(value) => updateOrderRecipe(order.id, 'carb_recipe_id', value)}
-                            >
-                              <SelectTrigger className="w-full bg-white">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {carbRecipes.map((recipe) => (
-                                  <SelectItem key={recipe.id} value={recipe.id}>
-                                    {recipe.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <p className="text-sm text-yellow-700">{order.carb_recipe.name}</p>
-                          )}
-                        </div>
-
-                        {order.vegetable_recipe && (
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium text-green-900">Legumes</span>
-                              <span className="text-lg font-bold text-green-900">{Math.round(order.vegetable_amount_gr || 0)}g</span>
-                            </div>
-                            {editingOrder === order.id ? (
-                              <Select
-                                value={order.vegetable_recipe.id}
-                                onValueChange={(value) => updateOrderRecipe(order.id, 'vegetable_recipe_id', value)}
-                              >
-                                <SelectTrigger className="w-full bg-white">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {vegetableRecipes.map((recipe) => (
-                                    <SelectItem key={recipe.id} value={recipe.id}>
-                                      {recipe.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <p className="text-sm text-green-700">{order.vegetable_recipe.name}</p>
-                            )}
-                          </div>
-                        )}
-
-                        {order.salad_recipe && (
-                          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium text-emerald-900">Salada</span>
-                              <span className="text-lg font-bold text-emerald-900">{Math.round(order.salad_amount_gr || 0)}g</span>
-                            </div>
-                            {editingOrder === order.id ? (
-                              <Select
-                                value={order.salad_recipe.id}
-                                onValueChange={(value) => updateOrderRecipe(order.id, 'salad_recipe_id', value)}
-                              >
-                                <SelectTrigger className="w-full bg-white">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {saladRecipes.map((recipe) => (
-                                    <SelectItem key={recipe.id} value={recipe.id}>
-                                      {recipe.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <p className="text-sm text-emerald-700">{order.salad_recipe.name}</p>
-                            )}
-                          </div>
-                        )}
-
-                        {order.sauce_recipe && (
-                          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium text-orange-900">Molho</span>
-                              <span className="text-sm text-orange-700">À gosto</span>
-                            </div>
-                            {editingOrder === order.id ? (
-                              <Select
-                                value={order.sauce_recipe.id}
-                                onValueChange={(value) => updateOrderRecipe(order.id, 'sauce_recipe_id', value)}
-                              >
-                                <SelectTrigger className="w-full bg-white">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {sauceRecipes.map((recipe) => (
-                                    <SelectItem key={recipe.id} value={recipe.id}>
-                                      {recipe.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <p className="text-sm text-orange-700">{order.sauce_recipe.name}</p>
-                            )}
-                          </div>
-                        )}
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEditingOrder(editingOrder === order.id ? null : order.id)}
-                          className="w-full"
-                        >
-                          {editingOrder === order.id ? 'Concluir Edição' : 'Trocar Receitas'}
-                        </Button>
+                        <span className="text-lg font-bold text-red-900">{Math.round(order.quantities.protein)}g</span>
                       </div>
-                    </div>
+                    ) : null}
 
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-3">Informações Nutricionais</h4>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                          <div className="text-xs text-blue-700 mb-1">Calorias</div>
-                          <div className="text-xl font-bold text-blue-900">{Math.round(order.total_calories)}</div>
-                          <div className="text-xs text-blue-600">kcal</div>
+                    {order.menuRecipes.carb && order.quantities.carb > 0 ? (
+                      <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <div>
+                          <span className="text-sm font-semibold text-amber-900">Carboidrato: </span>
+                          <span className="text-sm text-amber-700">{order.menuRecipes.carb.name}</span>
                         </div>
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                          <div className="text-xs text-green-700 mb-1">Proteínas</div>
-                          <div className="text-xl font-bold text-green-900">{order.total_protein.toFixed(1)}</div>
-                          <div className="text-xs text-green-600">gramas</div>
-                        </div>
-                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                          <div className="text-xs text-orange-700 mb-1">Carboidratos</div>
-                          <div className="text-xl font-bold text-orange-900">{order.total_carbs.toFixed(1)}</div>
-                          <div className="text-xs text-orange-600">gramas</div>
-                        </div>
-                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                          <div className="text-xs text-purple-700 mb-1">Gorduras</div>
-                          <div className="text-xl font-bold text-purple-900">{order.total_fat.toFixed(1)}</div>
-                          <div className="text-xs text-purple-600">gramas</div>
-                        </div>
+                        <span className="text-lg font-bold text-amber-900">{Math.round(order.quantities.carb)}g</span>
                       </div>
+                    ) : null}
 
-                      {order.notes && (
-                        <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                          <p className="text-sm font-medium text-amber-900 mb-1">Observações:</p>
-                          <p className="text-sm text-amber-700">{order.notes}</p>
+                    {order.menuRecipes.vegetable && order.quantities.vegetable > 0 ? (
+                      <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div>
+                          <span className="text-sm font-semibold text-green-900">Legumes: </span>
+                          <span className="text-sm text-green-700">{order.menuRecipes.vegetable.name}</span>
                         </div>
-                      )}
-                    </div>
+                        <span className="text-lg font-bold text-green-900">{Math.round(order.quantities.vegetable)}g</span>
+                      </div>
+                    ) : null}
+
+                    {order.menuRecipes.salad && order.quantities.salad > 0 ? (
+                      <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                        <div>
+                          <span className="text-sm font-semibold text-emerald-900">Salada: </span>
+                          <span className="text-sm text-emerald-700">{order.menuRecipes.salad.name}</span>
+                        </div>
+                        <span className="text-lg font-bold text-emerald-900">{Math.round(order.quantities.salad)}g</span>
+                      </div>
+                    ) : null}
+
+                    {order.menuRecipes.sauce ? (
+                      <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div>
+                          <span className="text-sm font-semibold text-blue-900">Molho Salada: </span>
+                          <span className="text-sm text-blue-700">{order.menuRecipes.sauce.name}</span>
+                        </div>
+                        <span className="text-lg font-bold text-blue-900">{Math.round(order.quantities.sauce)}g</span>
+                      </div>
+                    ) : null}
+
+                    {!order.menuRecipes.protein && !order.menuRecipes.carb && (
+                      <div className="text-center py-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-sm text-yellow-800">
+                          Nenhum cardápio definido para esta data. Configure o cardápio mensal.
+                        </p>
+                      </div>
+                    )}
+
+                    {order.quantities.protein === 0 && order.quantities.carb === 0 && order.menuRecipes.protein && order.menuRecipes.carb && (
+                      <div className="text-center py-4 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-sm text-amber-800">
+                          Este cliente precisa ter as metas de macronutrientes configuradas.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
