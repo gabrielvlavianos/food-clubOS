@@ -293,7 +293,6 @@ export default function ExpeditionPage() {
                           onValueChange={(value: 'not_started' | 'driver_requested' | 'in_route' | 'delivered') =>
                             updateDeliveryStatus(index, value)
                           }
-                          disabled={order.kitchenStatus !== 'ready' && (order.deliveryStatus === 'not_started' || order.deliveryStatus === 'driver_requested')}
                         >
                           <SelectTrigger className={`w-[180px] border-2 ${deliveryStatusColors[order.deliveryStatus]}`}>
                             <SelectValue />
@@ -306,18 +305,20 @@ export default function ExpeditionPage() {
                               disabled={order.kitchenStatus !== 'ready'}
                             >
                               {deliveryStatusLabels.in_route}
+                              {order.kitchenStatus !== 'ready' && ' (requer finalização)'}
                             </SelectItem>
                             <SelectItem
                               value="delivered"
                               disabled={order.kitchenStatus !== 'ready'}
                             >
                               {deliveryStatusLabels.delivered}
+                              {order.kitchenStatus !== 'ready' && ' (requer finalização)'}
                             </SelectItem>
                           </SelectContent>
                         </Select>
-                        {order.kitchenStatus !== 'ready' && (
-                          <p className="text-xs text-amber-600 mt-1">
-                            Aguardando finalização da cozinha
+                        {order.kitchenStatus !== 'ready' && (order.deliveryStatus === 'not_started' || order.deliveryStatus === 'driver_requested') && (
+                          <p className="text-xs text-blue-600 mt-1">
+                            💡 Você pode solicitar o motoboy durante o preparo
                           </p>
                         )}
                       </div>
