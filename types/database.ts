@@ -507,6 +507,29 @@ export interface Database {
           updated_at?: string;
         };
       };
+      global_settings: {
+        Row: {
+          id: number;
+          vegetables_amount: number;
+          salad_amount: number;
+          salad_dressing_amount: number;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          vegetables_amount?: number;
+          salad_amount?: number;
+          salad_dressing_amount?: number;
+          updated_at?: string;
+        };
+        Update: {
+          id?: number;
+          vegetables_amount?: number;
+          salad_amount?: number;
+          salad_dressing_amount?: number;
+          updated_at?: string;
+        };
+      };
     };
   };
 }

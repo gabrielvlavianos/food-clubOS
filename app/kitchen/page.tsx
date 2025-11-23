@@ -39,10 +39,43 @@ export default function KitchenDashboardPage() {
   const [selectedMealType, setSelectedMealType] = useState<'lunch' | 'dinner'>('lunch');
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const [loading, setLoading] = useState(false);
+  const [globalSettings, setGlobalSettings] = useState({
+    vegetables_amount: 100,
+    salad_amount: 100,
+    salad_dressing_amount: 30,
+  });
+
+  useEffect(() => {
+    loadGlobalSettings();
+  }, []);
 
   useEffect(() => {
     loadOrders();
-  }, [selectedDate, selectedMealType]);
+  }, [selectedDate, selectedMealType, globalSettings]);
+
+  async function loadGlobalSettings() {
+    try {
+      const { data } = await supabase
+        .from('global_settings')
+        .select('*')
+        .eq('id', 1)
+        .maybeSingle();
+
+      if (data) {
+        setGlobalSettings({
+          vegetables_amount: (data as any).vegetables_amount,
+          salad_amount: (data as any).salad_amount,
+          salad_dressing_amount: (data as any).salad_dressing_amount,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading global settings:', error);
+    }
+  }
+
+  function roundToMultipleOf10(value: number): number {
+    return Math.round(value / 10) * 10;
+  }
 
   function calculateQuantities(
     customer: any,
@@ -56,9 +89,9 @@ export default function KitchenDashboardPage() {
       return {
         protein: 0,
         carb: 0,
-        vegetable: 100,
-        salad: 100,
-        sauce: 30,
+        vegetable: globalSettings.vegetables_amount,
+        salad: globalSettings.salad_amount,
+        sauce: globalSettings.salad_dressing_amount,
       };
     }
 
@@ -70,9 +103,9 @@ export default function KitchenDashboardPage() {
       return {
         protein: 0,
         carb: 0,
-        vegetable: 100,
-        salad: 100,
-        sauce: 30,
+        vegetable: globalSettings.vegetables_amount,
+        salad: globalSettings.salad_amount,
+        sauce: globalSettings.salad_dressing_amount,
       };
     }
 
@@ -88,8 +121,8 @@ export default function KitchenDashboardPage() {
     const fatFromCarbRecipe = (carbAmount / 100) * carbRecipe.fat_per_100g;
     const caloriesFromCarbRecipe = (carbAmount / 100) * carbRecipe.kcal_per_100g;
 
-    const vegetableAmount = vegetableRecipe ? 100 : 0;
-    const saladAmount = saladRecipe ? 100 : 0;
+    const vegetableAmount = vegetableRecipe ? globalSettings.vegetables_amount : 0;
+    const saladAmount = saladRecipe ? globalSettings.salad_amount : 0;
 
     const caloriesFromVegetable = vegetableRecipe ? (vegetableAmount / 100) * vegetableRecipe.kcal_per_100g : 0;
     const caloriesFromSalad = saladRecipe ? (saladAmount / 100) * saladRecipe.kcal_per_100g : 0;
@@ -104,11 +137,11 @@ export default function KitchenDashboardPage() {
     carbAmount = carbAmount * adjustmentFactor;
 
     return {
-      protein: Math.round(proteinAmount),
-      carb: Math.round(carbAmount),
+      protein: roundToMultipleOf10(proteinAmount),
+      carb: roundToMultipleOf10(carbAmount),
       vegetable: vegetableAmount,
       salad: saladAmount,
-      sauce: 30,
+      sauce: globalSettings.salad_dressing_amount,
     };
   }
 

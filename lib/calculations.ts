@@ -1,5 +1,9 @@
 import { Recipe, PrepItemWithRecipe, MacroTotals, PrepSessionSummary, RecipeCategory } from '@/types';
 
+export function roundToMultipleOf10(value: number): number {
+  return Math.round(value / 10) * 10;
+}
+
 export function calculateItemMacros(recipe: Recipe, weightGr: number): MacroTotals {
   const factor = weightGr / 100;
 
