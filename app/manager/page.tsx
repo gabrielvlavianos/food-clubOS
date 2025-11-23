@@ -76,12 +76,6 @@ export default function ManagerPage() {
       const dayOfWeek = getDay(dateObj);
       const adjustedDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
 
-      if (adjustedDayOfWeek > 5) {
-        setOrders([]);
-        setLoading(false);
-        return;
-      }
-
       const { data: customersData, error: customersError } = await supabase
         .from('customers')
         .select(`
