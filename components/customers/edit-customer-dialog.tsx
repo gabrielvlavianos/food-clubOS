@@ -206,11 +206,6 @@ export function EditCustomerDialog({
 
       if (customerError) throw customerError;
 
-      await supabase
-        .from('delivery_schedules')
-        .delete()
-        .eq('customer_id', customer.id);
-
       const dayKeyToNumber: Record<string, number> = {
         'monday': 1,
         'tuesday': 2,
@@ -221,25 +216,38 @@ export function EditCustomerDialog({
         'sunday': 0,
       };
 
-      const schedules = Object.entries(deliverySchedules)
-        .filter(([_, schedule]) => schedule.time && schedule.address)
-        .map(([key, schedule]) => {
-          const [day, meal] = key.split('_');
-          return {
+      for (const [key, schedule] of Object.entries(deliverySchedules)) {
+        const [day, meal] = key.split('_');
+        const dayOfWeek = dayKeyToNumber[day];
+
+        const hasData = schedule.time && schedule.address;
+
+        if (hasData) {
+          const scheduleData = {
             customer_id: customer.id,
-            day_of_week: dayKeyToNumber[day],
+            day_of_week: dayOfWeek,
             meal_type: meal,
-            delivery_time: schedule.time || null,
-            delivery_address: schedule.address || null,
+            delivery_time: schedule.time,
+            delivery_address: schedule.address,
+            is_active: true
           };
-        });
 
-      if (schedules.length > 0) {
-        const { error: scheduleError } = await supabase
-          .from('delivery_schedules')
-          .insert(schedules as any);
-
-        if (scheduleError) throw scheduleError;
+          if (schedule.id) {
+            await (supabase as any)
+              .from('delivery_schedules')
+              .update(scheduleData)
+              .eq('id', schedule.id);
+          } else {
+            await (supabase as any)
+              .from('delivery_schedules')
+              .insert(scheduleData);
+          }
+        } else if (schedule.id) {
+          await (supabase as any)
+            .from('delivery_schedules')
+            .delete()
+            .eq('id', schedule.id);
+        }
       }
 
       toast({
