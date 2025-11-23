@@ -137,13 +137,23 @@ export function CreateCustomerDialog({
 
       const customer = customerData as Customer;
 
+      const dayKeyToNumber: Record<string, number> = {
+        'monday': 1,
+        'tuesday': 2,
+        'wednesday': 3,
+        'thursday': 4,
+        'friday': 5,
+        'saturday': 6,
+        'sunday': 0,
+      };
+
       const schedules = Object.entries(deliverySchedules)
         .filter(([_, schedule]) => schedule.time || schedule.address)
         .map(([key, schedule]) => {
           const [day, meal] = key.split('_');
           return {
             customer_id: customer.id,
-            day_of_week: day,
+            day_of_week: dayKeyToNumber[day],
             meal_type: meal,
             delivery_time: schedule.time || null,
             delivery_address: schedule.address || null,

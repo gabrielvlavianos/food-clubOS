@@ -118,7 +118,9 @@ export function EditCustomerDialog({
             2: 'tuesday',
             3: 'wednesday',
             4: 'thursday',
-            5: 'friday'
+            5: 'friday',
+            6: 'saturday',
+            0: 'sunday',
           };
 
           const schedulesMap: DeliveryScheduleForm = {};
@@ -214,7 +216,9 @@ export function EditCustomerDialog({
         'tuesday': 2,
         'wednesday': 3,
         'thursday': 4,
-        'friday': 5
+        'friday': 5,
+        'saturday': 6,
+        'sunday': 0,
       };
 
       const schedules = Object.entries(deliverySchedules)
