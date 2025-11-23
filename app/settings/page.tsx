@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Settings, Save, RefreshCw } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Settings, Save, RefreshCw, Upload, Download, Sheet } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface GlobalSettings {
@@ -16,17 +17,33 @@ interface GlobalSettings {
   salad_dressing_amount: number;
 }
 
+interface SheetsSettings {
+  spreadsheet_id: string;
+  sheet_name: string;
+  api_key: string;
+}
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<GlobalSettings>({
     vegetables_amount: 100,
     salad_amount: 100,
     salad_dressing_amount: 30,
   });
+  const [sheetsSettings, setSheetsSettings] = useState<SheetsSettings>({
+    spreadsheet_id: '',
+    sheet_name: '',
+    api_key: '',
+  });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [sheetsLoading, setSheetsLoading] = useState(false);
+  const [sheetsSaving, setSheetsSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     loadSettings();
+    loadSheetsSettings();
   }, []);
 
   async function loadSettings() {
@@ -52,6 +69,34 @@ export default function SettingsPage() {
       toast.error('Erro ao carregar configurações');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadSheetsSettings() {
+    setSheetsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('key, value')
+        .in('key', ['sheets_spreadsheet_id', 'sheets_sheet_name', 'sheets_api_key']);
+
+      if (error) throw error;
+
+      if (data) {
+        const settingsMap = Object.fromEntries(
+          data.map((s: any) => [s.key.replace('sheets_', ''), s.value])
+        );
+        setSheetsSettings({
+          spreadsheet_id: settingsMap.spreadsheet_id || '',
+          sheet_name: settingsMap.sheet_name || '',
+          api_key: settingsMap.api_key || '',
+        });
+      }
+    } catch (error) {
+      console.error('Error loading sheets settings:', error);
+      toast.error('Erro ao carregar configurações do Sheets');
+    } finally {
+      setSheetsLoading(false);
     }
   }
 
@@ -89,6 +134,108 @@ export default function SettingsPage() {
     setSettings(prev => ({ ...prev, [field]: numValue }));
   }
 
+  async function saveSheetsSettings() {
+    if (!sheetsSettings.spreadsheet_id || !sheetsSettings.sheet_name || !sheetsSettings.api_key) {
+      toast.error('Preencha todos os campos');
+      return;
+    }
+
+    setSheetsSaving(true);
+    try {
+      const updates = [
+        { key: 'sheets_spreadsheet_id', value: sheetsSettings.spreadsheet_id },
+        { key: 'sheets_sheet_name', value: sheetsSettings.sheet_name },
+        { key: 'sheets_api_key', value: sheetsSettings.api_key },
+      ];
+
+      for (const update of updates) {
+        const { error } = await (supabase as any)
+          .from('settings')
+          .update({ value: update.value, updated_at: new Date().toISOString() })
+          .eq('key', update.key);
+
+        if (error) throw error;
+      }
+
+      toast.success('Configurações do Sheets salvas com sucesso!');
+    } catch (error) {
+      console.error('Error saving sheets settings:', error);
+      toast.error('Erro ao salvar configurações do Sheets');
+    } finally {
+      setSheetsSaving(false);
+    }
+  }
+
+  async function testExport(mealType: 'lunch' | 'dinner') {
+    setExporting(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/export-to-sheets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          date: today,
+          mealType,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(result.message);
+      } else {
+        toast.error(result.error || 'Erro ao exportar');
+      }
+    } catch (error) {
+      console.error('Error exporting:', error);
+      toast.error('Erro ao exportar para Sheets');
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function testImport(mealType: 'lunch' | 'dinner') {
+    setImporting(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/import-from-sheets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          date: today,
+          mealType,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`${result.message} - Atualizados: ${result.updated}, Cancelados: ${result.cancelled}`);
+      } else {
+        toast.error(result.error || 'Erro ao importar');
+      }
+    } catch (error) {
+      console.error('Error importing:', error);
+      toast.error('Erro ao importar do Sheets');
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function handleSheetsChange(field: keyof SheetsSettings, value: string) {
+    setSheetsSettings(prev => ({ ...prev, [field]: value }));
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
@@ -98,19 +245,28 @@ export default function SettingsPage() {
             <Settings className="h-8 w-8 text-slate-600" />
             <h1 className="text-3xl font-bold text-gray-900">Configurações</h1>
           </div>
-          <p className="text-gray-600">Configure as quantidades padrão dos componentes das refeições</p>
+          <p className="text-gray-600">Configure as quantidades padrão e integração com Google Sheets</p>
         </div>
 
-        {loading ? (
-          <Card>
-            <CardContent className="text-center py-12">
-              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-600">Carregando configurações...</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="max-w-2xl">
-            <Card>
+        <Tabs defaultValue="amounts" className="max-w-4xl">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="amounts">Quantidades Padrão</TabsTrigger>
+            <TabsTrigger value="sheets">
+              <Sheet className="h-4 w-4 mr-2" />
+              Google Sheets
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="amounts">
+            {loading ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600">Carregando configurações...</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
               <CardHeader>
                 <CardTitle>Quantidades Padrão</CardTitle>
                 <CardDescription>
@@ -213,8 +369,202 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
-          </div>
-        )}
+            )}
+          </TabsContent>
+
+          <TabsContent value="sheets">
+            {sheetsLoading ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600">Carregando configurações...</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Configuração do Google Sheets</CardTitle>
+                    <CardDescription>
+                      Configure a integração com o Google Sheets para sincronização automática com o Botconversa
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="spreadsheet_id">
+                          ID da Planilha
+                        </Label>
+                        <Input
+                          id="spreadsheet_id"
+                          type="text"
+                          value={sheetsSettings.spreadsheet_id}
+                          onChange={(e) => handleSheetsChange('spreadsheet_id', e.target.value)}
+                          placeholder="1WRGQYiyH9FuNJ-APBtZOj_oifKv6RLEwN-XaBi_S7ro"
+                        />
+                        <p className="text-xs text-gray-500">
+                          Encontre na URL da planilha: docs.google.com/spreadsheets/d/[ID_AQUI]/edit
+                        </p>
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="sheet_name">
+                          Nome da Aba
+                        </Label>
+                        <Input
+                          id="sheet_name"
+                          type="text"
+                          value={sheetsSettings.sheet_name}
+                          onChange={(e) => handleSheetsChange('sheet_name', e.target.value)}
+                          placeholder="Pedidos Diários"
+                        />
+                        <p className="text-xs text-gray-500">
+                          Nome da aba onde os dados serão sincronizados
+                        </p>
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="api_key">
+                          API Key do Google Cloud
+                        </Label>
+                        <Input
+                          id="api_key"
+                          type="password"
+                          value={sheetsSettings.api_key}
+                          onChange={(e) => handleSheetsChange('api_key', e.target.value)}
+                          placeholder="AIzaSy..."
+                        />
+                        <p className="text-xs text-gray-500">
+                          Sua chave de API do Google Cloud Console
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={saveSheetsSettings}
+                        disabled={sheetsSaving}
+                        className="flex-1"
+                      >
+                        {sheetsSaving ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Salvando...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4 mr-2" />
+                            Salvar Configurações
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        onClick={loadSheetsSettings}
+                        variant="outline"
+                        disabled={sheetsLoading || sheetsSaving}
+                      >
+                        <RefreshCw className={`h-4 w-4 ${sheetsLoading ? 'animate-spin' : ''}`} />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Testar Integração</CardTitle>
+                    <CardDescription>
+                      Teste a exportação e importação de dados manualmente antes de ativar o agendamento automático
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <h3 className="font-semibold text-sm">Exportar para Sheets</h3>
+                        <p className="text-xs text-gray-600">
+                          Envia os pedidos do dia atual para o Google Sheets
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => testExport('lunch')}
+                            disabled={exporting}
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            {exporting ? (
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Upload className="h-4 w-4 mr-2" />
+                            )}
+                            Almoço
+                          </Button>
+                          <Button
+                            onClick={() => testExport('dinner')}
+                            disabled={exporting}
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            {exporting ? (
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Upload className="h-4 w-4 mr-2" />
+                            )}
+                            Jantar
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <h3 className="font-semibold text-sm">Importar do Sheets</h3>
+                        <p className="text-xs text-gray-600">
+                          Busca as atualizações do Botconversa e atualiza os pedidos
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => testImport('lunch')}
+                            disabled={importing}
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            {importing ? (
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4 mr-2" />
+                            )}
+                            Almoço
+                          </Button>
+                          <Button
+                            onClick={() => testImport('dinner')}
+                            disabled={importing}
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            {importing ? (
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4 mr-2" />
+                            )}
+                            Jantar
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <p className="text-sm text-amber-900">
+                        <strong>Cronograma Automático:</strong><br/>
+                        • 08:00 - Exporta almoço do dia<br/>
+                        • 11:00 - Importa respostas do almoço<br/>
+                        • 14:00 - Exporta jantar do dia<br/>
+                        • 18:00 - Importa respostas do jantar
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
