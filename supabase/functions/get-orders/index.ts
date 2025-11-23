@@ -63,7 +63,7 @@ Deno.serve(async (req: Request) => {
           id,
           name,
           phone,
-          address
+          whatsapp
         ),
         protein,
         carb,
