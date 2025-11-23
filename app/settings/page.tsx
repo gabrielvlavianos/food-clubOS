@@ -472,91 +472,55 @@ export default function SettingsPage() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Testar Integração</CardTitle>
+                    <CardTitle>URLs para Configurar no Botconversa</CardTitle>
                     <CardDescription>
-                      Teste a exportação e importação de dados manualmente antes de ativar o agendamento automático
+                      Use estas URLs para configurar a integração no Botconversa
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div className="space-y-3">
-                        <h3 className="font-semibold text-sm">Exportar para Sheets</h3>
-                        <p className="text-xs text-gray-600">
-                          Envia os pedidos do dia atual para o Google Sheets
+                    <div className="space-y-4">
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                        <h3 className="font-semibold text-sm mb-2">1. Buscar Pedidos (GET)</h3>
+                        <p className="text-xs text-gray-600 mb-3">
+                          O Botconversa usa esta URL para pegar a lista de pedidos
                         </p>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => testExport('lunch')}
-                            disabled={exporting}
-                            variant="outline"
-                            className="flex-1"
-                          >
-                            {exporting ? (
-                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                              <Upload className="h-4 w-4 mr-2" />
-                            )}
-                            Almoço
-                          </Button>
-                          <Button
-                            onClick={() => testExport('dinner')}
-                            disabled={exporting}
-                            variant="outline"
-                            className="flex-1"
-                          >
-                            {exporting ? (
-                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                              <Upload className="h-4 w-4 mr-2" />
-                            )}
-                            Jantar
-                          </Button>
+                        <div className="bg-white border rounded p-3 font-mono text-xs break-all">
+                          {process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-orders?date=YYYY-MM-DD&mealType=lunch
                         </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          • date: Data no formato YYYY-MM-DD (ex: 2025-11-23)<br/>
+                          • mealType: "lunch" para almoço ou "dinner" para jantar
+                        </p>
                       </div>
 
-                      <div className="space-y-3">
-                        <h3 className="font-semibold text-sm">Importar do Sheets</h3>
-                        <p className="text-xs text-gray-600">
-                          Busca as atualizações do Botconversa e atualiza os pedidos
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                        <h3 className="font-semibold text-sm mb-2">2. Atualizar Pedido (POST)</h3>
+                        <p className="text-xs text-gray-600 mb-3">
+                          O Botconversa usa esta URL para enviar as respostas dos clientes
                         </p>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => testImport('lunch')}
-                            disabled={importing}
-                            variant="outline"
-                            className="flex-1"
-                          >
-                            {importing ? (
-                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                              <Download className="h-4 w-4 mr-2" />
-                            )}
-                            Almoço
-                          </Button>
-                          <Button
-                            onClick={() => testImport('dinner')}
-                            disabled={importing}
-                            variant="outline"
-                            className="flex-1"
-                          >
-                            {importing ? (
-                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                              <Download className="h-4 w-4 mr-2" />
-                            )}
-                            Jantar
-                          </Button>
+                        <div className="bg-white border rounded p-3 font-mono text-xs break-all">
+                          {process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/update-order
                         </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Formato do JSON (escolha uma opção):<br/>
+                          <span className="font-mono bg-white px-1">
+                            {`{"orderId": "xxx", "novoEndereco": "Novo endereço", "novoHorario": "14:00"}`}
+                          </span><br/>
+                          OU para cancelar:<br/>
+                          <span className="font-mono bg-white px-1">
+                            {`{"orderId": "xxx", "cancelar": true}`}
+                          </span>
+                        </p>
                       </div>
                     </div>
 
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                      <p className="text-sm text-amber-900">
-                        <strong>Cronograma Automático:</strong><br/>
-                        • 08:00 - Exporta almoço do dia<br/>
-                        • 11:00 - Importa respostas do almoço<br/>
-                        • 14:00 - Exporta jantar do dia<br/>
-                        • 18:00 - Importa respostas do jantar
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <p className="text-sm text-green-900">
+                        <strong>Como funciona:</strong><br/>
+                        1. O Botconversa chama a API para buscar os pedidos do dia<br/>
+                        2. Envia mensagens no WhatsApp perguntando sobre mudanças<br/>
+                        3. Quando o cliente responde, o Botconversa atualiza usando a segunda API<br/>
+                        4. Tudo automático, sem precisar mexer no Google Sheets manualmente!
                       </p>
                     </div>
                   </CardContent>
