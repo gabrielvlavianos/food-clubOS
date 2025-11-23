@@ -77,6 +77,67 @@ export default function KitchenDashboardPage() {
     return Math.round(value / 10) * 10;
   }
 
+  function calculateActualMacros(
+    quantities: any,
+    proteinRecipe?: Recipe,
+    carbRecipe?: Recipe,
+    vegetableRecipe?: Recipe,
+    saladRecipe?: Recipe,
+    sauceRecipe?: Recipe
+  ) {
+    let totalKcal = 0;
+    let totalProtein = 0;
+    let totalCarbs = 0;
+    let totalFat = 0;
+
+    if (proteinRecipe && quantities.protein > 0) {
+      const factor = quantities.protein / 100;
+      totalKcal += proteinRecipe.kcal_per_100g * factor;
+      totalProtein += proteinRecipe.protein_per_100g * factor;
+      totalCarbs += proteinRecipe.carb_per_100g * factor;
+      totalFat += proteinRecipe.fat_per_100g * factor;
+    }
+
+    if (carbRecipe && quantities.carb > 0) {
+      const factor = quantities.carb / 100;
+      totalKcal += carbRecipe.kcal_per_100g * factor;
+      totalProtein += carbRecipe.protein_per_100g * factor;
+      totalCarbs += carbRecipe.carb_per_100g * factor;
+      totalFat += carbRecipe.fat_per_100g * factor;
+    }
+
+    if (vegetableRecipe && quantities.vegetable > 0) {
+      const factor = quantities.vegetable / 100;
+      totalKcal += vegetableRecipe.kcal_per_100g * factor;
+      totalProtein += vegetableRecipe.protein_per_100g * factor;
+      totalCarbs += vegetableRecipe.carb_per_100g * factor;
+      totalFat += vegetableRecipe.fat_per_100g * factor;
+    }
+
+    if (saladRecipe && quantities.salad > 0) {
+      const factor = quantities.salad / 100;
+      totalKcal += saladRecipe.kcal_per_100g * factor;
+      totalProtein += saladRecipe.protein_per_100g * factor;
+      totalCarbs += saladRecipe.carb_per_100g * factor;
+      totalFat += saladRecipe.fat_per_100g * factor;
+    }
+
+    if (sauceRecipe && quantities.sauce > 0) {
+      const factor = quantities.sauce / 100;
+      totalKcal += sauceRecipe.kcal_per_100g * factor;
+      totalProtein += sauceRecipe.protein_per_100g * factor;
+      totalCarbs += sauceRecipe.carb_per_100g * factor;
+      totalFat += sauceRecipe.fat_per_100g * factor;
+    }
+
+    return {
+      kcal: Math.round(totalKcal),
+      protein: Math.round(totalProtein * 10) / 10,
+      carbs: Math.round(totalCarbs * 10) / 10,
+      fat: Math.round(totalFat * 10) / 10,
+    };
+  }
+
   function calculateQuantities(
     customer: any,
     mealType: 'lunch' | 'dinner',
@@ -383,16 +444,34 @@ export default function KitchenDashboardPage() {
               </Badge>
             </div>
 
-            {orders.map((order, index) => (
+{orders.map((order, index) => {
+              const mealType = selectedMealType;
+              const targetKcal = ((mealType === 'lunch' ? Number(order.customer.lunch_protein) : Number(order.customer.dinner_protein)) * 4) +
+                                 ((mealType === 'lunch' ? Number(order.customer.lunch_carbs) : Number(order.customer.dinner_carbs)) * 4) +
+                                 ((mealType === 'lunch' ? Number(order.customer.lunch_fat) : Number(order.customer.dinner_fat)) * 9);
+              const targetProtein = mealType === 'lunch' ? Number(order.customer.lunch_protein) : Number(order.customer.dinner_protein);
+              const targetCarbs = mealType === 'lunch' ? Number(order.customer.lunch_carbs) : Number(order.customer.dinner_carbs);
+              const targetFat = mealType === 'lunch' ? Number(order.customer.lunch_fat) : Number(order.customer.dinner_fat);
+
+              const actualMacros = calculateActualMacros(
+                order.quantities,
+                order.menuRecipes.protein,
+                order.menuRecipes.carb,
+                order.menuRecipes.vegetable,
+                order.menuRecipes.salad,
+                order.menuRecipes.sauce
+              );
+
+              return (
               <Card key={`${order.customer.id}-${index}`} className="border-l-4 border-l-orange-500">
-                <CardHeader className="pb-4">
+                <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <CardTitle className="text-xl mb-2">{order.customer.name}</CardTitle>
                       <div className="flex flex-col gap-1 text-sm text-gray-600">
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4 text-orange-600" />
-                          <span className="font-semibold">Horário de entrega:</span>
+                          <span className="font-semibold">Horário:</span>
                           <span className="text-base font-bold text-orange-600">{order.deliverySchedule.delivery_time}</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -419,76 +498,115 @@ export default function KitchenDashboardPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {order.menuRecipes.protein && order.quantities.protein > 0 ? (
-                      <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-lg p-3">
-                        <div>
-                          <span className="text-sm font-semibold text-red-900">Proteína: </span>
-                          <span className="text-sm text-red-700">{order.menuRecipes.protein.name}</span>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-sm text-gray-700 mb-2">Quantidades</h3>
+                      {order.menuRecipes.protein && order.quantities.protein > 0 ? (
+                        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-md p-2">
+                          <div className="flex-1">
+                            <span className="text-xs font-semibold text-red-900">Proteína: </span>
+                            <span className="text-xs text-red-700">{order.menuRecipes.protein.name}</span>
+                          </div>
+                          <span className="text-base font-bold text-red-900 ml-2">{order.quantities.protein}g</span>
                         </div>
-                        <span className="text-lg font-bold text-red-900">{Math.round(order.quantities.protein)}g</span>
-                      </div>
-                    ) : null}
+                      ) : null}
 
-                    {order.menuRecipes.carb && order.quantities.carb > 0 ? (
-                      <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-3">
-                        <div>
-                          <span className="text-sm font-semibold text-amber-900">Carboidrato: </span>
-                          <span className="text-sm text-amber-700">{order.menuRecipes.carb.name}</span>
+                      {order.menuRecipes.carb && order.quantities.carb > 0 ? (
+                        <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-md p-2">
+                          <div className="flex-1">
+                            <span className="text-xs font-semibold text-amber-900">Carboidrato: </span>
+                            <span className="text-xs text-amber-700">{order.menuRecipes.carb.name}</span>
+                          </div>
+                          <span className="text-base font-bold text-amber-900 ml-2">{order.quantities.carb}g</span>
                         </div>
-                        <span className="text-lg font-bold text-amber-900">{Math.round(order.quantities.carb)}g</span>
-                      </div>
-                    ) : null}
+                      ) : null}
 
-                    {order.menuRecipes.vegetable && order.quantities.vegetable > 0 ? (
-                      <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
-                        <div>
-                          <span className="text-sm font-semibold text-green-900">Legumes: </span>
-                          <span className="text-sm text-green-700">{order.menuRecipes.vegetable.name}</span>
+                      {order.menuRecipes.vegetable && order.quantities.vegetable > 0 ? (
+                        <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-md p-2">
+                          <div className="flex-1">
+                            <span className="text-xs font-semibold text-green-900">Legumes: </span>
+                            <span className="text-xs text-green-700">{order.menuRecipes.vegetable.name}</span>
+                          </div>
+                          <span className="text-base font-bold text-green-900 ml-2">{order.quantities.vegetable}g</span>
                         </div>
-                        <span className="text-lg font-bold text-green-900">{Math.round(order.quantities.vegetable)}g</span>
-                      </div>
-                    ) : null}
+                      ) : null}
 
-                    {order.menuRecipes.salad && order.quantities.salad > 0 ? (
-                      <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-                        <div>
-                          <span className="text-sm font-semibold text-emerald-900">Salada: </span>
-                          <span className="text-sm text-emerald-700">{order.menuRecipes.salad.name}</span>
+                      {order.menuRecipes.salad && order.quantities.salad > 0 ? (
+                        <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-md p-2">
+                          <div className="flex-1">
+                            <span className="text-xs font-semibold text-emerald-900">Salada: </span>
+                            <span className="text-xs text-emerald-700">{order.menuRecipes.salad.name}</span>
+                          </div>
+                          <span className="text-base font-bold text-emerald-900 ml-2">{order.quantities.salad}g</span>
                         </div>
-                        <span className="text-lg font-bold text-emerald-900">{Math.round(order.quantities.salad)}g</span>
-                      </div>
-                    ) : null}
+                      ) : null}
 
-                    {order.menuRecipes.sauce ? (
-                      <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <div>
-                          <span className="text-sm font-semibold text-blue-900">Molho Salada: </span>
-                          <span className="text-sm text-blue-700">{order.menuRecipes.sauce.name}</span>
+                      {order.menuRecipes.sauce ? (
+                        <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-md p-2">
+                          <div className="flex-1">
+                            <span className="text-xs font-semibold text-blue-900">Molho: </span>
+                            <span className="text-xs text-blue-700">{order.menuRecipes.sauce.name}</span>
+                          </div>
+                          <span className="text-base font-bold text-blue-900 ml-2">{order.quantities.sauce}g</span>
                         </div>
-                        <span className="text-lg font-bold text-blue-900">{Math.round(order.quantities.sauce)}g</span>
-                      </div>
-                    ) : null}
+                      ) : null}
 
-                    {!order.menuRecipes.protein && !order.menuRecipes.carb && (
-                      <div className="text-center py-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p className="text-sm text-yellow-800">
-                          Nenhum cardápio definido para esta data. Configure o cardápio mensal.
-                        </p>
-                      </div>
-                    )}
+                      {!order.menuRecipes.protein && !order.menuRecipes.carb && (
+                        <div className="text-center py-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                          <p className="text-xs text-yellow-800">
+                            Nenhum cardápio definido
+                          </p>
+                        </div>
+                      )}
 
-                    {order.quantities.protein === 0 && order.quantities.carb === 0 && order.menuRecipes.protein && order.menuRecipes.carb && (
-                      <div className="text-center py-4 bg-amber-50 border border-amber-200 rounded-lg">
-                        <p className="text-sm text-amber-800">
-                          Este cliente precisa ter as metas de macronutrientes configuradas.
-                        </p>
+                      {order.quantities.protein === 0 && order.quantities.carb === 0 && order.menuRecipes.protein && order.menuRecipes.carb && (
+                        <div className="text-center py-3 bg-amber-50 border border-amber-200 rounded-md">
+                          <p className="text-xs text-amber-800">
+                            Metas não configuradas
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-slate-50 border-2 border-slate-300 rounded-lg p-3">
+                      <h3 className="font-semibold text-sm text-slate-900 mb-3 text-center">Macronutrientes</h3>
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-3 gap-2 text-xs font-semibold text-slate-600 border-b border-slate-300 pb-1">
+                          <div></div>
+                          <div className="text-center">Meta</div>
+                          <div className="text-center">Entregue</div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 items-center py-1">
+                          <div className="text-xs font-medium text-slate-700">Kcal</div>
+                          <div className="text-center text-sm font-bold text-slate-900">{Math.round(targetKcal)}</div>
+                          <div className="text-center text-sm font-bold text-orange-600">{actualMacros.kcal}</div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 items-center py-1 bg-red-50 rounded px-1">
+                          <div className="text-xs font-medium text-red-700">Proteína (g)</div>
+                          <div className="text-center text-sm font-bold text-slate-900">{targetProtein}</div>
+                          <div className="text-center text-sm font-bold text-orange-600">{actualMacros.protein}</div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 items-center py-1 bg-amber-50 rounded px-1">
+                          <div className="text-xs font-medium text-amber-700">Carboidrato (g)</div>
+                          <div className="text-center text-sm font-bold text-slate-900">{targetCarbs}</div>
+                          <div className="text-center text-sm font-bold text-orange-600">{actualMacros.carbs}</div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 items-center py-1 bg-yellow-50 rounded px-1">
+                          <div className="text-xs font-medium text-yellow-700">Gordura (g)</div>
+                          <div className="text-center text-sm font-bold text-slate-900">{targetFat}</div>
+                          <div className="text-center text-sm font-bold text-orange-600">{actualMacros.fat}</div>
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
