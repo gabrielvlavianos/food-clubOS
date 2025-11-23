@@ -424,7 +424,15 @@ export default function CustomersPage() {
                     }
                   }
 
-                  console.log(`  ${day} ${meal}: active=${isActive}, time="${rawTime}"→"${deliveryTime}", address="${deliveryAddress}"`);
+                  if (day === 'saturday' || day === 'sunday') {
+                    console.log(`  [WEEKEND DEBUG] ${day} ${meal}:`);
+                    console.log(`    - activeKey: "${activeKey}" → raw value: "${row[activeKey]}" → parsed: ${isActive}`);
+                    console.log(`    - timeKey: "${timeKey}" → raw value: "${rawTime}" → parsed: "${deliveryTime}"`);
+                    console.log(`    - addressKey: "${addressKey}" → raw value: "${rawAddress}" → parsed: "${deliveryAddress}"`);
+                    console.log(`    - Will insert? ${isActive && deliveryTime && deliveryAddress}`);
+                  } else {
+                    console.log(`  ${day} ${meal}: active=${isActive}, time="${rawTime}"→"${deliveryTime}", address="${deliveryAddress}"`);
+                  }
 
                   if (isActive && deliveryTime && deliveryAddress) {
                     const scheduleData = {
