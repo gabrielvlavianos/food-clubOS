@@ -55,9 +55,11 @@ Deno.serve(async (req: Request) => {
       .from('orders')
       .select(`
         id,
-        delivery_date,
+        order_date,
         meal_type,
         status,
+        delivery_address,
+        delivery_time,
         customer_id,
         customers (
           id,
@@ -65,12 +67,22 @@ Deno.serve(async (req: Request) => {
           phone,
           whatsapp
         ),
-        protein,
-        carb,
-        veggie_mix,
-        molho_salada
+        protein_recipe_id,
+        protein_amount_gr,
+        carb_recipe_id,
+        carb_amount_gr,
+        vegetable_recipe_id,
+        vegetable_amount_gr,
+        salad_recipe_id,
+        salad_amount_gr,
+        sauce_recipe_id,
+        sauce_amount_gr,
+        total_calories,
+        total_protein,
+        total_carbs,
+        total_fat
       `)
-      .eq('delivery_date', date)
+      .eq('order_date', date)
       .eq('meal_type', mealType)
       .neq('status', 'cancelled')
       .order('created_at', { ascending: true });
