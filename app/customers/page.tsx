@@ -424,17 +424,19 @@ export default function CustomersPage() {
                     }
                   }
 
+                  const shouldInsert = deliveryTime && deliveryAddress;
+
                   if (day === 'saturday' || day === 'sunday') {
                     console.log(`  [WEEKEND DEBUG] ${day} ${meal}:`);
                     console.log(`    - activeKey: "${activeKey}" → raw value: "${row[activeKey]}" → parsed: ${isActive}`);
                     console.log(`    - timeKey: "${timeKey}" → raw value: "${rawTime}" → parsed: "${deliveryTime}"`);
                     console.log(`    - addressKey: "${addressKey}" → raw value: "${rawAddress}" → parsed: "${deliveryAddress}"`);
-                    console.log(`    - Will insert? ${isActive && deliveryTime && deliveryAddress}`);
+                    console.log(`    - Will insert? ${shouldInsert} (has time AND address)`);
                   } else {
                     console.log(`  ${day} ${meal}: active=${isActive}, time="${rawTime}"→"${deliveryTime}", address="${deliveryAddress}"`);
                   }
 
-                  if (isActive && deliveryTime && deliveryAddress) {
+                  if (shouldInsert) {
                     const scheduleData = {
                       customer_id: insertedCustomer.id,
                       day_of_week: dayOfWeekMap[day],
