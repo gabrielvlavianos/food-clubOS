@@ -74,19 +74,7 @@ const CUSTOMER_COLUMNS: ExcelColumn[] = [
   { header: 'Endereço Sex Almoço', key: 'friday_lunch_address', example: 'Rua A, 123' },
   { header: 'Sexta-Feira Jantar', key: 'friday_dinner', example: 'Não' },
   { header: 'Horário Sex Jantar', key: 'friday_dinner_time', example: '19:00' },
-  { header: 'Endereço Sex Jantar', key: 'friday_dinner_address', example: 'Rua A, 123' },
-  { header: 'Sábado Almoço', key: 'saturday_lunch', example: 'Sim' },
-  { header: 'Horário Sab Almoço', key: 'saturday_lunch_time', example: '12:00' },
-  { header: 'Endereço Sab Almoço', key: 'saturday_lunch_address', example: 'Rua A, 123' },
-  { header: 'Sábado Jantar', key: 'saturday_dinner', example: 'Não' },
-  { header: 'Horário Sab Jantar', key: 'saturday_dinner_time', example: '19:00' },
-  { header: 'Endereço Sab Jantar', key: 'saturday_dinner_address', example: 'Rua A, 123' },
-  { header: 'Domingo Almoço', key: 'sunday_lunch', example: 'Sim' },
-  { header: 'Horário Dom Almoço', key: 'sunday_lunch_time', example: '12:00' },
-  { header: 'Endereço Dom Almoço', key: 'sunday_lunch_address', example: 'Rua A, 123' },
-  { header: 'Domingo Jantar', key: 'sunday_dinner', example: 'Não' },
-  { header: 'Horário Dom Jantar', key: 'sunday_dinner_time', example: '19:00' },
-  { header: 'Endereço Dom Jantar', key: 'sunday_dinner_address', example: 'Rua A, 123' }
+  { header: 'Endereço Sex Jantar', key: 'friday_dinner_address', example: 'Rua A, 123' }
 ];
 
 function parseExcelDate(value: any): string | null {
@@ -381,22 +369,19 @@ export default function CustomersPage() {
             console.error('Failed customer data:', customerData);
             errorCount++;
           } else {
-            const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+            const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
             const meals = ['lunch', 'dinner'];
             const dayOfWeekMap: { [key: string]: number } = {
               'monday': 1,
               'tuesday': 2,
               'wednesday': 3,
               'thursday': 4,
-              'friday': 5,
-              'saturday': 6,
-              'sunday': 0
+              'friday': 5
             };
 
             const hasScheduleColumns = Object.keys(row).some(key =>
               key.includes('monday_') || key.includes('tuesday_') ||
-              key.includes('wednesday_') || key.includes('thursday_') || key.includes('friday_') ||
-              key.includes('saturday_') || key.includes('sunday_')
+              key.includes('wednesday_') || key.includes('thursday_') || key.includes('friday_')
             );
 
             let schedulesInserted = 0;
@@ -426,15 +411,7 @@ export default function CustomersPage() {
 
                   const shouldInsert = deliveryTime && deliveryAddress;
 
-                  if (day === 'saturday' || day === 'sunday') {
-                    console.log(`  [WEEKEND DEBUG] ${day} ${meal}:`);
-                    console.log(`    - activeKey: "${activeKey}" → raw value: "${row[activeKey]}" → parsed: ${isActive}`);
-                    console.log(`    - timeKey: "${timeKey}" → raw value: "${rawTime}" → parsed: "${deliveryTime}"`);
-                    console.log(`    - addressKey: "${addressKey}" → raw value: "${rawAddress}" → parsed: "${deliveryAddress}"`);
-                    console.log(`    - Will insert? ${shouldInsert} (has time AND address)`);
-                  } else {
-                    console.log(`  ${day} ${meal}: active=${isActive}, time="${rawTime}"→"${deliveryTime}", address="${deliveryAddress}"`);
-                  }
+                  console.log(`  ${day} ${meal}: time="${rawTime}"→"${deliveryTime}", address="${deliveryAddress}"`);
 
                   if (shouldInsert) {
                     const scheduleData = {
