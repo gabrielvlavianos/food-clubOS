@@ -113,6 +113,8 @@ export const DAYS_OF_WEEK = [
   { key: 'wednesday', label: 'Quarta-Feira' },
   { key: 'thursday', label: 'Quinta-Feira' },
   { key: 'friday', label: 'Sexta-Feira' },
+  { key: 'saturday', label: 'Sábado' },
+  { key: 'sunday', label: 'Domingo' },
 ] as const;
 
 export const MEAL_TYPES = [

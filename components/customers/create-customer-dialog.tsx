@@ -143,6 +143,8 @@ export function CreateCustomerDialog({
         'wednesday': 3,
         'thursday': 4,
         'friday': 5,
+        'saturday': 6,
+        'sunday': 7,
       };
 
       const schedules = Object.entries(deliverySchedules)
