@@ -25,9 +25,10 @@ Deno.serve(async (req: Request) => {
 
     if (!date) {
       const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
+      const brazilTime = new Date(today.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      const year = brazilTime.getFullYear();
+      const month = String(brazilTime.getMonth() + 1).padStart(2, '0');
+      const day = String(brazilTime.getDate()).padStart(2, '0');
       date = `${year}-${month}-${day}`;
     }
 
