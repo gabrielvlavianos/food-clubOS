@@ -76,6 +76,34 @@ Deno.serve(async (req: Request) => {
       statusData?.map((s: any) => [s.customer_id, s]) || []
     );
 
+    const { data: menuData } = await supabase
+      .from('monthly_menu')
+      .select(`
+        *,
+        protein_recipe:recipes!monthly_menu_protein_recipe_id_fkey(name),
+        carb_recipe:recipes!monthly_menu_carb_recipe_id_fkey(name),
+        vegetable_recipe:recipes!monthly_menu_vegetable_recipe_id_fkey(name),
+        salad_recipe:recipes!monthly_menu_salad_recipe_id_fkey(name),
+        sauce_recipe:recipes!monthly_menu_sauce_recipe_id_fkey(name)
+      `)
+      .eq('menu_date', date)
+      .eq('meal_type', mealType)
+      .maybeSingle();
+
+    const menu = menuData ? {
+      protein: menuData.protein_recipe?.name || null,
+      carb: menuData.carb_recipe?.name || null,
+      vegetable: menuData.vegetable_recipe?.name || null,
+      salad: menuData.salad_recipe?.name || null,
+      sauce: menuData.sauce_recipe?.name || null,
+    } : {
+      protein: null,
+      carb: null,
+      vegetable: null,
+      salad: null,
+      sauce: null,
+    };
+
     const orders = [];
 
     for (const customer of customersData || []) {
@@ -89,16 +117,6 @@ Deno.serve(async (req: Request) => {
       if (deliverySchedule && deliverySchedule.delivery_time && deliverySchedule.delivery_address) {
         const orderStatus = statusMap.get(customer.id);
 
-        const macros = mealType === 'lunch' ? {
-          protein: customer.lunch_protein || 0,
-          carbs: customer.lunch_carbs || 0,
-          fat: customer.lunch_fat || 0,
-        } : {
-          protein: customer.dinner_protein || 0,
-          carbs: customer.dinner_carbs || 0,
-          fat: customer.dinner_fat || 0,
-        };
-
         orders.push({
           customer: {
             id: customer.id,
@@ -111,10 +129,12 @@ Deno.serve(async (req: Request) => {
             time: deliverySchedule.delivery_time,
             dayOfWeek: adjustedDayOfWeek,
           },
-          macros: {
-            protein: macros.protein,
-            carbs: macros.carbs,
-            fat: macros.fat,
+          meal: {
+            protein: menu.protein,
+            carb: menu.carb,
+            vegetable: menu.vegetable,
+            salad: menu.salad,
+            sauce: menu.sauce,
           },
           status: {
             kitchen: orderStatus?.kitchen_status || 'pending',
