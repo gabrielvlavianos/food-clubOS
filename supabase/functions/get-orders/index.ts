@@ -43,7 +43,7 @@ Deno.serve(async (req: Request) => {
 
     if (mealType !== 'lunch' && mealType !== 'dinner') {
       return new Response(
-        JSON.stringify({ error: 'mealType must be either "lunch" or "dinner"' }),
+        JSON.stringify({ error: 'mealType must be either \"lunch\" or \"dinner\"' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -51,52 +51,76 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data: orders, error } = await supabase
-      .from('orders')
-      .select(`
-        id,
-        order_date,
-        meal_type,
-        status,
-        delivery_address,
-        delivery_time,
-        customer_id,
-        customers (
-          id,
-          name,
-          phone,
-          whatsapp
-        ),
-        protein_recipe_id,
-        protein_amount_gr,
-        carb_recipe_id,
-        carb_amount_gr,
-        vegetable_recipe_id,
-        vegetable_amount_gr,
-        salad_recipe_id,
-        salad_amount_gr,
-        sauce_recipe_id,
-        sauce_amount_gr,
-        total_calories,
-        total_protein,
-        total_carbs,
-        total_fat
-      `)
-      .eq('order_date', date)
-      .eq('meal_type', mealType)
-      .neq('status', 'cancelled')
-      .order('created_at', { ascending: true });
+    const dateObj = new Date(date + 'T12:00:00');
+    const dayOfWeek = dateObj.getDay();
+    const adjustedDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
 
-    if (error) {
-      throw error;
+    const { data: customersData, error: customersError } = await supabase
+      .from('customers')
+      .select(`
+        *,
+        delivery_schedules!delivery_schedules_customer_id_fkey(*)
+      `)
+      .eq('is_active', true);
+
+    if (customersError) throw customersError;
+
+    const { data: statusData } = await supabase
+      .from('order_status')
+      .select('*')
+      .eq('order_date', date)
+      .eq('meal_type', mealType);
+
+    const statusMap = new Map(
+      statusData?.map((s: any) => [s.customer_id, s]) || []
+    );
+
+    const orders = [];
+
+    for (const customer of customersData || []) {
+      const deliverySchedule = customer.delivery_schedules?.find(
+        (ds: any) =>
+          ds.day_of_week === adjustedDayOfWeek &&
+          ds.meal_type === mealType &&
+          ds.is_active
+      );
+
+      if (deliverySchedule && deliverySchedule.delivery_time && deliverySchedule.delivery_address) {
+        const orderStatus = statusMap.get(customer.id);
+
+        orders.push({
+          customer: {
+            id: customer.id,
+            name: customer.name,
+            phone: customer.phone,
+            whatsapp: customer.whatsapp,
+          },
+          delivery: {
+            address: deliverySchedule.delivery_address,
+            time: deliverySchedule.delivery_time,
+            dayOfWeek: adjustedDayOfWeek,
+          },
+          status: {
+            kitchen: orderStatus?.kitchen_status || 'pending',
+            delivery: orderStatus?.delivery_status || 'not_started',
+          },
+        });
+      }
     }
+
+    orders.sort((a, b) => {
+      const timeA = a.delivery.time || '';
+      const timeB = b.delivery.time || '';
+      return timeA.localeCompare(timeB);
+    });
 
     return new Response(
       JSON.stringify({
         date,
         mealType,
-        totalOrders: orders?.length || 0,
-        orders: orders || [],
+        dayOfWeek: adjustedDayOfWeek,
+        totalOrders: orders.length,
+        orders,
       }),
       {
         status: 200,
