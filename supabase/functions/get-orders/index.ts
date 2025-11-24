@@ -44,7 +44,7 @@ Deno.serve(async (req: Request) => {
 
     if (mealType !== 'lunch' && mealType !== 'dinner') {
       return new Response(
-        JSON.stringify({ error: 'mealType must be either \"lunch\" or \"dinner\"' }),
+        JSON.stringify({ error: 'mealType must be either "lunch" or "dinner"' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -89,6 +89,16 @@ Deno.serve(async (req: Request) => {
       if (deliverySchedule && deliverySchedule.delivery_time && deliverySchedule.delivery_address) {
         const orderStatus = statusMap.get(customer.id);
 
+        const macros = mealType === 'lunch' ? {
+          protein: customer.lunch_protein || 0,
+          carbs: customer.lunch_carbs || 0,
+          fat: customer.lunch_fat || 0,
+        } : {
+          protein: customer.dinner_protein || 0,
+          carbs: customer.dinner_carbs || 0,
+          fat: customer.dinner_fat || 0,
+        };
+
         orders.push({
           customer: {
             id: customer.id,
@@ -100,6 +110,11 @@ Deno.serve(async (req: Request) => {
             address: deliverySchedule.delivery_address,
             time: deliverySchedule.delivery_time,
             dayOfWeek: adjustedDayOfWeek,
+          },
+          macros: {
+            protein: macros.protein,
+            carbs: macros.carbs,
+            fat: macros.fat,
           },
           status: {
             kitchen: orderStatus?.kitchen_status || 'pending',
