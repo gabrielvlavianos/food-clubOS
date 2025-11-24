@@ -48,16 +48,23 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const botconversaApiKey = Deno.env.get('BOTCONVERSA_API_KEY');
-    if (!botconversaApiKey) {
+    const { data: settingsData, error: settingsError } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'botconversa_api_key')
+      .maybeSingle();
+
+    if (settingsError || !settingsData) {
       return new Response(
-        JSON.stringify({ error: 'BOTCONVERSA_API_KEY não configurada' }),
+        JSON.stringify({ error: 'BOTCONVERSA_API_KEY não configurada no banco de dados' }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
+
+    const botconversaApiKey = settingsData.value;
 
     // Buscar pedidos ativos do dia e turno especificado
     const { data: orders, error: ordersError } = await supabase
