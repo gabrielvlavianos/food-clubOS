@@ -28,17 +28,21 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { order_date, meal_type } = await req.json();
+    const body = await req.json();
+    const meal_type = body.meal_type;
 
-    if (!order_date || !meal_type) {
+    if (!meal_type) {
       return new Response(
-        JSON.stringify({ error: 'order_date e meal_type são obrigatórios' }),
+        JSON.stringify({ error: 'meal_type é obrigatório' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
+
+    // Usar data de hoje se não for informada
+    const order_date = body.order_date || new Date().toISOString().split('T')[0];
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
