@@ -202,11 +202,18 @@ export default function RecipesPage() {
       loadRecipes();
       setShowDeleteDialog(false);
       setRecipeToDelete(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting recipe:', error);
+
+      // Check if error is due to recipe being in use
+      const errorMessage = error?.message || '';
+      const isInUse = errorMessage.includes('being used in existing orders');
+
       toast({
-        title: 'Erro',
-        description: 'Não foi possível excluir a receita.',
+        title: 'Erro ao excluir',
+        description: isInUse
+          ? 'Esta receita não pode ser excluída porque está sendo usada em pedidos existentes.'
+          : 'Não foi possível excluir a receita.',
         variant: 'destructive'
       });
     } finally {

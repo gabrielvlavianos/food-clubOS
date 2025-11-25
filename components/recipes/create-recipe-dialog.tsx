@@ -67,11 +67,18 @@ export function CreateRecipeDialog({
       resetForm();
       onOpenChange(false);
       onCreated();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating recipe:', error);
+
+      // Check if error is due to duplicate name
+      const errorMessage = error?.message || '';
+      const isDuplicate = errorMessage.includes('idx_recipes_name_unique') || errorMessage.includes('duplicate');
+
       toast({
-        title: 'Erro',
-        description: 'Não foi possível criar a receita',
+        title: 'Erro ao criar receita',
+        description: isDuplicate
+          ? 'Já existe uma receita com este nome. Por favor, use um nome diferente.'
+          : 'Não foi possível criar a receita',
         variant: 'destructive',
       });
     } finally {

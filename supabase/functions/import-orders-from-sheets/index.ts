@@ -263,8 +263,29 @@ Deno.serve(async (req: Request) => {
       const modifications: any = {};
       if (newAddress) modifications.modified_delivery_address = newAddress;
       if (newTime) modifications.modified_delivery_time = newTime;
-      if (newProtein) modifications.modified_protein_name = newProtein;
-      if (newCarb) modifications.modified_carb_name = newCarb;
+
+      // Convert recipe names to IDs using the database function
+      if (newProtein) {
+        const { data: proteinId } = await supabase.rpc('find_recipe_by_name', { recipe_name: newProtein });
+        if (proteinId) {
+          modifications.protein_recipe_id = proteinId;
+          modifications.modified_protein_name = newProtein;
+        } else {
+          console.log(`Warning: Recipe not found for protein: ${newProtein}`);
+          modifications.modified_protein_name = newProtein;
+        }
+      }
+
+      if (newCarb) {
+        const { data: carbId } = await supabase.rpc('find_recipe_by_name', { recipe_name: newCarb });
+        if (carbId) {
+          modifications.carb_recipe_id = carbId;
+          modifications.modified_carb_name = newCarb;
+        } else {
+          console.log(`Warning: Recipe not found for carb: ${newCarb}`);
+          modifications.modified_carb_name = newCarb;
+        }
+      }
 
       if (existingOrder) {
         const { error: updateError } = await supabase
@@ -283,20 +304,30 @@ Deno.serve(async (req: Request) => {
           debugLog.push({ name, phone, status: 'modified_updated', modifications });
         }
       } else {
+        const orderData: any = {
+          customer_id: customer.id,
+          order_date: date,
+          meal_type: mealType,
+          status: 'pending',
+          delivery_time: customerSchedule.delivery_time,
+          delivery_address: customerSchedule.delivery_address,
+          modified_delivery_address: modifications.modified_delivery_address || null,
+          modified_delivery_time: modifications.modified_delivery_time || null,
+          modified_protein_name: modifications.modified_protein_name || null,
+          modified_carb_name: modifications.modified_carb_name || null,
+        };
+
+        // Add recipe IDs if found
+        if (modifications.protein_recipe_id) {
+          orderData.protein_recipe_id = modifications.protein_recipe_id;
+        }
+        if (modifications.carb_recipe_id) {
+          orderData.carb_recipe_id = modifications.carb_recipe_id;
+        }
+
         const { error: insertError } = await supabase
           .from('orders')
-          .insert({
-            customer_id: customer.id,
-            order_date: date,
-            meal_type: mealType,
-            status: 'pending',
-            delivery_time: customerSchedule.delivery_time,
-            delivery_address: customerSchedule.delivery_address,
-            modified_delivery_address: modifications.modified_delivery_address || null,
-            modified_delivery_time: modifications.modified_delivery_time || null,
-            modified_protein_name: modifications.modified_protein_name || null,
-            modified_carb_name: modifications.modified_carb_name || null,
-          });
+          .insert(orderData);
 
         if (insertError) {
           console.error(`Error creating order:`, insertError);

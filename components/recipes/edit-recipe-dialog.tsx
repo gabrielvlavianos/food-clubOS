@@ -114,11 +114,18 @@ export function EditRecipeDialog({ recipe, open, onOpenChange, onUpdated }: Edit
 
       onUpdated();
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating recipe:', error);
+
+      // Check if error is due to duplicate name
+      const errorMessage = error?.message || '';
+      const isDuplicate = errorMessage.includes('idx_recipes_name_unique') || errorMessage.includes('duplicate');
+
       toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar a receita.',
+        title: 'Erro ao atualizar receita',
+        description: isDuplicate
+          ? 'Já existe uma receita com este nome. Por favor, use um nome diferente.'
+          : 'Não foi possível atualizar a receita.',
         variant: 'destructive'
       });
     } finally {
