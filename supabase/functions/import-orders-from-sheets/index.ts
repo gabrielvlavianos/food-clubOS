@@ -161,15 +161,11 @@ Deno.serve(async (req: Request) => {
       const name = row[0];
       const phone = row[1];
       const newAddress = row[11];
+      const newTime = row[12];
       const newProtein = row[13];
       const newCarb = row[14];
-      const newVegetables = null;
-      const newStarch = null;
-      const newSauce = null;
-      const newFruit = null;
-      const newFat = null;
 
-      console.log(`Processing row: ${name}, ${phone}, newAddress: ${newAddress}, newProtein: ${newProtein}`);
+      console.log(`Processing row: ${name}, ${phone}, newAddress: ${newAddress}, newTime: ${newTime}, newProtein: ${newProtein}, newCarb: ${newCarb}`);
 
       if (!phone || !name) {
         console.log(`Skipping row - missing phone or name`);
@@ -256,7 +252,7 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      const hasModifications = newAddress || newProtein || newCarb;
+      const hasModifications = newAddress || newTime || newProtein || newCarb;
 
       if (!hasModifications) {
         console.log(`No modifications for ${name}`);
@@ -266,6 +262,7 @@ Deno.serve(async (req: Request) => {
 
       const modifications: any = {};
       if (newAddress) modifications.modified_delivery_address = newAddress;
+      if (newTime) modifications.modified_delivery_time = newTime;
       if (newProtein) modifications.modified_protein_name = newProtein;
       if (newCarb) modifications.modified_carb_name = newCarb;
 
@@ -296,6 +293,7 @@ Deno.serve(async (req: Request) => {
             delivery_time: customerSchedule.delivery_time,
             delivery_address: customerSchedule.delivery_address,
             modified_delivery_address: modifications.modified_delivery_address || null,
+            modified_delivery_time: modifications.modified_delivery_time || null,
             modified_protein_name: modifications.modified_protein_name || null,
             modified_carb_name: modifications.modified_carb_name || null,
           });
