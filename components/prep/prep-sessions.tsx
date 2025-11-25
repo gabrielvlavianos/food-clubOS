@@ -111,7 +111,7 @@ export function PrepSessions() {
       {sessions.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center text-gray-500">
-            Nenhuma sessão de preparo criada. Clique em "Nova Sessão" para começar.
+            Nenhuma sessão de preparo criada. Clique em &quot;Nova Sessão&quot; para começar.
           </CardContent>
         </Card>
       )}

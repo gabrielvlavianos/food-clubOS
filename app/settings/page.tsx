@@ -370,7 +370,7 @@ export default function SettingsPage() {
                     <strong>Exportação Automática:</strong>
                   </p>
                   <p className="text-sm text-blue-800 mb-2">
-                    Os pedidos são exportados automaticamente todos os dias às 8:00 da manhã (horário de Brasília) para as abas "Almoço" e "Jantar" do Google Sheets.
+                    Os pedidos são exportados automaticamente todos os dias às 8:00 da manhã (horário de Brasília) para as abas &quot;Almoço&quot; e &quot;Jantar&quot; do Google Sheets.
                   </p>
                   <p className="text-sm text-blue-800">
                     Use o botão abaixo caso precise atualizar manualmente os dados após fazer alguma alteração no sistema.
