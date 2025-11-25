@@ -20,6 +20,7 @@ interface DeliveryOrder {
   kitchenStatus: 'pending' | 'preparing' | 'ready';
   deliveryStatus: 'not_started' | 'driver_requested' | 'in_route' | 'delivered';
   pickupTime: string;
+  isCancelled?: boolean;
 }
 
 export default function ExpeditionPage() {
@@ -61,8 +62,7 @@ export default function ExpeditionPage() {
         .from('orders')
         .select('*')
         .eq('order_date', selectedDate)
-        .eq('meal_type', selectedMealType)
-        .eq('is_cancelled', false);
+        .eq('meal_type', selectedMealType);
 
       const modifiedOrdersMap = new Map(
         modifiedOrdersData?.map((o: any) => [o.customer_id, o]) || []
@@ -117,6 +117,7 @@ export default function ExpeditionPage() {
             kitchenStatus: orderStatus?.kitchen_status || 'pending',
             deliveryStatus: orderStatus?.delivery_status || 'not_started',
             pickupTime,
+            isCancelled: modifiedOrder?.is_cancelled || false,
           });
         }
       }
@@ -268,11 +269,16 @@ export default function ExpeditionPage() {
             </div>
 
             {orders.map((order, index) => (
-              <Card key={`${order.customer.id}-${index}`} className="border-l-4 border-l-blue-500">
+              <Card key={`${order.customer.id}-${index}`} className={`border-l-4 ${order.isCancelled ? 'border-l-red-400 bg-red-50/30' : 'border-l-blue-500'}`}>
                 <CardHeader className="pb-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
-                      <CardTitle className="text-xl mb-3">{order.customer.name}</CardTitle>
+                      <div className="flex items-center gap-2 mb-3">
+                        <CardTitle className="text-xl">{order.customer.name}</CardTitle>
+                        {order.isCancelled && (
+                          <Badge variant="destructive" className="bg-red-500">CANCELADO</Badge>
+                        )}
+                      </div>
 
                       <div className="space-y-2 text-sm">
                         <div className="flex items-center gap-2 text-gray-700">

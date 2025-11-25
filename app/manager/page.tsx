@@ -25,6 +25,7 @@ interface ManagerOrder {
   deliverySchedule: DeliverySchedule;
   orderStatus: OrderStatus;
   pickupTime: string;
+  isCancelled?: boolean;
 }
 
 type KanbanStage = 'not_started' | 'kitchen' | 'expedition' | 'in_route' | 'delivered';
@@ -90,8 +91,7 @@ export default function ManagerPage() {
         .from('orders')
         .select('*')
         .eq('order_date', selectedDate)
-        .eq('meal_type', selectedMealType)
-        .eq('is_cancelled', false);
+        .eq('meal_type', selectedMealType);
 
       const modifiedOrdersMap = new Map(
         modifiedOrdersData?.map((o: any) => [o.customer_id, o]) || []
@@ -151,6 +151,7 @@ export default function ManagerPage() {
             deliverySchedule,
             orderStatus,
             pickupTime,
+            isCancelled: modifiedOrder?.is_cancelled || false,
           });
         }
       }
@@ -208,14 +209,22 @@ export default function ManagerPage() {
     };
 
     const config = stageConfig[stage];
+    const cardClass = order.isCancelled
+      ? 'bg-red-50/50 border-red-300 border-2 mb-3'
+      : `${config.color} border-2 mb-3 hover:shadow-md transition-shadow`;
 
     return (
-      <Card className={`${config.color} border-2 mb-3 hover:shadow-md transition-shadow`}>
+      <Card className={cardClass}>
         <CardContent className="p-4">
           <div className="space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <h4 className="font-bold text-gray-900 text-base mb-1">{order.customer.name}</h4>
+                <div className="flex items-center gap-2 mb-1">
+                  <h4 className="font-bold text-gray-900 text-base">{order.customer.name}</h4>
+                  {order.isCancelled && (
+                    <Badge variant="destructive" className="bg-red-500 text-xs">CANCELADO</Badge>
+                  )}
+                </div>
                 <Badge className={`${config.badgeColor} text-xs px-2 py-1`}>
                   {config.statusText}
                 </Badge>

@@ -33,6 +33,7 @@ interface KitchenOrder {
     sauce: number;
   };
   status: 'pending' | 'preparing' | 'ready';
+  isCancelled?: boolean;
 }
 
 export default function KitchenDashboardPage() {
@@ -228,8 +229,7 @@ export default function KitchenDashboardPage() {
         .from('orders')
         .select('*')
         .eq('order_date', selectedDate)
-        .eq('meal_type', selectedMealType)
-        .eq('is_cancelled', false);
+        .eq('meal_type', selectedMealType);
 
       const modifiedOrdersMap = new Map(
         modifiedOrdersData?.map((o: any) => [o.customer_id, o]) || []
@@ -345,6 +345,7 @@ export default function KitchenDashboardPage() {
             menuRecipes: customMenuRecipes,
             quantities,
             status: orderStatus?.kitchen_status || 'pending',
+            isCancelled: modifiedOrder.is_cancelled || false,
           });
         } else {
           const deliverySchedule = customerData.delivery_schedules?.find(
@@ -525,11 +526,16 @@ export default function KitchenDashboardPage() {
               );
 
               return (
-              <Card key={`${order.customer.id}-${index}`} className="border-l-4 border-l-orange-500">
+              <Card key={`${order.customer.id}-${index}`} className={`border-l-4 ${order.isCancelled ? 'border-l-red-400 bg-red-50/30' : 'border-l-orange-500'}`}>
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-xl mb-2">{order.customer.name}</CardTitle>
+                      <div className="flex items-center gap-2 mb-2">
+                        <CardTitle className="text-xl">{order.customer.name}</CardTitle>
+                        {order.isCancelled && (
+                          <Badge variant="destructive" className="bg-red-500">CANCELADO</Badge>
+                        )}
+                      </div>
                       <div className="flex flex-col gap-1 text-sm text-gray-600">
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4 text-orange-600" />
