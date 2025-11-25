@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Save, RefreshCw, Upload, Download, Sheet } from 'lucide-react';
+import { Settings, Save, RefreshCw, Upload, Download, Sheet, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface GlobalSettings {
@@ -39,6 +39,8 @@ export default function SettingsPage() {
   const [sheetsLoading, setSheetsLoading] = useState(false);
   const [sheetsSaving, setSheetsSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [importingLunch, setImportingLunch] = useState(false);
+  const [importingDinner, setImportingDinner] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -215,6 +217,72 @@ export default function SettingsPage() {
     }
   }
 
+  async function importLunchFromSheets() {
+    setImportingLunch(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/import-orders-from-sheets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          date: today,
+          mealType: 'lunch',
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`Almoço: ${result.updatedCount} pedidos atualizados, ${result.cancelledCount} cancelados`);
+      } else {
+        toast.error(`Erro ao importar almoço: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error importing lunch:', error);
+      toast.error('Erro ao importar dados do almoço');
+    } finally {
+      setImportingLunch(false);
+    }
+  }
+
+  async function importDinnerFromSheets() {
+    setImportingDinner(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/import-orders-from-sheets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          date: today,
+          mealType: 'dinner',
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`Jantar: ${result.updatedCount} pedidos atualizados, ${result.cancelledCount} cancelados`);
+      } else {
+        toast.error(`Erro ao importar jantar: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error importing dinner:', error);
+      toast.error('Erro ao importar dados do jantar');
+    } finally {
+      setImportingDinner(false);
+    }
+  }
+
 
   function handleSheetsChange(field: keyof SheetsSettings, value: string) {
     setSheetsSettings(prev => ({ ...prev, [field]: value }));
@@ -370,7 +438,7 @@ export default function SettingsPage() {
                     <strong>Exportação Automática:</strong>
                   </p>
                   <p className="text-sm text-blue-800 mb-2">
-                    Os pedidos são exportados automaticamente todos os dias às 8:00 da manhã (horário de Brasília) para as abas &quot;Almoço&quot; e &quot;Jantar&quot; do Google Sheets.
+                    Os pedidos são exportados automaticamente todos os dias às 6:00 da manhã (horário de Brasília) para as abas &quot;Almoço&quot; e &quot;Jantar&quot; do Google Sheets.
                   </p>
                   <p className="text-sm text-blue-800">
                     Use o botão abaixo caso precise atualizar manualmente os dados após fazer alguma alteração no sistema.
@@ -398,13 +466,90 @@ export default function SettingsPage() {
                   </Button>
                 </div>
 
+                <div className="border-t border-gray-200 my-8 pt-8">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Importar Alterações dos Clientes
+                  </h3>
+
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+                    <p className="text-sm text-purple-900 mb-3">
+                      <strong>Importação Automática:</strong>
+                    </p>
+                    <p className="text-sm text-purple-800 mb-2">
+                      <strong>Almoço:</strong> 10:00, 10:30 e 11:00
+                    </p>
+                    <p className="text-sm text-purple-800 mb-3">
+                      <strong>Jantar:</strong> 16:00, 16:30 e 17:00
+                    </p>
+                    <p className="text-sm text-purple-800">
+                      Use os botões abaixo para importar manualmente as alterações dos clientes (cancelamentos, mudanças de endereço, horário, proteína e carboidrato).
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Button
+                      onClick={importLunchFromSheets}
+                      disabled={importingLunch}
+                      size="lg"
+                      variant="outline"
+                      className="h-16 text-lg"
+                    >
+                      {importingLunch ? (
+                        <>
+                          <RefreshCw className="h-5 w-5 mr-3 animate-spin" />
+                          Importando Almoço...
+                        </>
+                      ) : (
+                        <>
+                          <FileDown className="h-5 w-5 mr-3" />
+                          Importar Almoço
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={importDinnerFromSheets}
+                      disabled={importingDinner}
+                      size="lg"
+                      variant="outline"
+                      className="h-16 text-lg"
+                    >
+                      {importingDinner ? (
+                        <>
+                          <RefreshCw className="h-5 w-5 mr-3 animate-spin" />
+                          Importando Jantar...
+                        </>
+                      ) : (
+                        <>
+                          <FileDown className="h-5 w-5 mr-3" />
+                          Importar Jantar
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <p className="text-sm text-green-900 mb-2">
-                    <strong>Formato da Planilha:</strong>
+                    <strong>Formato da Planilha (Exportação):</strong>
                   </p>
                   <p className="text-xs text-green-800 font-mono">
-                    Nome | Telefone | Endereço | Horário | Proteína | Carboidrato | Legumes | Salada | Molho Salada | Refeição
+                    Nome | Telefone | Endereço | Data | Horário | Proteína | Carboidrato | Legumes | Salada | Molho Salada | Refeição
                   </p>
+                </div>
+
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <p className="text-sm text-orange-900 mb-2">
+                    <strong>Colunas de Importação:</strong>
+                  </p>
+                  <p className="text-xs text-orange-800 mb-3 font-mono">
+                    Novo Endereço | Novo Horário | Nova Proteína | Novo Carboidrato
+                  </p>
+                  <ul className="text-xs text-orange-800 space-y-1 list-disc list-inside">
+                    <li>Se &quot;Novo Endereço&quot; = &quot;Cancelado&quot; → pedido é cancelado</li>
+                    <li>Alterações aplicam apenas para a refeição do dia</li>
+                    <li>Se vazio, usa o valor padrão da programação</li>
+                  </ul>
                 </div>
 
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">

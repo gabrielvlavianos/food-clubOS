@@ -223,6 +223,17 @@ export default function KitchenDashboardPage() {
 
       if (customersError) throw customersError;
 
+      const { data: modifiedOrdersData } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('delivery_date', selectedDate)
+        .eq('meal_type', selectedMealType)
+        .neq('status', 'cancelled');
+
+      const modifiedOrdersMap = new Map(
+        modifiedOrdersData?.map((o: any) => [o.customer_id, o]) || []
+      );
+
       const { data: statusData } = await supabase
         .from('order_status')
         .select('*')
@@ -280,21 +291,44 @@ export default function KitchenDashboardPage() {
 
       for (const customer of customersData || []) {
         const customerData = customer as any;
-        const deliverySchedule = customerData.delivery_schedules?.find(
-          (ds: any) =>
-            ds.day_of_week === adjustedDayOfWeek &&
-            ds.meal_type === selectedMealType &&
-            ds.is_active
-        );
+        const modifiedOrder = modifiedOrdersMap.get(customerData.id);
 
-        if (deliverySchedule && deliverySchedule.delivery_time && deliverySchedule.delivery_address) {
+        if (modifiedOrder) {
+          const deliverySchedule = {
+            ...customerData.delivery_schedules?.[0],
+            delivery_time: modifiedOrder.delivery_time,
+            delivery_address: modifiedOrder.delivery_address,
+          };
+
+          const customMenuRecipes: any = { ...menuRecipes };
+          const proteinName = menuRecipes.protein ? (menuRecipes.protein as any).name : '';
+          const carbName = menuRecipes.carb ? (menuRecipes.carb as any).name : '';
+
+          if (modifiedOrder.protein && modifiedOrder.protein !== proteinName) {
+            const { data: customProtein } = await supabase
+              .from('recipes')
+              .select('*')
+              .eq('name', modifiedOrder.protein)
+              .maybeSingle();
+            if (customProtein) customMenuRecipes.protein = customProtein;
+          }
+
+          if (modifiedOrder.carbohydrate && modifiedOrder.carbohydrate !== carbName) {
+            const { data: customCarb } = await supabase
+              .from('recipes')
+              .select('*')
+              .eq('name', modifiedOrder.carbohydrate)
+              .maybeSingle();
+            if (customCarb) customMenuRecipes.carb = customCarb;
+          }
+
           const quantities = calculateQuantities(
             customerData,
             selectedMealType,
-            menuRecipes.protein,
-            menuRecipes.carb,
-            menuRecipes.vegetable,
-            menuRecipes.salad
+            customMenuRecipes.protein,
+            customMenuRecipes.carb,
+            customMenuRecipes.vegetable,
+            customMenuRecipes.salad
           );
 
           const orderStatus = statusMap.get(customerData.id);
@@ -302,10 +336,38 @@ export default function KitchenDashboardPage() {
           kitchenOrders.push({
             customer,
             deliverySchedule,
-            menuRecipes,
+            menuRecipes: customMenuRecipes,
             quantities,
             status: orderStatus?.kitchen_status || 'pending',
           });
+        } else {
+          const deliverySchedule = customerData.delivery_schedules?.find(
+            (ds: any) =>
+              ds.day_of_week === adjustedDayOfWeek &&
+              ds.meal_type === selectedMealType &&
+              ds.is_active
+          );
+
+          if (deliverySchedule && deliverySchedule.delivery_time && deliverySchedule.delivery_address) {
+            const quantities = calculateQuantities(
+              customerData,
+              selectedMealType,
+              menuRecipes.protein,
+              menuRecipes.carb,
+              menuRecipes.vegetable,
+              menuRecipes.salad
+            );
+
+            const orderStatus = statusMap.get(customerData.id);
+
+            kitchenOrders.push({
+              customer,
+              deliverySchedule,
+              menuRecipes,
+              quantities,
+              status: orderStatus?.kitchen_status || 'pending',
+            });
+          }
         }
       }
 

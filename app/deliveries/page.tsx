@@ -57,6 +57,17 @@ export default function ExpeditionPage() {
 
       if (customersError) throw customersError;
 
+      const { data: modifiedOrdersData } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('delivery_date', selectedDate)
+        .eq('meal_type', selectedMealType)
+        .neq('status', 'cancelled');
+
+      const modifiedOrdersMap = new Map(
+        modifiedOrdersData?.map((o: any) => [o.customer_id, o]) || []
+      );
+
       const { data: statusData } = await supabase
         .from('order_status')
         .select('*')
@@ -71,12 +82,24 @@ export default function ExpeditionPage() {
 
       for (const customer of customersData || []) {
         const customerData = customer as any;
-        const deliverySchedule = customerData.delivery_schedules?.find(
-          (ds: any) =>
-            ds.day_of_week === adjustedDayOfWeek &&
-            ds.meal_type === selectedMealType &&
-            ds.is_active
-        );
+        const modifiedOrder = modifiedOrdersMap.get(customerData.id);
+
+        let deliverySchedule;
+
+        if (modifiedOrder) {
+          deliverySchedule = {
+            ...customerData.delivery_schedules?.[0],
+            delivery_time: modifiedOrder.delivery_time,
+            delivery_address: modifiedOrder.delivery_address,
+          };
+        } else {
+          deliverySchedule = customerData.delivery_schedules?.find(
+            (ds: any) =>
+              ds.day_of_week === adjustedDayOfWeek &&
+              ds.meal_type === selectedMealType &&
+              ds.is_active
+          );
+        }
 
         if (deliverySchedule && deliverySchedule.delivery_time && deliverySchedule.delivery_address) {
           const pickupTime = calculatePickupTime(deliverySchedule.delivery_time);
