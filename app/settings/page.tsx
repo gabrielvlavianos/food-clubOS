@@ -39,7 +39,6 @@ export default function SettingsPage() {
   const [sheetsLoading, setSheetsLoading] = useState(false);
   const [sheetsSaving, setSheetsSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -166,13 +165,13 @@ export default function SettingsPage() {
     }
   }
 
-  async function testExport(mealType: 'lunch' | 'dinner') {
+  async function exportTodayToSheets() {
     setExporting(true);
     try {
       const today = new Date().toISOString().split('T')[0];
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/export-orders-to-sheets`, {
+      const lunchResponse = await fetch(`${supabaseUrl}/functions/v1/export-orders-to-sheets`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -180,16 +179,33 @@ export default function SettingsPage() {
         },
         body: JSON.stringify({
           date: today,
-          mealType,
+          mealType: 'lunch',
         }),
       });
 
-      const result = await response.json();
+      const lunchResult = await lunchResponse.json();
 
-      if (result.success) {
-        toast.success(result.message);
+      const dinnerResponse = await fetch(`${supabaseUrl}/functions/v1/export-orders-to-sheets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          date: today,
+          mealType: 'dinner',
+        }),
+      });
+
+      const dinnerResult = await dinnerResponse.json();
+
+      if (lunchResult.success && dinnerResult.success) {
+        toast.success(`Exportado com sucesso! Almoço: ${lunchResult.totalRows} pedidos, Jantar: ${dinnerResult.totalRows} pedidos`);
       } else {
-        toast.error(result.error || 'Erro ao exportar');
+        const errors = [];
+        if (!lunchResult.success) errors.push(`Almoço: ${lunchResult.error}`);
+        if (!dinnerResult.success) errors.push(`Jantar: ${dinnerResult.error}`);
+        toast.error(errors.join(' | '));
       }
     } catch (error) {
       console.error('Error exporting:', error);
@@ -199,38 +215,6 @@ export default function SettingsPage() {
     }
   }
 
-  async function testImport(mealType: 'lunch' | 'dinner') {
-    setImporting(true);
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/import-from-sheets`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          date: today,
-          mealType,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        toast.success(`${result.message} - Atualizados: ${result.updated}, Cancelados: ${result.cancelled}`);
-      } else {
-        toast.error(result.error || 'Erro ao importar');
-      }
-    } catch (error) {
-      console.error('Error importing:', error);
-      toast.error('Erro ao importar do Sheets');
-    } finally {
-      setImporting(false);
-    }
-  }
 
   function handleSheetsChange(field: keyof SheetsSettings, value: string) {
     setSheetsSettings(prev => ({ ...prev, [field]: value }));
@@ -249,12 +233,11 @@ export default function SettingsPage() {
         </div>
 
         <Tabs defaultValue="amounts" className="max-w-4xl">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="amounts">Quantidades Padrão</TabsTrigger>
-            <TabsTrigger value="botconversa">Bot Conversa</TabsTrigger>
-            <TabsTrigger value="sheets">
+            <TabsTrigger value="export">
               <Sheet className="h-4 w-4 mr-2" />
-              Google Sheets
+              Exportar para Sheets
             </TabsTrigger>
           </TabsList>
 
@@ -373,248 +356,84 @@ export default function SettingsPage() {
             )}
           </TabsContent>
 
-          <TabsContent value="botconversa">
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Exportar Pedidos para Google Sheets</CardTitle>
-                  <CardDescription>
-                    Exporta os pedidos do dia para o Google Sheets. O Bot Conversa lerá direto da planilha.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-900 mb-3">
-                      <strong>Como funciona:</strong>
-                    </p>
-                    <ol className="text-sm text-blue-800 space-y-2 list-decimal list-inside">
-                      <li>Clique em "Exportar Almoço" ou "Exportar Jantar"</li>
-                      <li>O sistema busca todos os clientes que têm pedido para hoje</li>
-                      <li>Busca o cardápio do dia</li>
-                      <li>Cria uma planilha no Google Sheets com todas as informações</li>
-                      <li>O Bot Conversa lê essa planilha e envia as mensagens no WhatsApp</li>
-                    </ol>
-                  </div>
+          <TabsContent value="export">
+            <Card>
+              <CardHeader>
+                <CardTitle>Exportar Pedidos do Dia</CardTitle>
+                <CardDescription>
+                  Exporta automaticamente todos os pedidos de almoço e jantar do dia atual para o Google Sheets
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-900 mb-3">
+                    <strong>Exportação Automática:</strong>
+                  </p>
+                  <p className="text-sm text-blue-800 mb-2">
+                    Os pedidos são exportados automaticamente todos os dias às 8:00 da manhã (horário de Brasília) para as abas "Almoço" e "Jantar" do Google Sheets.
+                  </p>
+                  <p className="text-sm text-blue-800">
+                    Use o botão abaixo caso precise atualizar manualmente os dados após fazer alguma alteração no sistema.
+                  </p>
+                </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Button
-                      onClick={() => testExport('lunch')}
-                      disabled={exporting}
-                      size="lg"
-                      className="h-20"
-                    >
-                      {exporting ? (
-                        <>
-                          <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
-                          Exportando...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-5 w-5 mr-2" />
-                          Exportar Almoço
-                        </>
-                      )}
-                    </Button>
+                <div className="flex justify-center">
+                  <Button
+                    onClick={exportTodayToSheets}
+                    disabled={exporting}
+                    size="lg"
+                    className="h-16 px-8 text-lg"
+                  >
+                    {exporting ? (
+                      <>
+                        <RefreshCw className="h-6 w-6 mr-3 animate-spin" />
+                        Exportando...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-6 w-6 mr-3" />
+                        Atualizar Planilha de Hoje
+                      </>
+                    )}
+                  </Button>
+                </div>
 
-                    <Button
-                      onClick={() => testExport('dinner')}
-                      disabled={exporting}
-                      size="lg"
-                      className="h-20"
-                    >
-                      {exporting ? (
-                        <>
-                          <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
-                          Exportando...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-5 w-5 mr-2" />
-                          Exportar Jantar
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-sm text-green-900 mb-2">
+                    <strong>Formato da Planilha:</strong>
+                  </p>
+                  <p className="text-xs text-green-800 font-mono">
+                    Nome | Telefone | Endereço | Horário | Proteína | Carboidrato | Legumes | Salada | Molho Salada | Refeição
+                  </p>
+                </div>
 
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <p className="text-sm text-green-900 mb-2">
-                      <strong>Formato da Planilha:</strong>
-                    </p>
-                    <p className="text-xs text-green-800 font-mono">
-                      Nome | Telefone | Endereço | Horário | Proteína | Carboidrato | Legumes | Salada | Molho Salada | Refeição
-                    </p>
-                  </div>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <p className="text-sm text-yellow-900 mb-2">
+                    <strong>O que é exportado:</strong>
+                  </p>
+                  <ul className="text-sm text-yellow-800 space-y-1 list-disc list-inside">
+                    <li>Todos os clientes ativos com pedidos agendados para hoje</li>
+                    <li>Cardápio do dia (proteína, carboidrato, legumes, salada e molho)</li>
+                    <li>Endereço e horário de entrega de cada cliente</li>
+                    <li>Os pedidos são ordenados por horário de entrega</li>
+                  </ul>
+                </div>
 
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <p className="text-sm text-yellow-900">
-                      <strong>⚠️ Pré-requisitos:</strong>
-                    </p>
-                    <ul className="text-sm text-yellow-800 mt-2 space-y-1 list-disc list-inside">
-                      <li>Configure o Google Sheets na aba "Google Sheets"</li>
-                      <li>Crie duas abas na planilha: "Almoço" e "Jantar"</li>
-                      <li>Certifique-se que existe um cardápio para hoje</li>
-                    </ul>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="sheets">
-            {sheetsLoading ? (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-600">Carregando configurações...</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Configuração do Google Sheets</CardTitle>
-                    <CardDescription>
-                      Configure a integração com o Google Sheets para sincronização automática com o Botconversa
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="space-y-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="spreadsheet_id">
-                          ID da Planilha
-                        </Label>
-                        <Input
-                          id="spreadsheet_id"
-                          type="text"
-                          value={sheetsSettings.spreadsheet_id}
-                          onChange={(e) => handleSheetsChange('spreadsheet_id', e.target.value)}
-                          placeholder="1WRGQYiyH9FuNJ-APBtZOj_oifKv6RLEwN-XaBi_S7ro"
-                        />
-                        <p className="text-xs text-gray-500">
-                          Encontre na URL da planilha: docs.google.com/spreadsheets/d/[ID_AQUI]/edit
-                        </p>
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label htmlFor="sheet_name">
-                          Nome da Aba
-                        </Label>
-                        <Input
-                          id="sheet_name"
-                          type="text"
-                          value={sheetsSettings.sheet_name}
-                          onChange={(e) => handleSheetsChange('sheet_name', e.target.value)}
-                          placeholder="Pedidos Diários"
-                        />
-                        <p className="text-xs text-gray-500">
-                          Nome da aba onde os dados serão sincronizados
-                        </p>
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label htmlFor="api_key">
-                          API Key do Google Cloud
-                        </Label>
-                        <Input
-                          id="api_key"
-                          type="password"
-                          value={sheetsSettings.api_key}
-                          onChange={(e) => handleSheetsChange('api_key', e.target.value)}
-                          placeholder="AIzaSy..."
-                        />
-                        <p className="text-xs text-gray-500">
-                          Sua chave de API do Google Cloud Console
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <Button
-                        onClick={saveSheetsSettings}
-                        disabled={sheetsSaving}
-                        className="flex-1"
-                      >
-                        {sheetsSaving ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Salvando...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="h-4 w-4 mr-2" />
-                            Salvar Configurações
-                          </>
-                        )}
-                      </Button>
-
-                      <Button
-                        onClick={loadSheetsSettings}
-                        variant="outline"
-                        disabled={sheetsLoading || sheetsSaving}
-                      >
-                        <RefreshCw className={`h-4 w-4 ${sheetsLoading ? 'animate-spin' : ''}`} />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>URLs para Configurar no Botconversa</CardTitle>
-                    <CardDescription>
-                      Use estas URLs para configurar a integração no Botconversa
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="space-y-4">
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-                        <h3 className="font-semibold text-sm mb-2">1. Buscar Pedidos (GET)</h3>
-                        <p className="text-xs text-gray-600 mb-3">
-                          O Botconversa usa esta URL para pegar a lista de pedidos
-                        </p>
-                        <div className="bg-white border rounded p-3 font-mono text-xs break-all">
-                          {process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-orders?date=YYYY-MM-DD&mealType=lunch
-                        </div>
-                        <p className="text-xs text-gray-500 mt-2">
-                          • date: Data no formato YYYY-MM-DD (ex: 2025-11-23)<br/>
-                          • mealType: "lunch" para almoço ou "dinner" para jantar
-                        </p>
-                      </div>
-
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-                        <h3 className="font-semibold text-sm mb-2">2. Atualizar Pedido (POST)</h3>
-                        <p className="text-xs text-gray-600 mb-3">
-                          O Botconversa usa esta URL para enviar as respostas dos clientes
-                        </p>
-                        <div className="bg-white border rounded p-3 font-mono text-xs break-all">
-                          {process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/update-order
-                        </div>
-                        <p className="text-xs text-gray-500 mt-2">
-                          Formato do JSON (escolha uma opção):<br/>
-                          <span className="font-mono bg-white px-1">
-                            {`{"orderId": "xxx", "novoEndereco": "Novo endereço", "novoHorario": "14:00"}`}
-                          </span><br/>
-                          OU para cancelar:<br/>
-                          <span className="font-mono bg-white px-1">
-                            {`{"orderId": "xxx", "cancelar": true}`}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <p className="text-sm text-green-900">
-                        <strong>Como funciona:</strong><br/>
-                        1. O Botconversa chama a API para buscar os pedidos do dia<br/>
-                        2. Envia mensagens no WhatsApp perguntando sobre mudanças<br/>
-                        3. Quando o cliente responde, o Botconversa atualiza usando a segunda API<br/>
-                        4. Tudo automático, sem precisar mexer no Google Sheets manualmente!
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                  <p className="text-sm text-slate-900 mb-2">
+                    <strong>Link da Planilha:</strong>
+                  </p>
+                  <a
+                    href="https://docs.google.com/spreadsheets/d/1WRGQYiyH9FuNJ-APBtZOj_oifKv6RLEwN-XaBi_S7ro/edit"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 underline text-sm break-all"
+                  >
+                    https://docs.google.com/spreadsheets/d/1WRGQYiyH9FuNJ-APBtZOj_oifKv6RLEwN-XaBi_S7ro/edit
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>
