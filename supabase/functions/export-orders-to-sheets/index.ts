@@ -171,7 +171,7 @@ Deno.serve(async (req: Request) => {
     };
 
     const rows = [
-      ['Nome', 'Telefone', 'Endereço', 'Horário', 'Proteína', 'Carboidrato', 'Legumes', 'Salada', 'Molho Salada', 'Refeição']
+      ['Nome', 'Telefone', 'Endereço', 'Data', 'Horário', 'Proteína', 'Carboidrato', 'Legumes', 'Salada', 'Molho Salada', 'Refeição']
     ];
 
     for (const customer of customersData || []) {
@@ -183,10 +183,13 @@ Deno.serve(async (req: Request) => {
       );
 
       if (deliverySchedule && deliverySchedule.delivery_time && deliverySchedule.delivery_address) {
+        const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('pt-BR');
+
         rows.push([
           customer.name || '',
           customer.phone || '',
           deliverySchedule.delivery_address || '',
+          formattedDate,
           deliverySchedule.delivery_time || '',
           menu.protein,
           menu.carb,
@@ -201,7 +204,7 @@ Deno.serve(async (req: Request) => {
     rows.sort((a, b) => {
       if (a[0] === 'Nome') return -1;
       if (b[0] === 'Nome') return 1;
-      return (a[3] || '').localeCompare(b[3] || '');
+      return (a[4] || '').localeCompare(b[4] || '');
     });
 
     const sheetName = mealType === 'lunch' ? 'Almoço' : 'Jantar';
