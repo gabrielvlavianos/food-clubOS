@@ -47,7 +47,7 @@ export function calculateSessionSummary(items: PrepItemWithRecipe[]): PrepSessio
     totalsByCategory[category].cost += itemMacros.cost;
     totalsByCategory[category].weightGr += itemMacros.weightGr;
 
-    if (category !== 'Marinada') {
+    if (category !== 'Marinada' && category !== 'Molho Salada') {
       grandTotals.kcal += itemMacros.kcal;
       grandTotals.protein += itemMacros.protein;
       grandTotals.carb += itemMacros.carb;
