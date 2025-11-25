@@ -154,6 +154,23 @@ Deno.serve(async (req: Request) => {
     const sheetData = await readResponse.json();
     const rows = sheetData.values || [];
 
+    const { data: menuData } = await supabase
+      .from('monthly_menu')
+      .select('*')
+      .eq('menu_date', date)
+      .eq('meal_type', mealType)
+      .maybeSingle();
+
+    if (!menuData) {
+      return new Response(
+        JSON.stringify({ error: 'Cardápio não encontrado para esta data' }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     let updatedCount = 0;
     let cancelledCount = 0;
 
@@ -192,6 +209,15 @@ Deno.serve(async (req: Request) => {
         .eq('meal_type', mealType)
         .maybeSingle();
 
+      const { data: customerSchedule } = await supabase
+        .from('delivery_schedules')
+        .select('*')
+        .eq('customer_id', customer.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (!customerSchedule) continue;
+
       if (newAddress && newAddress.trim() === 'Cancelado') {
         if (existingOrder) {
           const { error: updateError } = await supabase
@@ -204,6 +230,33 @@ Deno.serve(async (req: Request) => {
             .eq('id', existingOrder.id);
 
           if (!updateError) {
+            cancelledCount++;
+          }
+        } else {
+          const { error: insertError } = await supabase
+            .from('orders')
+            .insert({
+              customer_id: customer.id,
+              order_date: date,
+              meal_type: mealType,
+              protein_recipe_id: menuData.protein_recipe_id,
+              protein_amount_gr: 100,
+              carb_recipe_id: menuData.carb_recipe_id,
+              carb_amount_gr: 100,
+              vegetable_recipe_id: menuData.vegetable_recipe_id,
+              vegetable_amount_gr: 70,
+              salad_recipe_id: menuData.salad_recipe_id,
+              salad_amount_gr: 100,
+              sauce_recipe_id: menuData.sauce_recipe_id,
+              sauce_amount_gr: 30,
+              delivery_address: customerSchedule.delivery_address,
+              delivery_time: customerSchedule.delivery_time,
+              is_cancelled: true,
+              status: 'cancelled',
+              modified_delivery_address: 'Cancelado'
+            });
+
+          if (!insertError) {
             cancelledCount++;
           }
         }
@@ -226,16 +279,45 @@ Deno.serve(async (req: Request) => {
           updateData.modified_carb_name = newCarb.trim();
         }
 
-        if (Object.keys(updateData).length > 0 && existingOrder) {
+        if (Object.keys(updateData).length > 0) {
           updateData.is_cancelled = false;
 
-          const { error: updateError } = await supabase
-            .from('orders')
-            .update(updateData)
-            .eq('id', existingOrder.id);
+          if (existingOrder) {
+            const { error: updateError } = await supabase
+              .from('orders')
+              .update(updateData)
+              .eq('id', existingOrder.id);
 
-          if (!updateError) {
-            updatedCount++;
+            if (!updateError) {
+              updatedCount++;
+            }
+          } else {
+            const { error: insertError } = await supabase
+              .from('orders')
+              .insert({
+                customer_id: customer.id,
+                order_date: date,
+                meal_type: mealType,
+                protein_recipe_id: menuData.protein_recipe_id,
+                protein_amount_gr: 100,
+                carb_recipe_id: menuData.carb_recipe_id,
+                carb_amount_gr: 100,
+                vegetable_recipe_id: menuData.vegetable_recipe_id,
+                vegetable_amount_gr: 70,
+                salad_recipe_id: menuData.salad_recipe_id,
+                salad_amount_gr: 100,
+                sauce_recipe_id: menuData.sauce_recipe_id,
+                sauce_amount_gr: 30,
+                delivery_address: customerSchedule.delivery_address,
+                delivery_time: customerSchedule.delivery_time,
+                is_cancelled: false,
+                status: 'pending',
+                ...updateData
+              });
+
+            if (!insertError) {
+              updatedCount++;
+            }
           }
         }
       }
