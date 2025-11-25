@@ -31,10 +31,14 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
 
   const pemHeader = '-----BEGIN PRIVATE KEY-----';
   const pemFooter = '-----END PRIVATE KEY-----';
-  const pemContents = privateKey.substring(
-    pemHeader.length,
-    privateKey.length - pemFooter.length
-  ).replace(/\s/g, '');
+
+  const pemContents = privateKey
+    .replace(pemHeader, '')
+    .replace(pemFooter, '')
+    .replace(/\\n/g, '')
+    .replace(/\n/g, '')
+    .replace(/\s/g, '')
+    .trim();
 
   const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
 
