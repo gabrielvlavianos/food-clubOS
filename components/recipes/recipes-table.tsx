@@ -120,7 +120,7 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
   }
 
   return (
-    <div className="bg-white rounded-lg border">
+    <div className="bg-white rounded-lg border overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -132,7 +132,7 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
             <SortableHeader field="fat_per_100g" className="text-right">Gord/100g</SortableHeader>
             <SortableHeader field="cost_per_100g" className="text-right">Custo/100g</SortableHeader>
             <TableHead>Status</TableHead>
-            <TableHead className="text-right">Ações</TableHead>
+            <TableHead className="text-right w-[140px]">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -176,8 +176,8 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
                   </span>
                 </div>
               </TableCell>
-              <TableCell className="text-right">
-                <div className="flex justify-end gap-1">
+              <TableCell className="text-right w-[140px]">
+                <div className="flex justify-end gap-1 whitespace-nowrap">
                   <Button
                     variant="ghost"
                     size="sm"
