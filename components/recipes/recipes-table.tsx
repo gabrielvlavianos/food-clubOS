@@ -121,7 +121,8 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
 
   return (
     <div className="bg-white rounded-lg border overflow-x-auto">
-      <Table>
+      <div className="min-w-max">
+        <Table>
         <TableHeader>
           <TableRow>
             <SortableHeader field="name">Nome</SortableHeader>
@@ -131,8 +132,8 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
             <SortableHeader field="carb_per_100g" className="text-right">Carb/100g</SortableHeader>
             <SortableHeader field="fat_per_100g" className="text-right">Gord/100g</SortableHeader>
             <SortableHeader field="cost_per_100g" className="text-right">Custo/100g</SortableHeader>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right w-[140px]">Ações</TableHead>
+            <TableHead className="w-[150px]">Status</TableHead>
+            <TableHead className="text-right min-w-[140px]">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -162,7 +163,7 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
               <TableCell className="text-right">{formatMacro(recipe.carb_per_100g)}g</TableCell>
               <TableCell className="text-right">{formatMacro(recipe.fat_per_100g)}g</TableCell>
               <TableCell className="text-right font-medium">{formatCost(recipe.cost_per_100g)}</TableCell>
-              <TableCell>
+              <TableCell className="w-[150px]">
                 <div className="flex items-center gap-2">
                   <Switch
                     checked={recipe.is_active}
@@ -176,39 +177,46 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
                   </span>
                 </div>
               </TableCell>
-              <TableCell className="text-right w-[140px]">
-                <div className="flex justify-end gap-1 whitespace-nowrap">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    title="Editar"
-                    onClick={() => onEdit?.(recipe)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    title="Duplicar"
-                    onClick={() => onDuplicate?.(recipe)}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    title="Excluir"
-                    onClick={() => onDelete?.(recipe)}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+              <TableCell className="text-right min-w-[140px]">
+                <div className="flex justify-end gap-1 items-center">
+                  {onEdit && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="Editar"
+                      onClick={() => onEdit(recipe)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {onDuplicate && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="Duplicar"
+                      onClick={() => onDuplicate(recipe)}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="Excluir"
+                      onClick={() => onDelete(recipe)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }
