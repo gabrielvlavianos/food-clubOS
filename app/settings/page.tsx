@@ -223,6 +223,10 @@ export default function SettingsPage() {
       const today = new Date().toISOString().split('T')[0];
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
+      console.log('=== IMPORT LUNCH ===');
+      console.log('Date:', today);
+      console.log('URL:', `${supabaseUrl}/functions/v1/import-orders-from-sheets`);
+
       const response = await fetch(`${supabaseUrl}/functions/v1/import-orders-from-sheets`, {
         method: 'POST',
         headers: {
@@ -235,12 +239,23 @@ export default function SettingsPage() {
         }),
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
       const result = await response.json();
+      console.log('Result:', JSON.stringify(result, null, 2));
 
       if (result.success) {
         toast.success(`Almoço: ${result.updatedCount} pedidos atualizados, ${result.cancelledCount} cancelados`);
+        if (result.debug) {
+          console.log('=== DEBUG INFO ===');
+          result.debug.forEach((item: any, index: number) => {
+            console.log(`${index + 1}.`, item);
+          });
+        }
       } else {
         toast.error(`Erro ao importar almoço: ${result.error}`);
+        console.error('Import failed:', result);
       }
     } catch (error) {
       console.error('Error importing lunch:', error);
