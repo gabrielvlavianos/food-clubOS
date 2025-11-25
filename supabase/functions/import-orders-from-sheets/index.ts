@@ -131,7 +131,7 @@ Deno.serve(async (req: Request) => {
     const sheetName = mealType === 'lunch' ? 'Volta da Informação Almoço' : 'Volta da Informação Jantar';
 
     const readResponse = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A2:N1000`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A2:O1000`,
       {
         method: 'GET',
         headers: {
@@ -158,23 +158,21 @@ Deno.serve(async (req: Request) => {
     let cancelledCount = 0;
 
     for (const row of rows) {
-      const [
-        name,
-        phone,
-        originalAddress,
-        orderDate,
-        originalTime,
-        originalProtein,
-        originalCarb,
-        vegetables,
-        salad,
-        sauce,
-        meal,
-        newAddress,
-        newTime,
-        newProtein,
-        newCarb
-      ] = row;
+      const name = row[0];
+      const phone = row[1];
+      const originalAddress = row[2];
+      const orderDate = row[3];
+      const originalTime = row[4];
+      const originalProtein = row[5];
+      const originalCarb = row[6];
+      const vegetables = row[7];
+      const salad = row[8];
+      const sauce = row[9];
+      const meal = row[10];
+      const newAddress = row[11];
+      const newTime = row[12];
+      const newProtein = row[13];
+      const newCarb = row[14];
 
       if (!phone || !name) continue;
 
@@ -186,23 +184,34 @@ Deno.serve(async (req: Request) => {
 
       if (!customer) continue;
 
-      const finalAddress = newAddress && newAddress.trim() !== '' ? newAddress : originalAddress;
-      const finalTime = newTime && newTime.trim() !== '' ? newTime : originalTime;
-      const finalProtein = newProtein && newProtein.trim() !== '' ? newProtein : originalProtein;
-      const finalCarb = newCarb && newCarb.trim() !== '' ? newCarb : originalCarb;
-
-      if (finalAddress === 'Cancelado') {
+      if (newAddress && newAddress.trim() === 'Cancelado') {
         const { error: updateError } = await supabase
           .from('orders')
-          .update({ status: 'cancelled' })
-          .eq('customer_id', customer.id)
-          .eq('delivery_date', date)
-          .eq('meal_type', mealType);
+          .upsert({
+            customer_id: customer.id,
+            delivery_date: date,
+            meal_type: mealType,
+            delivery_address: originalAddress,
+            delivery_time: originalTime,
+            protein: originalProtein,
+            carbohydrate: originalCarb,
+            vegetables: vegetables || '',
+            salad: salad || '',
+            sauce: sauce || '',
+            status: 'cancelled',
+          }, {
+            onConflict: 'customer_id,delivery_date,meal_type',
+          });
 
         if (!updateError) {
           cancelledCount++;
         }
-      } else {
+      } else if (newAddress || newTime || newProtein || newCarb) {
+        const finalAddress = newAddress && newAddress.trim() !== '' ? newAddress : originalAddress;
+        const finalTime = newTime && newTime.trim() !== '' ? newTime : originalTime;
+        const finalProtein = newProtein && newProtein.trim() !== '' ? newProtein : originalProtein;
+        const finalCarb = newCarb && newCarb.trim() !== '' ? newCarb : originalCarb;
+
         const { error: upsertError } = await supabase
           .from('orders')
           .upsert({
