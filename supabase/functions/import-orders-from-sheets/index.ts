@@ -125,8 +125,8 @@ Deno.serve(async (req: Request) => {
 
     const accessToken = await getAccessToken(serviceAccount);
 
-    const sheetName = mealType === 'lunch' ? 'ALMOCO' : 'JANTAR';
-    const range = `${sheetName}!A3:O`;
+    const sheetName = mealType === 'lunch' ? 'Volta da Informação Almoço' : 'Volta da Informação Jantar';
+    const range = `${sheetName}!A2:O`;
 
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
 
@@ -158,16 +158,16 @@ Deno.serve(async (req: Request) => {
     const debugLog: any[] = [];
 
     for (const row of rows) {
-      const name = row[1];
-      const phone = row[2];
-      const newAddress = row[6];
-      const newProtein = row[8];
-      const newVegetables = row[9];
-      const newStarch = row[10];
-      const newSauce = row[11];
-      const newFruit = row[12];
-      const newFat = row[13];
+      const name = row[0];
+      const phone = row[1];
+      const newAddress = row[11];
+      const newProtein = row[13];
       const newCarb = row[14];
+      const newVegetables = null;
+      const newStarch = null;
+      const newSauce = null;
+      const newFruit = null;
+      const newFat = null;
 
       console.log(`Processing row: ${name}, ${phone}, newAddress: ${newAddress}, newProtein: ${newProtein}`);
 
