@@ -236,6 +236,40 @@ export default function SettingsPage() {
     setSheetsSettings(prev => ({ ...prev, [field]: value }));
   }
 
+  async function syncOrders(mealType: 'lunch' | 'dinner') {
+    setExporting(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/sync-orders-to-botconversa`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          meal_type: mealType,
+          order_date: today,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast.success(result.message || `Sincronização concluída! ${result.synced}/${result.total} pedidos sincronizados`);
+      } else {
+        toast.error(result.error || 'Erro ao sincronizar');
+        console.error('Erro detalhado:', result);
+      }
+    } catch (error) {
+      console.error('Error syncing:', error);
+      toast.error('Erro ao sincronizar com Bot Conversa');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
@@ -249,8 +283,9 @@ export default function SettingsPage() {
         </div>
 
         <Tabs defaultValue="amounts" className="max-w-4xl">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="amounts">Quantidades Padrão</TabsTrigger>
+            <TabsTrigger value="botconversa">Bot Conversa</TabsTrigger>
             <TabsTrigger value="sheets">
               <Sheet className="h-4 w-4 mr-2" />
               Google Sheets
@@ -370,6 +405,90 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="botconversa">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sincronizar Pedidos com Bot Conversa</CardTitle>
+                  <CardDescription>
+                    Envia os pedidos do dia para o Bot Conversa atualizar os custom fields dos subscribers
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-900 mb-3">
+                      <strong>Como funciona:</strong>
+                    </p>
+                    <ol className="text-sm text-blue-800 space-y-2 list-decimal list-inside">
+                      <li>Clique em "Sincronizar Almoço" ou "Sincronizar Jantar"</li>
+                      <li>O sistema busca todos os clientes que têm pedido para hoje</li>
+                      <li>Para cada cliente, atualiza os custom fields no Bot Conversa com:
+                        <ul className="ml-6 mt-1 space-y-1 list-disc list-inside">
+                          <li>Nome, Endereço e Horário do Pedido</li>
+                          <li>Itens do cardápio: Proteína, Carboidrato, Legumes, Salada e Molho</li>
+                          <li>Tipo de refeição (almoço ou jantar)</li>
+                        </ul>
+                      </li>
+                      <li>Depois você pode usar esses dados no fluxo do bot!</li>
+                    </ol>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Button
+                      onClick={() => syncOrders('lunch')}
+                      disabled={exporting}
+                      size="lg"
+                      className="h-20"
+                    >
+                      {exporting ? (
+                        <>
+                          <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
+                          Sincronizando...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-5 w-5 mr-2" />
+                          Sincronizar Almoço
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={() => syncOrders('dinner')}
+                      disabled={exporting}
+                      size="lg"
+                      className="h-20"
+                    >
+                      {exporting ? (
+                        <>
+                          <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
+                          Sincronizando...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-5 w-5 mr-2" />
+                          Sincronizar Jantar
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p className="text-sm text-yellow-900">
+                      <strong>⚠️ Atenção:</strong> Certifique-se de que:
+                    </p>
+                    <ul className="text-sm text-yellow-800 mt-2 space-y-1 list-disc list-inside">
+                      <li>A API key do Bot Conversa está configurada no banco de dados</li>
+                      <li>Os custom fields estão criados no Bot Conversa com os nomes corretos</li>
+                      <li>Os clientes têm telefone cadastrado</li>
+                      <li>Existe um cardápio configurado para o dia de hoje</li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="sheets">
