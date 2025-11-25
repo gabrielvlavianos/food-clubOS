@@ -128,10 +128,10 @@ Deno.serve(async (req: Request) => {
 
     const accessToken = await getAccessToken(serviceAccount);
 
-    const sheetName = mealType === 'lunch' ? 'Almoço' : 'Jantar';
+    const sheetName = mealType === 'lunch' ? 'Volta da Informação Almoço' : 'Volta da Informação Jantar';
 
     const readResponse = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A2:N1000`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A2:N1000`,
       {
         method: 'GET',
         headers: {
@@ -246,7 +246,7 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({ error: 'Erro interno', details: error.message }),
       {
-      status: 500,
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
