@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { LayoutDashboard, Calendar, Clock, MapPin, RefreshCw, Phone, Package, ChefHat, Truck, Navigation as NavigationIcon, CheckCircle2 } from 'lucide-react';
 import { format, getDay } from 'date-fns';
-import { formatPhoneNumber } from '@/lib/format-utils';
+import { formatPhoneNumber, formatTime } from '@/lib/format-utils';
 import type { Customer, DeliverySchedule } from '@/types';
 
 interface OrderStatus {
@@ -240,7 +240,7 @@ export default function ManagerPage() {
                 <Clock className="h-4 w-4 text-green-600 flex-shrink-0" />
                 <div className="flex flex-col">
                   <span className="text-xs text-gray-600">Entrega:</span>
-                  <span className="font-bold text-green-600">{order.deliverySchedule.delivery_time}</span>
+                  <span className="font-bold text-green-600">{formatTime(order.deliverySchedule.delivery_time)}</span>
                 </div>
               </div>
 

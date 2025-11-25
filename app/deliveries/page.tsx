@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Truck, Calendar, Clock, MapPin, Package, RefreshCw, Phone } from 'lucide-react';
 import { format, getDay } from 'date-fns';
 import type { Customer, DeliverySchedule } from '@/types';
-import { formatPhoneNumber } from '@/lib/format-utils';
+import { formatPhoneNumber, formatTime } from '@/lib/format-utils';
 
 interface DeliveryOrder {
   customer: Customer;
@@ -290,7 +290,7 @@ export default function ExpeditionPage() {
                         <div className="flex items-center gap-2 text-gray-700">
                           <Clock className="h-4 w-4 text-green-600" />
                           <span className="font-medium">Horário de entrega:</span>
-                          <span className="text-base font-bold text-green-600">{order.deliverySchedule.delivery_time}</span>
+                          <span className="text-base font-bold text-green-600">{formatTime(order.deliverySchedule.delivery_time)}</span>
                         </div>
 
                         <div className="flex items-center gap-2 text-gray-700">

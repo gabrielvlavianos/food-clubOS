@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { ChefHat, Calendar, Clock, MapPin, Package, RefreshCw } from 'lucide-react';
 import { format, getDay } from 'date-fns';
 import type { Recipe, Customer, DeliverySchedule } from '@/types';
+import { formatTime } from '@/lib/format-utils';
 
 interface KitchenOrder {
   id?: string;
@@ -533,7 +534,7 @@ export default function KitchenDashboardPage() {
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4 text-orange-600" />
                           <span className="font-semibold">Horário:</span>
-                          <span className="text-base font-bold text-orange-600">{order.deliverySchedule.delivery_time}</span>
+                          <span className="text-base font-bold text-orange-600">{formatTime(order.deliverySchedule.delivery_time)}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <MapPin className="h-4 w-4" />

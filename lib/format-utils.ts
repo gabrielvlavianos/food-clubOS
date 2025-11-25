@@ -35,3 +35,13 @@ export function formatPhoneNumber(phone: string | null | undefined): string {
 
   return phone;
 }
+
+export function formatTime(time: string | null | undefined): string {
+  if (!time) return '';
+
+  if (time.length === 8 && time.includes(':')) {
+    return time.substring(0, 5);
+  }
+
+  return time;
+}
