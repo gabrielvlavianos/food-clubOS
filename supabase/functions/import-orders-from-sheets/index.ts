@@ -222,7 +222,7 @@ Deno.serve(async (req: Request) => {
         if (existingOrder) {
           const { error: updateError } = await supabase
             .from('orders')
-            .update({ status: 'cancelled' })
+            .update({ status: 'cancelled', is_cancelled: true })
             .eq('id', existingOrder.id);
 
           if (updateError) {
@@ -240,15 +240,9 @@ Deno.serve(async (req: Request) => {
               order_date: date,
               meal_type: mealType,
               status: 'cancelled',
+              is_cancelled: true,
               delivery_time: customerSchedule.delivery_time,
               delivery_address: customerSchedule.delivery_address,
-              protein: '',
-              vegetables: '',
-              starch: '',
-              sauce: '',
-              fruit: '',
-              fat: '',
-              carb: '',
             });
 
           if (insertError) {
@@ -262,7 +256,7 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      const hasModifications = newAddress || newProtein || newVegetables || newStarch || newSauce || newFruit || newFat || newCarb;
+      const hasModifications = newAddress || newProtein || newCarb;
 
       if (!hasModifications) {
         console.log(`No modifications for ${name}`);
@@ -271,14 +265,9 @@ Deno.serve(async (req: Request) => {
       }
 
       const modifications: any = {};
-      if (newAddress) modifications.delivery_address = newAddress;
-      if (newProtein) modifications.protein = newProtein;
-      if (newVegetables) modifications.vegetables = newVegetables;
-      if (newStarch) modifications.starch = newStarch;
-      if (newSauce) modifications.sauce = newSauce;
-      if (newFruit) modifications.fruit = newFruit;
-      if (newFat) modifications.fat = newFat;
-      if (newCarb) modifications.carb = newCarb;
+      if (newAddress) modifications.modified_delivery_address = newAddress;
+      if (newProtein) modifications.modified_protein_name = newProtein;
+      if (newCarb) modifications.modified_carb_name = newCarb;
 
       if (existingOrder) {
         const { error: updateError } = await supabase
@@ -305,14 +294,10 @@ Deno.serve(async (req: Request) => {
             meal_type: mealType,
             status: 'pending',
             delivery_time: customerSchedule.delivery_time,
-            delivery_address: modifications.delivery_address || customerSchedule.delivery_address,
-            protein: modifications.protein || '',
-            vegetables: modifications.vegetables || '',
-            starch: modifications.starch || '',
-            sauce: modifications.sauce || '',
-            fruit: modifications.fruit || '',
-            fat: modifications.fat || '',
-            carb: modifications.carb || '',
+            delivery_address: customerSchedule.delivery_address,
+            modified_delivery_address: modifications.modified_delivery_address || null,
+            modified_protein_name: modifications.modified_protein_name || null,
+            modified_carb_name: modifications.modified_carb_name || null,
           });
 
         if (insertError) {
