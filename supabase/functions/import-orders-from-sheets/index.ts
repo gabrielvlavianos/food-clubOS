@@ -111,7 +111,7 @@ Deno.serve(async (req: Request) => {
 
     if (settingsError || !settingsData || settingsData.length < 2) {
       return new Response(
-        JSON.stringify({ error: 'Google Sheets não configurado' }),
+        JSON.stringify({ error: 'Google Sheets n\u00e3o configurado' }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -128,7 +128,7 @@ Deno.serve(async (req: Request) => {
 
     const accessToken = await getAccessToken(serviceAccount);
 
-    const sheetName = mealType === 'lunch' ? 'Volta da Informação Almoço' : 'Volta da Informação Jantar';
+    const sheetName = mealType === 'lunch' ? 'Volta da Informa\u00e7\u00e3o Almo\u00e7o' : 'Volta da Informa\u00e7\u00e3o Jantar';
 
     const readResponse = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A2:O1000`,
@@ -163,7 +163,7 @@ Deno.serve(async (req: Request) => {
 
     if (!menuData) {
       return new Response(
-        JSON.stringify({ error: 'Cardápio não encontrado para esta data' }),
+        JSON.stringify({ error: 'Card\u00e1pio n\u00e3o encontrado para esta data' }),
         {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -173,6 +173,9 @@ Deno.serve(async (req: Request) => {
 
     let updatedCount = 0;
     let cancelledCount = 0;
+    const debugLog: any[] = [];
+
+    console.log(`Processing ${rows.length} rows from sheet`);
 
     for (const row of rows) {
       const name = row[0];
@@ -191,15 +194,26 @@ Deno.serve(async (req: Request) => {
       const newProtein = row[13];
       const newCarb = row[14];
 
-      if (!phone || !name) continue;
+      console.log(`Processing row: ${name}, ${phone}, newAddress: ${newAddress}, newProtein: ${newProtein}`);
 
-      const { data: customer } = await supabase
+      if (!phone || !name) {
+        console.log(`Skipping row - missing phone or name`);
+        continue;
+      }
+
+      const { data: customer, error: customerError } = await supabase
         .from('customers')
         .select('id')
         .eq('phone', phone)
         .maybeSingle();
 
-      if (!customer) continue;
+      if (!customer) {
+        console.log(`Customer not found for phone: ${phone}`);
+        debugLog.push({ name, phone, status: 'customer_not_found' });
+        continue;
+      }
+
+      console.log(`Found customer: ${customer.id}`);
 
       const { data: existingOrder } = await supabase
         .from('orders')
@@ -216,7 +230,13 @@ Deno.serve(async (req: Request) => {
         .eq('is_active', true)
         .maybeSingle();
 
-      if (!customerSchedule) continue;
+      if (!customerSchedule) {
+        console.log(`No delivery schedule found for customer: ${customer.id}`);
+        debugLog.push({ name, phone, status: 'no_schedule' });
+        continue;
+      }
+
+      console.log(`Found schedule, existing order: ${existingOrder ? 'yes' : 'no'}`);
 
       if (newAddress && newAddress.trim() === 'Cancelado') {
         if (existingOrder) {
@@ -231,8 +251,14 @@ Deno.serve(async (req: Request) => {
 
           if (!updateError) {
             cancelledCount++;
+            console.log(`Updated existing order to cancelled`);
+            debugLog.push({ name, phone, status: 'cancelled_updated' });
+          } else {
+            console.log(`Error updating: ${updateError.message}`);
+            debugLog.push({ name, phone, status: 'error', error: updateError.message });
           }
         } else {
+          console.log(`Creating new cancelled order`);
           const { error: insertError } = await supabase
             .from('orders')
             .insert({
@@ -258,9 +284,15 @@ Deno.serve(async (req: Request) => {
 
           if (!insertError) {
             cancelledCount++;
+            console.log(`Created new cancelled order`);
+            debugLog.push({ name, phone, status: 'cancelled_created' });
+          } else {
+            console.log(`Error inserting cancelled: ${insertError.message}`);
+            debugLog.push({ name, phone, status: 'error', error: insertError.message });
           }
         }
       } else if (newAddress || newTime || newProtein || newCarb) {
+        console.log(`Has modifications - newAddress: ${newAddress}, newTime: ${newTime}, newProtein: ${newProtein}, newCarb: ${newCarb}`);
         const updateData: any = {};
 
         if (newAddress && newAddress.trim() !== '') {
@@ -290,8 +322,14 @@ Deno.serve(async (req: Request) => {
 
             if (!updateError) {
               updatedCount++;
+              console.log(`Updated existing order with modifications`);
+              debugLog.push({ name, phone, status: 'modified_updated', modifications: updateData });
+            } else {
+              console.log(`Error updating modifications: ${updateError.message}`);
+              debugLog.push({ name, phone, status: 'error', error: updateError.message });
             }
           } else {
+            console.log(`Creating new order with modifications`);
             const { error: insertError } = await supabase
               .from('orders')
               .insert({
@@ -317,11 +355,19 @@ Deno.serve(async (req: Request) => {
 
             if (!insertError) {
               updatedCount++;
+              console.log(`Created new order with modifications`);
+              debugLog.push({ name, phone, status: 'modified_created', modifications: updateData });
+            } else {
+              console.log(`Error inserting modifications: ${insertError.message}`);
+              debugLog.push({ name, phone, status: 'error', error: insertError.message });
             }
           }
         }
       }
     }
+
+    console.log(`Finished processing. Updated: ${updatedCount}, Cancelled: ${cancelledCount}`);
+    console.log('Debug log:', JSON.stringify(debugLog, null, 2));
 
     return new Response(
       JSON.stringify({
@@ -331,6 +377,7 @@ Deno.serve(async (req: Request) => {
         mealType,
         updatedCount,
         cancelledCount,
+        debug: debugLog,
       }),
       {
         status: 200,
