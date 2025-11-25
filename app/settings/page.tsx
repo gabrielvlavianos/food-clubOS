@@ -240,28 +240,211 @@ export default function SettingsPage() {
     setExporting(true);
     try {
       const today = new Date().toISOString().split('T')[0];
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/sync-orders-to-botconversa`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          meal_type: mealType,
-          order_date: today,
-        }),
+      const { data: apiKeyData, error: apiKeyError } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'botconversa_api_key')
+        .maybeSingle();
+
+      if (apiKeyError || !apiKeyData) {
+        toast.error('API key do Bot Conversa não configurada');
+        return;
+      }
+
+      const botconversaApiKey = (apiKeyData as any).value;
+
+      const targetDate = new Date(today);
+      const dayOfWeek = targetDate.getDay() === 0 ? 7 : targetDate.getDay();
+
+      const { data: deliverySchedules, error: schedulesError } = await supabase
+        .from('delivery_schedules')
+        .select(`
+          id,
+          customer_id,
+          day_of_week,
+          meal_type,
+          delivery_address,
+          delivery_time,
+          customers!inner (
+            id,
+            name,
+            phone,
+            is_active
+          )
+        `)
+        .eq('is_active', true)
+        .eq('day_of_week', dayOfWeek)
+        .eq('meal_type', mealType)
+        .eq('customers.is_active', true);
+
+      if (schedulesError) {
+        toast.error('Erro ao buscar agendamentos');
+        console.error(schedulesError);
+        return;
+      }
+
+      if (!deliverySchedules || deliverySchedules.length === 0) {
+        toast.info('Nenhum pedido encontrado para este dia e turno');
+        return;
+      }
+
+      const { data: menuData } = await supabase
+        .from('monthly_menu')
+        .select(`
+          menu_date,
+          meal_type,
+          protein:recipes!monthly_menu_protein_recipe_id_fkey(name),
+          carb:recipes!monthly_menu_carb_recipe_id_fkey(name),
+          vegetable:recipes!monthly_menu_vegetable_recipe_id_fkey(name),
+          salad:recipes!monthly_menu_salad_recipe_id_fkey(name),
+          sauce:recipes!monthly_menu_sauce_recipe_id_fkey(name)
+        `)
+        .eq('menu_date', today)
+        .eq('meal_type', mealType)
+        .maybeSingle();
+
+      const orders = deliverySchedules.map((schedule: any) => {
+        const customer = Array.isArray(schedule.customers) ? schedule.customers[0] : schedule.customers;
+        const menu = menuData as any;
+        return {
+          customer_id: customer.id,
+          customer_name: customer.name,
+          phone: customer.phone,
+          delivery_address: schedule.delivery_address,
+          delivery_time: schedule.delivery_time,
+          meal_type: schedule.meal_type,
+          protein_name: menu?.protein?.name || '',
+          carb_name: menu?.carb?.name || '',
+          vegetable_name: menu?.vegetable?.name || '',
+          salad_name: menu?.salad?.name || '',
+          sauce_name: menu?.sauce?.name || '',
+        };
       });
 
-      const result = await response.json();
+      const customFieldsResponse = await fetch('https://api.botconversa.com.br/custom-fields/', {
+        method: 'GET',
+        headers: {
+          'API-KEY': botconversaApiKey,
+        },
+      });
 
-      if (response.ok) {
-        toast.success(result.message || `Sincronização concluída! ${result.synced}/${result.total} pedidos sincronizados`);
-      } else {
-        toast.error(result.error || 'Erro ao sincronizar');
-        console.error('Erro detalhado:', result);
+      if (!customFieldsResponse.ok) {
+        toast.error('Erro ao buscar custom fields do Bot Conversa');
+        return;
       }
+
+      const customFields = await customFieldsResponse.json();
+      const fieldMapping: Record<string, string> = {};
+      const requiredFields = ['Nome', 'Endereço', 'Horário do Pedido', 'Proteina', 'Carboidrato', 'Legumes', 'Salada', 'Molho Salada', 'Refeição'];
+
+      for (const field of customFields) {
+        if (requiredFields.includes(field.name)) {
+          fieldMapping[field.name] = field.id;
+        }
+      }
+
+      const missingFields = requiredFields.filter(name => !fieldMapping[name]);
+      if (missingFields.length > 0) {
+        toast.error(`Custom fields não encontrados: ${missingFields.join(', ')}`);
+        return;
+      }
+
+      const results = [];
+      let successCount = 0;
+
+      for (const order of orders) {
+        if (!order.phone) {
+          results.push({ customer: order.customer_name, success: false, error: 'Sem telefone' });
+          continue;
+        }
+
+        try {
+          const searchResponse = await fetch(
+            `https://api.botconversa.com.br/subscribers/?phone=${encodeURIComponent(order.phone)}`,
+            {
+              method: 'GET',
+              headers: { 'API-KEY': botconversaApiKey },
+            }
+          );
+
+          let subscriberId: string;
+
+          if (searchResponse.ok) {
+            const subscribers = await searchResponse.json();
+            if (subscribers && subscribers.length > 0) {
+              subscriberId = subscribers[0].id;
+            } else {
+              const createResponse = await fetch('https://api.botconversa.com.br/subscribers/', {
+                method: 'POST',
+                headers: {
+                  'API-KEY': botconversaApiKey,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  phone: order.phone,
+                  name: order.customer_name,
+                }),
+              });
+
+              if (!createResponse.ok) {
+                results.push({ customer: order.customer_name, success: false, error: 'Erro ao criar subscriber' });
+                continue;
+              }
+
+              const newSubscriber = await createResponse.json();
+              subscriberId = newSubscriber.id;
+            }
+          } else {
+            results.push({ customer: order.customer_name, success: false, error: 'Erro ao buscar subscriber' });
+            continue;
+          }
+
+          const customFieldUpdates = [
+            { field_id: fieldMapping['Nome'], value: order.customer_name },
+            { field_id: fieldMapping['Endereço'], value: order.delivery_address || '' },
+            { field_id: fieldMapping['Horário do Pedido'], value: order.delivery_time || '' },
+            { field_id: fieldMapping['Proteina'], value: order.protein_name },
+            { field_id: fieldMapping['Carboidrato'], value: order.carb_name },
+            { field_id: fieldMapping['Legumes'], value: order.vegetable_name },
+            { field_id: fieldMapping['Salada'], value: order.salad_name },
+            { field_id: fieldMapping['Molho Salada'], value: order.sauce_name },
+            { field_id: fieldMapping['Refeição'], value: mealType },
+          ];
+
+          let allUpdated = true;
+          for (const update of customFieldUpdates) {
+            const updateResponse = await fetch(
+              `https://api.botconversa.com.br/subscribers/${subscriberId}/custom-fields/${update.field_id}/`,
+              {
+                method: 'PUT',
+                headers: {
+                  'API-KEY': botconversaApiKey,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ value: update.value }),
+              }
+            );
+
+            if (!updateResponse.ok) {
+              allUpdated = false;
+              break;
+            }
+          }
+
+          if (allUpdated) {
+            successCount++;
+            results.push({ customer: order.customer_name, success: true });
+          } else {
+            results.push({ customer: order.customer_name, success: false, error: 'Erro ao atualizar campos' });
+          }
+        } catch (err) {
+          results.push({ customer: order.customer_name, success: false, error: 'Erro na requisição' });
+        }
+      }
+
+      toast.success(`Sincronização concluída! ${successCount}/${orders.length} pedidos sincronizados`);
+      console.log('Resultados:', results);
     } catch (error) {
       console.error('Error syncing:', error);
       toast.error('Erro ao sincronizar com Bot Conversa');
