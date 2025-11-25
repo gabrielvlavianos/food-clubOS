@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2.58.0';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,10 +10,11 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   const header = {
     alg: 'RS256',
     typ: 'JWT',
+    kid: serviceAccount.private_key_id,
   };
 
   const now = Math.floor(Date.now() / 1000);
-  const claim = {
+  const payload = {
     iss: serviceAccount.client_email,
     scope: 'https://www.googleapis.com/auth/spreadsheets',
     aud: 'https://oauth2.googleapis.com/token',
@@ -22,17 +23,20 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   };
 
   const encoder = new TextEncoder();
-  const headerBase64 = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-  const claimBase64 = btoa(JSON.stringify(claim)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const headerB64 = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const payloadB64 = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 
-  const unsignedToken = `${headerBase64}.${claimBase64}`;
+  const signatureInput = `${headerB64}.${payloadB64}`;
+  const privateKey = serviceAccount.private_key;
 
-  const privateKeyPem = serviceAccount.private_key
-    .replace(/-----BEGIN PRIVATE KEY-----/, '')
-    .replace(/-----END PRIVATE KEY-----/, '')
-    .replace(/\s/g, '');
+  const pemHeader = '-----BEGIN PRIVATE KEY-----';
+  const pemFooter = '-----END PRIVATE KEY-----';
+  const pemContents = privateKey.substring(
+    pemHeader.length,
+    privateKey.length - pemFooter.length
+  ).replace(/\s/g, '');
 
-  const binaryKey = Uint8Array.from(atob(privateKeyPem), c => c.charCodeAt(0));
+  const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
 
   const cryptoKey = await crypto.subtle.importKey(
     'pkcs8',
@@ -48,31 +52,21 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   const signature = await crypto.subtle.sign(
     'RSASSA-PKCS1-v1_5',
     cryptoKey,
-    encoder.encode(unsignedToken)
+    encoder.encode(signatureInput)
   );
 
-  const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
     .replace(/=/g, '')
     .replace(/\+/g, '-')
     .replace(/\//g, '_');
 
-  const jwt = `${unsignedToken}.${signatureBase64}`;
+  const jwt = `${signatureInput}.${signatureB64}`;
 
   const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt,
-    }),
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
   });
-
-  if (!tokenResponse.ok) {
-    const error = await tokenResponse.text();
-    throw new Error(`Failed to get access token: ${error}`);
-  }
 
   const tokenData = await tokenResponse.json();
   return tokenData.access_token;
@@ -87,8 +81,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const body = await req.json();
-    const { date, mealType } = body;
+    const { date, mealType } = await req.json();
 
     if (!date || !mealType) {
       return new Response(
@@ -111,7 +104,7 @@ Deno.serve(async (req: Request) => {
 
     if (settingsError || !settingsData || settingsData.length < 2) {
       return new Response(
-        JSON.stringify({ error: 'Google Sheets n\u00e3o configurado' }),
+        JSON.stringify({ error: 'Google Sheets não configurado' }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -128,22 +121,22 @@ Deno.serve(async (req: Request) => {
 
     const accessToken = await getAccessToken(serviceAccount);
 
-    const sheetName = mealType === 'lunch' ? 'Volta da Informa\u00e7\u00e3o Almo\u00e7o' : 'Volta da Informa\u00e7\u00e3o Jantar';
+    const sheetName = mealType === 'lunch' ? 'ALMOCO' : 'JANTAR';
+    const range = `${sheetName}!A3:O`;
 
-    const readResponse = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A2:O1000`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      }
-    );
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
 
-    if (!readResponse.ok) {
-      const errorText = await readResponse.text();
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Google Sheets API error:', errorText);
       return new Response(
-        JSON.stringify({ error: 'Erro ao ler planilha', details: errorText }),
+        JSON.stringify({ error: `Erro ao buscar dados do Google Sheets: ${errorText}` }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -151,47 +144,25 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const sheetData = await readResponse.json();
-    const rows = sheetData.values || [];
+    const data = await response.json();
+    const rows = data.values || [];
 
-    const { data: menuData } = await supabase
-      .from('monthly_menu')
-      .select('*')
-      .eq('menu_date', date)
-      .eq('meal_type', mealType)
-      .maybeSingle();
-
-    if (!menuData) {
-      return new Response(
-        JSON.stringify({ error: 'Card\u00e1pio n\u00e3o encontrado para esta data' }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
+    console.log(`Found ${rows.length} rows in sheet ${sheetName}`);
 
     let updatedCount = 0;
     let cancelledCount = 0;
     const debugLog: any[] = [];
 
-    console.log(`Processing ${rows.length} rows from sheet`);
-
     for (const row of rows) {
-      const name = row[0];
-      const phone = row[1];
-      const originalAddress = row[2];
-      const orderDate = row[3];
-      const originalTime = row[4];
-      const originalProtein = row[5];
-      const originalCarb = row[6];
-      const vegetables = row[7];
-      const salad = row[8];
-      const sauce = row[9];
-      const meal = row[10];
-      const newAddress = row[11];
-      const newTime = row[12];
-      const newProtein = row[13];
+      const name = row[1];
+      const phone = row[2];
+      const newAddress = row[6];
+      const newProtein = row[8];
+      const newVegetables = row[9];
+      const newStarch = row[10];
+      const newSauce = row[11];
+      const newFruit = row[12];
+      const newFat = row[13];
       const newCarb = row[14];
 
       console.log(`Processing row: ${name}, ${phone}, newAddress: ${newAddress}, newProtein: ${newProtein}`);
@@ -223,16 +194,20 @@ Deno.serve(async (req: Request) => {
         .eq('meal_type', mealType)
         .maybeSingle();
 
+      const dayOfWeek = new Date(date).getDay();
+
       const { data: customerSchedule } = await supabase
         .from('delivery_schedules')
         .select('*')
         .eq('customer_id', customer.id)
+        .eq('day_of_week', dayOfWeek)
+        .eq('meal_type', mealType)
         .eq('is_active', true)
         .maybeSingle();
 
       if (!customerSchedule) {
-        console.log(`No delivery schedule found for customer: ${customer.id}`);
-        debugLog.push({ name, phone, status: 'no_schedule' });
+        console.log(`No delivery schedule found for customer: ${customer.id} on day ${dayOfWeek} for ${mealType}`);
+        debugLog.push({ name, phone, status: 'no_schedule', dayOfWeek, mealType });
         continue;
       }
 
@@ -242,132 +217,108 @@ Deno.serve(async (req: Request) => {
         if (existingOrder) {
           const { error: updateError } = await supabase
             .from('orders')
-            .update({
-              is_cancelled: true,
-              status: 'cancelled',
-              modified_delivery_address: 'Cancelado'
-            })
+            .update({ status: 'cancelled' })
             .eq('id', existingOrder.id);
 
-          if (!updateError) {
-            cancelledCount++;
-            console.log(`Updated existing order to cancelled`);
-            debugLog.push({ name, phone, status: 'cancelled_updated' });
-          } else {
-            console.log(`Error updating: ${updateError.message}`);
+          if (updateError) {
+            console.error(`Error updating order to cancelled:`, updateError);
             debugLog.push({ name, phone, status: 'error', error: updateError.message });
+          } else {
+            cancelledCount++;
+            debugLog.push({ name, phone, status: 'cancelled_updated' });
           }
         } else {
-          console.log(`Creating new cancelled order`);
           const { error: insertError } = await supabase
             .from('orders')
             .insert({
               customer_id: customer.id,
               order_date: date,
               meal_type: mealType,
-              protein_recipe_id: menuData.protein_recipe_id,
-              protein_amount_gr: 100,
-              carb_recipe_id: menuData.carb_recipe_id,
-              carb_amount_gr: 100,
-              vegetable_recipe_id: menuData.vegetable_recipe_id,
-              vegetable_amount_gr: 70,
-              salad_recipe_id: menuData.salad_recipe_id,
-              salad_amount_gr: 100,
-              sauce_recipe_id: menuData.sauce_recipe_id,
-              sauce_amount_gr: 30,
-              delivery_address: customerSchedule.delivery_address,
-              delivery_time: customerSchedule.delivery_time,
-              is_cancelled: true,
               status: 'cancelled',
-              modified_delivery_address: 'Cancelado'
+              delivery_time: customerSchedule.delivery_time,
+              delivery_address: customerSchedule.delivery_address,
+              protein: '',
+              vegetables: '',
+              starch: '',
+              sauce: '',
+              fruit: '',
+              fat: '',
+              carb: '',
             });
 
-          if (!insertError) {
-            cancelledCount++;
-            console.log(`Created new cancelled order`);
-            debugLog.push({ name, phone, status: 'cancelled_created' });
-          } else {
-            console.log(`Error inserting cancelled: ${insertError.message}`);
+          if (insertError) {
+            console.error(`Error creating cancelled order:`, insertError);
             debugLog.push({ name, phone, status: 'error', error: insertError.message });
-          }
-        }
-      } else if (newAddress || newTime || newProtein || newCarb) {
-        console.log(`Has modifications - newAddress: ${newAddress}, newTime: ${newTime}, newProtein: ${newProtein}, newCarb: ${newCarb}`);
-        const updateData: any = {};
-
-        if (newAddress && newAddress.trim() !== '') {
-          updateData.modified_delivery_address = newAddress.trim();
-        }
-
-        if (newTime && newTime.trim() !== '') {
-          updateData.modified_delivery_time = newTime.trim();
-        }
-
-        if (newProtein && newProtein.trim() !== '') {
-          updateData.modified_protein_name = newProtein.trim();
-        }
-
-        if (newCarb && newCarb.trim() !== '') {
-          updateData.modified_carb_name = newCarb.trim();
-        }
-
-        if (Object.keys(updateData).length > 0) {
-          updateData.is_cancelled = false;
-
-          if (existingOrder) {
-            const { error: updateError } = await supabase
-              .from('orders')
-              .update(updateData)
-              .eq('id', existingOrder.id);
-
-            if (!updateError) {
-              updatedCount++;
-              console.log(`Updated existing order with modifications`);
-              debugLog.push({ name, phone, status: 'modified_updated', modifications: updateData });
-            } else {
-              console.log(`Error updating modifications: ${updateError.message}`);
-              debugLog.push({ name, phone, status: 'error', error: updateError.message });
-            }
           } else {
-            console.log(`Creating new order with modifications`);
-            const { error: insertError } = await supabase
-              .from('orders')
-              .insert({
-                customer_id: customer.id,
-                order_date: date,
-                meal_type: mealType,
-                protein_recipe_id: menuData.protein_recipe_id,
-                protein_amount_gr: 100,
-                carb_recipe_id: menuData.carb_recipe_id,
-                carb_amount_gr: 100,
-                vegetable_recipe_id: menuData.vegetable_recipe_id,
-                vegetable_amount_gr: 70,
-                salad_recipe_id: menuData.salad_recipe_id,
-                salad_amount_gr: 100,
-                sauce_recipe_id: menuData.sauce_recipe_id,
-                sauce_amount_gr: 30,
-                delivery_address: customerSchedule.delivery_address,
-                delivery_time: customerSchedule.delivery_time,
-                is_cancelled: false,
-                status: 'pending',
-                ...updateData
-              });
-
-            if (!insertError) {
-              updatedCount++;
-              console.log(`Created new order with modifications`);
-              debugLog.push({ name, phone, status: 'modified_created', modifications: updateData });
-            } else {
-              console.log(`Error inserting modifications: ${insertError.message}`);
-              debugLog.push({ name, phone, status: 'error', error: insertError.message });
-            }
+            cancelledCount++;
+            debugLog.push({ name, phone, status: 'cancelled_created' });
           }
+        }
+        continue;
+      }
+
+      const hasModifications = newAddress || newProtein || newVegetables || newStarch || newSauce || newFruit || newFat || newCarb;
+
+      if (!hasModifications) {
+        console.log(`No modifications for ${name}`);
+        debugLog.push({ name, phone, status: 'no_modifications' });
+        continue;
+      }
+
+      const modifications: any = {};
+      if (newAddress) modifications.delivery_address = newAddress;
+      if (newProtein) modifications.protein = newProtein;
+      if (newVegetables) modifications.vegetables = newVegetables;
+      if (newStarch) modifications.starch = newStarch;
+      if (newSauce) modifications.sauce = newSauce;
+      if (newFruit) modifications.fruit = newFruit;
+      if (newFat) modifications.fat = newFat;
+      if (newCarb) modifications.carb = newCarb;
+
+      if (existingOrder) {
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({
+            ...modifications,
+            status: 'pending',
+          })
+          .eq('id', existingOrder.id);
+
+        if (updateError) {
+          console.error(`Error updating order:`, updateError);
+          debugLog.push({ name, phone, status: 'error', error: updateError.message });
+        } else {
+          updatedCount++;
+          debugLog.push({ name, phone, status: 'modified_updated', modifications });
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from('orders')
+          .insert({
+            customer_id: customer.id,
+            order_date: date,
+            meal_type: mealType,
+            status: 'pending',
+            delivery_time: customerSchedule.delivery_time,
+            delivery_address: modifications.delivery_address || customerSchedule.delivery_address,
+            protein: modifications.protein || '',
+            vegetables: modifications.vegetables || '',
+            starch: modifications.starch || '',
+            sauce: modifications.sauce || '',
+            fruit: modifications.fruit || '',
+            fat: modifications.fat || '',
+            carb: modifications.carb || '',
+          });
+
+        if (insertError) {
+          console.error(`Error creating order:`, insertError);
+          debugLog.push({ name, phone, status: 'error', error: insertError.message });
+        } else {
+          updatedCount++;
+          debugLog.push({ name, phone, status: 'modified_created', modifications });
         }
       }
     }
-
-    console.log(`Finished processing. Updated: ${updatedCount}, Cancelled: ${cancelledCount}`);
-    console.log('Debug log:', JSON.stringify(debugLog, null, 2));
 
     return new Response(
       JSON.stringify({
@@ -380,14 +331,16 @@ Deno.serve(async (req: Request) => {
         debug: debugLog,
       }),
       {
-        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
   } catch (error) {
-    console.error('Erro:', error);
+    console.error('Error in import-orders-from-sheets:', error);
     return new Response(
-      JSON.stringify({ error: 'Erro interno', details: error.message }),
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
