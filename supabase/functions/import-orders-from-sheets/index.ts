@@ -194,7 +194,8 @@ Deno.serve(async (req: Request) => {
         .eq('meal_type', mealType)
         .maybeSingle();
 
-      const dayOfWeek = new Date(date).getDay();
+      const jsDay = new Date(date).getDay();
+      const dayOfWeek = jsDay === 0 ? 7 : jsDay;
 
       const { data: customerSchedule } = await supabase
         .from('delivery_schedules')
@@ -206,8 +207,8 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
 
       if (!customerSchedule) {
-        console.log(`No delivery schedule found for customer: ${customer.id} on day ${dayOfWeek} for ${mealType}`);
-        debugLog.push({ name, phone, status: 'no_schedule', dayOfWeek, mealType });
+        console.log(`No delivery schedule found for customer: ${customer.id} on day ${dayOfWeek} (JS: ${jsDay}) for ${mealType}`);
+        debugLog.push({ name, phone, status: 'no_schedule', dayOfWeek, jsDay, mealType });
         continue;
       }
 
