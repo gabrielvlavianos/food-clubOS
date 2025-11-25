@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Search, Download, Upload } from 'lucide-react';
 import { RecipesTable } from '@/components/recipes/recipes-table';
 import { CreateRecipeDialog } from '@/components/recipes/create-recipe-dialog';
+import { EditRecipeDialog } from '@/components/recipes/edit-recipe-dialog';
 import { downloadExcelTemplate, parseExcelFile, exportToExcel, ExcelColumn } from '@/lib/excel-utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -31,6 +32,8 @@ export default function RecipesPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -165,6 +168,48 @@ export default function RecipesPage() {
     }
   }
 
+  function handleEdit(recipe: Recipe) {
+    setSelectedRecipe(recipe);
+    setShowEditDialog(true);
+  }
+
+  async function handleDuplicate(recipe: Recipe) {
+    try {
+      const duplicateData: any = {
+        name: `${recipe.name} (Cópia)`,
+        category: recipe.category,
+        kcal_per_100g: recipe.kcal_per_100g,
+        protein_per_100g: recipe.protein_per_100g,
+        carb_per_100g: recipe.carb_per_100g,
+        fat_per_100g: recipe.fat_per_100g,
+        cost_per_100g: recipe.cost_per_100g,
+        allergens: recipe.allergens || [],
+        notes: recipe.notes,
+        is_active: false
+      };
+
+      const { error } = await supabase
+        .from('recipes')
+        .insert(duplicateData);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Receita duplicada',
+        description: 'A receita foi duplicada com sucesso.'
+      });
+
+      loadRecipes();
+    } catch (error) {
+      console.error('Error duplicating recipe:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível duplicar a receita.',
+        variant: 'destructive'
+      });
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
@@ -230,13 +275,25 @@ export default function RecipesPage() {
         {loading ? (
           <div>Carregando receitas...</div>
         ) : (
-          <RecipesTable recipes={filteredRecipes} onUpdate={loadRecipes} />
+          <RecipesTable
+            recipes={filteredRecipes}
+            onUpdate={loadRecipes}
+            onEdit={handleEdit}
+            onDuplicate={handleDuplicate}
+          />
         )}
 
         <CreateRecipeDialog
           open={showCreateDialog}
           onOpenChange={setShowCreateDialog}
           onCreated={loadRecipes}
+        />
+
+        <EditRecipeDialog
+          recipe={selectedRecipe}
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          onUpdated={loadRecipes}
         />
       </main>
     </div>

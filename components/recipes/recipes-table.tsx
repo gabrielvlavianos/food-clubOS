@@ -15,9 +15,11 @@ import { useToast } from '@/hooks/use-toast';
 interface RecipesTableProps {
   recipes: Recipe[];
   onUpdate: () => void;
+  onEdit?: (recipe: Recipe) => void;
+  onDuplicate?: (recipe: Recipe) => void;
 }
 
-export function RecipesTable({ recipes, onUpdate }: RecipesTableProps) {
+export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate }: RecipesTableProps) {
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -131,10 +133,20 @@ export function RecipesTable({ recipes, onUpdate }: RecipesTableProps) {
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-1">
-                  <Button variant="ghost" size="sm" title="Editar">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title="Editar"
+                    onClick={() => onEdit?.(recipe)}
+                  >
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" title="Duplicar">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title="Duplicar"
+                    onClick={() => onDuplicate?.(recipe)}
+                  >
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
