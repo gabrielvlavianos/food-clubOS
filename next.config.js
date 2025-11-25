@@ -7,7 +7,7 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
   images: { unoptimized: true },
-  trailingSlash: true,
+  output: 'standalone',
 };
 
 module.exports = nextConfig;
