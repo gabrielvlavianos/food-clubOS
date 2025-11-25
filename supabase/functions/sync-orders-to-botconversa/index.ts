@@ -6,20 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
 
-interface OrderData {
-  customer_id: string;
-  customer_name: string;
-  phone: string;
-  delivery_address: string;
-  delivery_time: string;
-  meal_type: string;
-  protein_name: string | null;
-  carb_name: string | null;
-  vegetable_name: string | null;
-  salad_name: string | null;
-  sauce_name: string | null;
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -68,42 +54,31 @@ Deno.serve(async (req: Request) => {
     const targetDate = new Date(order_date);
     const dayOfWeek = targetDate.getDay() === 0 ? 7 : targetDate.getDay();
 
-    const query = `
-      SELECT
-        c.id as customer_id,
-        c.name as customer_name,
-        c.phone,
-        ds.delivery_address,
-        ds.delivery_time,
-        ds.meal_type,
-        pr.name as protein_name,
-        cr.name as carb_name,
-        vr.name as vegetable_name,
-        sr.name as salad_name,
-        sar.name as sauce_name
-      FROM customers c
-      INNER JOIN delivery_schedules ds ON c.id = ds.customer_id
-      LEFT JOIN monthly_menu mm ON mm.menu_date = '${order_date}'::date AND mm.meal_type = ds.meal_type
-      LEFT JOIN recipes pr ON mm.protein_recipe_id = pr.id
-      LEFT JOIN recipes cr ON mm.carb_recipe_id = cr.id
-      LEFT JOIN recipes vr ON mm.vegetable_recipe_id = vr.id
-      LEFT JOIN recipes sr ON mm.salad_recipe_id = sr.id
-      LEFT JOIN recipes sar ON mm.sauce_recipe_id = sar.id
-      WHERE c.is_active = true
-        AND ds.is_active = true
-        AND ds.day_of_week = ${dayOfWeek}
-        AND ds.meal_type = '${meal_type}'
-      ORDER BY ds.delivery_time, c.name
-    `;
+    const { data: deliverySchedules, error: schedulesError } = await supabase
+      .from('delivery_schedules')
+      .select(`
+        id,
+        customer_id,
+        day_of_week,
+        meal_type,
+        delivery_address,
+        delivery_time,
+        customers!inner (
+          id,
+          name,
+          phone,
+          is_active
+        )
+      `)
+      .eq('is_active', true)
+      .eq('day_of_week', dayOfWeek)
+      .eq('meal_type', meal_type)
+      .eq('customers.is_active', true);
 
-    const { data: orders, error: queryError } = await supabase.rpc('query', {
-      query_text: query
-    });
-
-    if (queryError) {
-      console.error('Erro ao buscar pedidos:', queryError);
+    if (schedulesError) {
+      console.error('Erro ao buscar agendamentos:', schedulesError);
       return new Response(
-        JSON.stringify({ error: 'Erro ao buscar pedidos', details: queryError }),
+        JSON.stringify({ error: 'Erro ao buscar agendamentos', details: schedulesError }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -111,7 +86,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (!orders || orders.length === 0) {
+    if (!deliverySchedules || deliverySchedules.length === 0) {
       return new Response(
         JSON.stringify({
           message: 'Nenhum pedido encontrado para este dia e turno',
@@ -126,6 +101,47 @@ Deno.serve(async (req: Request) => {
         }
       );
     }
+
+    const { data: menuData, error: menuError } = await supabase
+      .from('monthly_menu')
+      .select(`
+        menu_date,
+        meal_type,
+        protein_recipe_id,
+        carb_recipe_id,
+        vegetable_recipe_id,
+        salad_recipe_id,
+        sauce_recipe_id,
+        protein:recipes!monthly_menu_protein_recipe_id_fkey(name),
+        carb:recipes!monthly_menu_carb_recipe_id_fkey(name),
+        vegetable:recipes!monthly_menu_vegetable_recipe_id_fkey(name),
+        salad:recipes!monthly_menu_salad_recipe_id_fkey(name),
+        sauce:recipes!monthly_menu_sauce_recipe_id_fkey(name)
+      `)
+      .eq('menu_date', order_date)
+      .eq('meal_type', meal_type)
+      .maybeSingle();
+
+    if (menuError) {
+      console.error('Erro ao buscar cardápio:', menuError);
+    }
+
+    const orders = deliverySchedules.map(schedule => {
+      const customer = Array.isArray(schedule.customers) ? schedule.customers[0] : schedule.customers;
+      return {
+        customer_id: customer.id,
+        customer_name: customer.name,
+        phone: customer.phone,
+        delivery_address: schedule.delivery_address,
+        delivery_time: schedule.delivery_time,
+        meal_type: schedule.meal_type,
+        protein_name: menuData?.protein?.name || null,
+        carb_name: menuData?.carb?.name || null,
+        vegetable_name: menuData?.vegetable?.name || null,
+        salad_name: menuData?.salad?.name || null,
+        sauce_name: menuData?.sauce?.name || null,
+      };
+    });
 
     const customFieldsResponse = await fetch(
       'https://api.botconversa.com.br/custom-fields/',
