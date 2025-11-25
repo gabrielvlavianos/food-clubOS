@@ -172,7 +172,7 @@ export default function SettingsPage() {
       const today = new Date().toISOString().split('T')[0];
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/export-to-sheets`, {
+      const response = await fetch(`${supabaseUrl}/functions/v1/export-orders-to-sheets`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -234,223 +234,6 @@ export default function SettingsPage() {
 
   function handleSheetsChange(field: keyof SheetsSettings, value: string) {
     setSheetsSettings(prev => ({ ...prev, [field]: value }));
-  }
-
-  async function syncOrders(mealType: 'lunch' | 'dinner') {
-    setExporting(true);
-    try {
-      const today = new Date().toISOString().split('T')[0];
-
-      const { data: apiKeyData, error: apiKeyError } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'botconversa_api_key')
-        .maybeSingle();
-
-      if (apiKeyError || !apiKeyData) {
-        toast.error('API key do Bot Conversa não configurada');
-        return;
-      }
-
-      const botconversaApiKey = (apiKeyData as any).value;
-
-      const targetDate = new Date(today);
-      const dayOfWeek = targetDate.getDay() === 0 ? 7 : targetDate.getDay();
-
-      const { data: deliverySchedules, error: schedulesError } = await supabase
-        .from('delivery_schedules')
-        .select(`
-          id,
-          customer_id,
-          day_of_week,
-          meal_type,
-          delivery_address,
-          delivery_time,
-          customers!inner (
-            id,
-            name,
-            phone,
-            is_active
-          )
-        `)
-        .eq('is_active', true)
-        .eq('day_of_week', dayOfWeek)
-        .eq('meal_type', mealType)
-        .eq('customers.is_active', true);
-
-      if (schedulesError) {
-        toast.error('Erro ao buscar agendamentos');
-        console.error(schedulesError);
-        return;
-      }
-
-      if (!deliverySchedules || deliverySchedules.length === 0) {
-        toast.info('Nenhum pedido encontrado para este dia e turno');
-        return;
-      }
-
-      const { data: menuData } = await supabase
-        .from('monthly_menu')
-        .select(`
-          menu_date,
-          meal_type,
-          protein:recipes!monthly_menu_protein_recipe_id_fkey(name),
-          carb:recipes!monthly_menu_carb_recipe_id_fkey(name),
-          vegetable:recipes!monthly_menu_vegetable_recipe_id_fkey(name),
-          salad:recipes!monthly_menu_salad_recipe_id_fkey(name),
-          sauce:recipes!monthly_menu_sauce_recipe_id_fkey(name)
-        `)
-        .eq('menu_date', today)
-        .eq('meal_type', mealType)
-        .maybeSingle();
-
-      const orders = deliverySchedules.map((schedule: any) => {
-        const customer = Array.isArray(schedule.customers) ? schedule.customers[0] : schedule.customers;
-        const menu = menuData as any;
-        return {
-          customer_id: customer.id,
-          customer_name: customer.name,
-          phone: customer.phone,
-          delivery_address: schedule.delivery_address,
-          delivery_time: schedule.delivery_time,
-          meal_type: schedule.meal_type,
-          protein_name: menu?.protein?.name || '',
-          carb_name: menu?.carb?.name || '',
-          vegetable_name: menu?.vegetable?.name || '',
-          salad_name: menu?.salad?.name || '',
-          sauce_name: menu?.sauce?.name || '',
-        };
-      });
-
-      const customFieldsResponse = await fetch('https://api.botconversa.com.br/custom-fields/', {
-        method: 'GET',
-        headers: {
-          'API-KEY': botconversaApiKey,
-        },
-      });
-
-      if (!customFieldsResponse.ok) {
-        toast.error('Erro ao buscar custom fields do Bot Conversa');
-        return;
-      }
-
-      const customFields = await customFieldsResponse.json();
-      const fieldMapping: Record<string, string> = {};
-      const requiredFields = ['Nome', 'Endereço', 'Horário do Pedido', 'Proteina', 'Carboidrato', 'Legumes', 'Salada', 'Molho Salada', 'Refeição'];
-
-      for (const field of customFields) {
-        if (requiredFields.includes(field.name)) {
-          fieldMapping[field.name] = field.id;
-        }
-      }
-
-      const missingFields = requiredFields.filter(name => !fieldMapping[name]);
-      if (missingFields.length > 0) {
-        toast.error(`Custom fields não encontrados: ${missingFields.join(', ')}`);
-        return;
-      }
-
-      const results = [];
-      let successCount = 0;
-
-      for (const order of orders) {
-        if (!order.phone) {
-          results.push({ customer: order.customer_name, success: false, error: 'Sem telefone' });
-          continue;
-        }
-
-        try {
-          const searchResponse = await fetch(
-            `https://api.botconversa.com.br/subscribers/?phone=${encodeURIComponent(order.phone)}`,
-            {
-              method: 'GET',
-              headers: { 'API-KEY': botconversaApiKey },
-            }
-          );
-
-          let subscriberId: string;
-
-          if (searchResponse.ok) {
-            const subscribers = await searchResponse.json();
-            if (subscribers && subscribers.length > 0) {
-              subscriberId = subscribers[0].id;
-            } else {
-              const createResponse = await fetch('https://api.botconversa.com.br/subscribers/', {
-                method: 'POST',
-                headers: {
-                  'API-KEY': botconversaApiKey,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  phone: order.phone,
-                  name: order.customer_name,
-                }),
-              });
-
-              if (!createResponse.ok) {
-                results.push({ customer: order.customer_name, success: false, error: 'Erro ao criar subscriber' });
-                continue;
-              }
-
-              const newSubscriber = await createResponse.json();
-              subscriberId = newSubscriber.id;
-            }
-          } else {
-            results.push({ customer: order.customer_name, success: false, error: 'Erro ao buscar subscriber' });
-            continue;
-          }
-
-          const customFieldUpdates = [
-            { field_id: fieldMapping['Nome'], value: order.customer_name },
-            { field_id: fieldMapping['Endereço'], value: order.delivery_address || '' },
-            { field_id: fieldMapping['Horário do Pedido'], value: order.delivery_time || '' },
-            { field_id: fieldMapping['Proteina'], value: order.protein_name },
-            { field_id: fieldMapping['Carboidrato'], value: order.carb_name },
-            { field_id: fieldMapping['Legumes'], value: order.vegetable_name },
-            { field_id: fieldMapping['Salada'], value: order.salad_name },
-            { field_id: fieldMapping['Molho Salada'], value: order.sauce_name },
-            { field_id: fieldMapping['Refeição'], value: mealType },
-          ];
-
-          let allUpdated = true;
-          for (const update of customFieldUpdates) {
-            const updateResponse = await fetch(
-              `https://api.botconversa.com.br/subscribers/${subscriberId}/custom-fields/${update.field_id}/`,
-              {
-                method: 'PUT',
-                headers: {
-                  'API-KEY': botconversaApiKey,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ value: update.value }),
-              }
-            );
-
-            if (!updateResponse.ok) {
-              allUpdated = false;
-              break;
-            }
-          }
-
-          if (allUpdated) {
-            successCount++;
-            results.push({ customer: order.customer_name, success: true });
-          } else {
-            results.push({ customer: order.customer_name, success: false, error: 'Erro ao atualizar campos' });
-          }
-        } catch (err) {
-          results.push({ customer: order.customer_name, success: false, error: 'Erro na requisição' });
-        }
-      }
-
-      toast.success(`Sincronização concluída! ${successCount}/${orders.length} pedidos sincronizados`);
-      console.log('Resultados:', results);
-    } catch (error) {
-      console.error('Error syncing:', error);
-      toast.error('Erro ao sincronizar com Bot Conversa');
-    } finally {
-      setExporting(false);
-    }
   }
 
   return (
@@ -594,9 +377,9 @@ export default function SettingsPage() {
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Sincronizar Pedidos com Bot Conversa</CardTitle>
+                  <CardTitle>Exportar Pedidos para Google Sheets</CardTitle>
                   <CardDescription>
-                    Envia os pedidos do dia para o Bot Conversa atualizar os custom fields dos subscribers
+                    Exporta os pedidos do dia para o Google Sheets. O Bot Conversa lerá direto da planilha.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -605,22 +388,17 @@ export default function SettingsPage() {
                       <strong>Como funciona:</strong>
                     </p>
                     <ol className="text-sm text-blue-800 space-y-2 list-decimal list-inside">
-                      <li>Clique em "Sincronizar Almoço" ou "Sincronizar Jantar"</li>
+                      <li>Clique em "Exportar Almoço" ou "Exportar Jantar"</li>
                       <li>O sistema busca todos os clientes que têm pedido para hoje</li>
-                      <li>Para cada cliente, atualiza os custom fields no Bot Conversa com:
-                        <ul className="ml-6 mt-1 space-y-1 list-disc list-inside">
-                          <li>Nome, Endereço e Horário do Pedido</li>
-                          <li>Itens do cardápio: Proteína, Carboidrato, Legumes, Salada e Molho</li>
-                          <li>Tipo de refeição (almoço ou jantar)</li>
-                        </ul>
-                      </li>
-                      <li>Depois você pode usar esses dados no fluxo do bot!</li>
+                      <li>Busca o cardápio do dia</li>
+                      <li>Cria uma planilha no Google Sheets com todas as informações</li>
+                      <li>O Bot Conversa lê essa planilha e envia as mensagens no WhatsApp</li>
                     </ol>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Button
-                      onClick={() => syncOrders('lunch')}
+                      onClick={() => testExport('lunch')}
                       disabled={exporting}
                       size="lg"
                       className="h-20"
@@ -628,18 +406,18 @@ export default function SettingsPage() {
                       {exporting ? (
                         <>
                           <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
-                          Sincronizando...
+                          Exportando...
                         </>
                       ) : (
                         <>
                           <Upload className="h-5 w-5 mr-2" />
-                          Sincronizar Almoço
+                          Exportar Almoço
                         </>
                       )}
                     </Button>
 
                     <Button
-                      onClick={() => syncOrders('dinner')}
+                      onClick={() => testExport('dinner')}
                       disabled={exporting}
                       size="lg"
                       className="h-20"
@@ -647,26 +425,34 @@ export default function SettingsPage() {
                       {exporting ? (
                         <>
                           <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
-                          Sincronizando...
+                          Exportando...
                         </>
                       ) : (
                         <>
                           <Upload className="h-5 w-5 mr-2" />
-                          Sincronizar Jantar
+                          Exportar Jantar
                         </>
                       )}
                     </Button>
                   </div>
 
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <p className="text-sm text-green-900 mb-2">
+                      <strong>Formato da Planilha:</strong>
+                    </p>
+                    <p className="text-xs text-green-800 font-mono">
+                      Nome | Telefone | Endereço | Horário | Proteína | Carboidrato | Legumes | Salada | Molho Salada | Refeição
+                    </p>
+                  </div>
+
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <p className="text-sm text-yellow-900">
-                      <strong>⚠️ Atenção:</strong> Certifique-se de que:
+                      <strong>⚠️ Pré-requisitos:</strong>
                     </p>
                     <ul className="text-sm text-yellow-800 mt-2 space-y-1 list-disc list-inside">
-                      <li>A API key do Bot Conversa está configurada no banco de dados</li>
-                      <li>Os custom fields estão criados no Bot Conversa com os nomes corretos</li>
-                      <li>Os clientes têm telefone cadastrado</li>
-                      <li>Existe um cardápio configurado para o dia de hoje</li>
+                      <li>Configure o Google Sheets na aba "Google Sheets"</li>
+                      <li>Crie duas abas na planilha: "Almoço" e "Jantar"</li>
+                      <li>Certifique-se que existe um cardápio para hoje</li>
                     </ul>
                   </div>
                 </CardContent>
