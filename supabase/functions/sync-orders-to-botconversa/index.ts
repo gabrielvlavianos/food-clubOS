@@ -7,16 +7,17 @@ const corsHeaders = {
 };
 
 interface OrderData {
+  customer_id: string;
   customer_name: string;
-  customer_phone: string;
+  phone: string;
   delivery_address: string;
   delivery_time: string;
-  protein_name: string;
-  carb_name: string;
-  vegetable_name: string;
-  salad_name: string;
-  sauce_name: string;
   meal_type: string;
+  protein_name: string | null;
+  carb_name: string | null;
+  vegetable_name: string | null;
+  salad_name: string | null;
+  sauce_name: string | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -30,19 +31,17 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json();
     const meal_type = body.meal_type;
+    const order_date = body.order_date || new Date().toISOString().split('T')[0];
 
-    if (!meal_type) {
+    if (!meal_type || !['lunch', 'dinner'].includes(meal_type)) {
       return new Response(
-        JSON.stringify({ error: 'meal_type é obrigatório' }),
+        JSON.stringify({ error: 'meal_type é obrigatório e deve ser "lunch" ou "dinner"' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
-
-    // Usar data de hoje se não for informada
-    const order_date = body.order_date || new Date().toISOString().split('T')[0];
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -66,45 +65,45 @@ Deno.serve(async (req: Request) => {
 
     const botconversaApiKey = settingsData.value;
 
-    // Buscar pedidos ativos do dia e turno especificado
-    const { data: orders, error: ordersError } = await supabase
-      .from('orders')
-      .select(`
-        id,
-        customer_id,
-        order_date,
-        meal_type,
-        delivery_address,
-        delivery_time,
-        customers!inner (
-          id,
-          name,
-          phone
-        ),
-        protein_recipe:recipes!orders_protein_recipe_id_fkey (
-          name
-        ),
-        carb_recipe:recipes!orders_carb_recipe_id_fkey (
-          name
-        ),
-        vegetable_recipe:recipes!orders_vegetable_recipe_id_fkey (
-          name
-        ),
-        salad_recipe:recipes!orders_salad_recipe_id_fkey (
-          name
-        ),
-        sauce_recipe:recipes!orders_sauce_recipe_id_fkey (
-          name
-        )
-      `)
-      .eq('order_date', order_date)
-      .eq('meal_type', meal_type)
-      .neq('status', 'cancelled');
+    const targetDate = new Date(order_date);
+    const dayOfWeek = targetDate.getDay() === 0 ? 7 : targetDate.getDay();
 
-    if (ordersError) {
-      console.error('Erro ao buscar pedidos:', ordersError);
+    const query = `
+      SELECT
+        c.id as customer_id,
+        c.name as customer_name,
+        c.phone,
+        ds.delivery_address,
+        ds.delivery_time,
+        ds.meal_type,
+        pr.name as protein_name,
+        cr.name as carb_name,
+        vr.name as vegetable_name,
+        sr.name as salad_name,
+        sar.name as sauce_name
+      FROM customers c
+      INNER JOIN delivery_schedules ds ON c.id = ds.customer_id
+      LEFT JOIN monthly_menu mm ON mm.menu_date = '${order_date}'::date AND mm.meal_type = ds.meal_type
+      LEFT JOIN recipes pr ON mm.protein_recipe_id = pr.id
+      LEFT JOIN recipes cr ON mm.carb_recipe_id = cr.id
+      LEFT JOIN recipes vr ON mm.vegetable_recipe_id = vr.id
+      LEFT JOIN recipes sr ON mm.salad_recipe_id = sr.id
+      LEFT JOIN recipes sar ON mm.sauce_recipe_id = sar.id
+      WHERE c.is_active = true
+        AND ds.is_active = true
+        AND ds.day_of_week = ${dayOfWeek}
+        AND ds.meal_type = '${meal_type}'
+      ORDER BY ds.delivery_time, c.name
+    `;
+
+    const { data: orders, error: queryError } = await supabase.rpc('query', {
+      query_text: query
+    });
+
+    if (queryError) {
+      console.error('Erro ao buscar pedidos:', queryError);
       return new Response(
-        JSON.stringify({ error: 'Erro ao buscar pedidos', details: ordersError }),
+        JSON.stringify({ error: 'Erro ao buscar pedidos', details: queryError }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -114,7 +113,13 @@ Deno.serve(async (req: Request) => {
 
     if (!orders || orders.length === 0) {
       return new Response(
-        JSON.stringify({ message: 'Nenhum pedido encontrado para este dia e turno', synced: 0 }),
+        JSON.stringify({
+          message: 'Nenhum pedido encontrado para este dia e turno',
+          date: order_date,
+          meal_type: meal_type,
+          day_of_week: dayOfWeek,
+          synced: 0
+        }),
         {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -122,7 +127,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Primeiro, buscar os IDs dos custom fields
     const customFieldsResponse = await fetch(
       'https://api.botconversa.com.br/custom-fields/',
       {
@@ -146,24 +150,22 @@ Deno.serve(async (req: Request) => {
     }
 
     const customFields = await customFieldsResponse.json();
-    
-    // Mapear nomes para IDs
+
     const fieldMapping: Record<string, string> = {};
     const requiredFields = ['Nome', 'Endereço', 'Horário do Pedido', 'Proteina', 'Carboidrato', 'Legumes', 'Salada', 'Molho Salada', 'Refeição'];
-    
+
     for (const field of customFields) {
       if (requiredFields.includes(field.name)) {
         fieldMapping[field.name] = field.id;
       }
     }
 
-    // Verificar se todos os campos foram encontrados
     const missingFields = requiredFields.filter(name => !fieldMapping[name]);
     if (missingFields.length > 0) {
       return new Response(
-        JSON.stringify({ 
-          error: 'Custom fields não encontrados no Bot Conversa', 
-          missing: missingFields 
+        JSON.stringify({
+          error: 'Custom fields não encontrados no Bot Conversa',
+          missing: missingFields
         }),
         {
           status: 500,
@@ -174,23 +176,21 @@ Deno.serve(async (req: Request) => {
 
     const results = [];
 
-    // Processar cada pedido
     for (const order of orders) {
-      const customer = Array.isArray(order.customers) ? order.customers[0] : order.customers;
-      const phone = customer.phone;
+      const phone = order.phone;
 
       if (!phone) {
         results.push({
-          customer_id: customer.id,
+          customer_id: order.customer_id,
+          customer_name: order.customer_name,
           success: false,
           error: 'Cliente sem telefone cadastrado',
         });
         continue;
       }
 
-      // Buscar ou criar subscriber
       let subscriberId: string;
-      
+
       const searchResponse = await fetch(
         `https://api.botconversa.com.br/subscribers/?phone=${encodeURIComponent(phone)}`,
         {
@@ -206,7 +206,6 @@ Deno.serve(async (req: Request) => {
         if (subscribers && subscribers.length > 0) {
           subscriberId = subscribers[0].id;
         } else {
-          // Criar novo subscriber
           const createResponse = await fetch(
             'https://api.botconversa.com.br/subscribers/',
             {
@@ -217,14 +216,15 @@ Deno.serve(async (req: Request) => {
               },
               body: JSON.stringify({
                 phone: phone,
-                name: customer.name,
+                name: order.customer_name,
               }),
             }
           );
 
           if (!createResponse.ok) {
             results.push({
-              customer_id: customer.id,
+              customer_id: order.customer_id,
+              customer_name: order.customer_name,
               success: false,
               error: 'Erro ao criar subscriber',
             });
@@ -236,23 +236,23 @@ Deno.serve(async (req: Request) => {
         }
       } else {
         results.push({
-          customer_id: customer.id,
+          customer_id: order.customer_id,
+          customer_name: order.customer_name,
           success: false,
           error: 'Erro ao buscar subscriber',
         });
         continue;
       }
 
-      // Atualizar custom fields
       const customFieldUpdates = [
-        { field_id: fieldMapping['Nome'], value: customer.name },
+        { field_id: fieldMapping['Nome'], value: order.customer_name },
         { field_id: fieldMapping['Endereço'], value: order.delivery_address || '' },
         { field_id: fieldMapping['Horário do Pedido'], value: order.delivery_time || '' },
-        { field_id: fieldMapping['Proteina'], value: order.protein_recipe?.name || '' },
-        { field_id: fieldMapping['Carboidrato'], value: order.carb_recipe?.name || '' },
-        { field_id: fieldMapping['Legumes'], value: order.vegetable_recipe?.name || '' },
-        { field_id: fieldMapping['Salada'], value: order.salad_recipe?.name || '' },
-        { field_id: fieldMapping['Molho Salada'], value: order.sauce_recipe?.name || '' },
+        { field_id: fieldMapping['Proteina'], value: order.protein_name || '' },
+        { field_id: fieldMapping['Carboidrato'], value: order.carb_name || '' },
+        { field_id: fieldMapping['Legumes'], value: order.vegetable_name || '' },
+        { field_id: fieldMapping['Salada'], value: order.salad_name || '' },
+        { field_id: fieldMapping['Molho Salada'], value: order.sauce_name || '' },
         { field_id: fieldMapping['Refeição'], value: meal_type },
       ];
 
@@ -280,8 +280,8 @@ Deno.serve(async (req: Request) => {
       }
 
       results.push({
-        customer_id: customer.id,
-        customer_name: customer.name,
+        customer_id: order.customer_id,
+        customer_name: order.customer_name,
         phone: phone,
         subscriber_id: subscriberId,
         success: allFieldsUpdated,
@@ -293,6 +293,8 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         message: `Sincronização concluída: ${successCount}/${orders.length} pedidos sincronizados`,
+        date: order_date,
+        meal_type: meal_type,
         total: orders.length,
         synced: successCount,
         results: results,
