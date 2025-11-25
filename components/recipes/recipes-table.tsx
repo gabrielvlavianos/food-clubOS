@@ -7,21 +7,52 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Edit, Copy } from 'lucide-react';
+import { Edit, Copy, Trash2, ArrowUpDown } from 'lucide-react';
 import { formatMacro, formatCost } from '@/lib/calculations';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+
+type SortField = 'name' | 'category' | 'kcal_per_100g' | 'protein_per_100g' | 'carb_per_100g' | 'fat_per_100g' | 'cost_per_100g';
+type SortOrder = 'asc' | 'desc';
 
 interface RecipesTableProps {
   recipes: Recipe[];
   onUpdate: () => void;
   onEdit?: (recipe: Recipe) => void;
   onDuplicate?: (recipe: Recipe) => void;
+  onDelete?: (recipe: Recipe) => void;
 }
 
-export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate }: RecipesTableProps) {
+export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete }: RecipesTableProps) {
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const { toast } = useToast();
+
+  function handleSort(field: SortField) {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  }
+
+  const sortedRecipes = [...recipes].sort((a, b) => {
+    if (!sortField) return 0;
+
+    let aValue = a[sortField];
+    let bValue = b[sortField];
+
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      aValue = aValue.toLowerCase();
+      bValue = bValue.toLowerCase();
+    }
+
+    if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   async function handleToggleStatus(recipeId: string, currentStatus: boolean) {
     setUpdatingStatus(recipeId);
@@ -66,6 +97,20 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate }: Recipes
     return colors[category] || 'bg-gray-100 text-gray-800';
   }
 
+  function SortableHeader({ field, children, className }: { field: SortField; children: React.ReactNode; className?: string }) {
+    return (
+      <TableHead className={className}>
+        <button
+          onClick={() => handleSort(field)}
+          className="flex items-center gap-1 hover:text-gray-900 transition-colors font-medium"
+        >
+          {children}
+          <ArrowUpDown className="h-3 w-3" />
+        </button>
+      </TableHead>
+    );
+  }
+
   if (recipes.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500 bg-white rounded-lg border">
@@ -79,19 +124,19 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate }: Recipes
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Nome</TableHead>
-            <TableHead>Categoria</TableHead>
-            <TableHead className="text-right">Kcal/100g</TableHead>
-            <TableHead className="text-right">Prot/100g</TableHead>
-            <TableHead className="text-right">Carb/100g</TableHead>
-            <TableHead className="text-right">Gord/100g</TableHead>
-            <TableHead className="text-right">Custo/100g</TableHead>
+            <SortableHeader field="name">Nome</SortableHeader>
+            <SortableHeader field="category">Categoria</SortableHeader>
+            <SortableHeader field="kcal_per_100g" className="text-right">Kcal/100g</SortableHeader>
+            <SortableHeader field="protein_per_100g" className="text-right">Prot/100g</SortableHeader>
+            <SortableHeader field="carb_per_100g" className="text-right">Carb/100g</SortableHeader>
+            <SortableHeader field="fat_per_100g" className="text-right">Gord/100g</SortableHeader>
+            <SortableHeader field="cost_per_100g" className="text-right">Custo/100g</SortableHeader>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {recipes.map((recipe) => (
+          {sortedRecipes.map((recipe) => (
             <TableRow key={recipe.id} className={!recipe.is_active ? 'opacity-60' : ''}>
               <TableCell>
                 <div>
@@ -148,6 +193,15 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate }: Recipes
                     onClick={() => onDuplicate?.(recipe)}
                   >
                     <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title="Excluir"
+                    onClick={() => onDelete?.(recipe)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </TableCell>

@@ -7,6 +7,7 @@ import { Navigation } from '@/components/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Plus, Search, Download, Upload } from 'lucide-react';
 import { RecipesTable } from '@/components/recipes/recipes-table';
 import { CreateRecipeDialog } from '@/components/recipes/create-recipe-dialog';
@@ -33,8 +34,11 @@ export default function RecipesPage() {
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [recipeToDelete, setRecipeToDelete] = useState<Recipe | null>(null);
   const [importing, setImporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -173,6 +177,43 @@ export default function RecipesPage() {
     setShowEditDialog(true);
   }
 
+  function handleDeleteClick(recipe: Recipe) {
+    setRecipeToDelete(recipe);
+    setShowDeleteDialog(true);
+  }
+
+  async function confirmDelete() {
+    if (!recipeToDelete) return;
+
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('recipes')
+        .delete()
+        .eq('id', recipeToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Receita excluída',
+        description: 'A receita foi excluída com sucesso.'
+      });
+
+      loadRecipes();
+      setShowDeleteDialog(false);
+      setRecipeToDelete(null);
+    } catch (error) {
+      console.error('Error deleting recipe:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível excluir a receita.',
+        variant: 'destructive'
+      });
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   async function handleDuplicate(recipe: Recipe) {
     try {
       const duplicateData: any = {
@@ -280,6 +321,7 @@ export default function RecipesPage() {
             onUpdate={loadRecipes}
             onEdit={handleEdit}
             onDuplicate={handleDuplicate}
+            onDelete={handleDeleteClick}
           />
         )}
 
@@ -295,6 +337,29 @@ export default function RecipesPage() {
           onOpenChange={setShowEditDialog}
           onUpdated={loadRecipes}
         />
+
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir a receita <strong>{recipeToDelete?.name}</strong>?
+                <br />
+                Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {deleting ? 'Excluindo...' : 'Excluir'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );
