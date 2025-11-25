@@ -184,54 +184,59 @@ Deno.serve(async (req: Request) => {
 
       if (!customer) continue;
 
-      if (newAddress && newAddress.trim() === 'Cancelado') {
-        const { error: updateError } = await supabase
-          .from('orders')
-          .upsert({
-            customer_id: customer.id,
-            delivery_date: date,
-            meal_type: mealType,
-            delivery_address: originalAddress,
-            delivery_time: originalTime,
-            protein: originalProtein,
-            carbohydrate: originalCarb,
-            vegetables: vegetables || '',
-            salad: salad || '',
-            sauce: sauce || '',
-            status: 'cancelled',
-          }, {
-            onConflict: 'customer_id,delivery_date,meal_type',
-          });
+      const { data: existingOrder } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('customer_id', customer.id)
+        .eq('order_date', date)
+        .eq('meal_type', mealType)
+        .maybeSingle();
 
-        if (!updateError) {
-          cancelledCount++;
+      if (newAddress && newAddress.trim() === 'Cancelado') {
+        if (existingOrder) {
+          const { error: updateError } = await supabase
+            .from('orders')
+            .update({
+              is_cancelled: true,
+              status: 'cancelled',
+              modified_delivery_address: 'Cancelado'
+            })
+            .eq('id', existingOrder.id);
+
+          if (!updateError) {
+            cancelledCount++;
+          }
         }
       } else if (newAddress || newTime || newProtein || newCarb) {
-        const finalAddress = newAddress && newAddress.trim() !== '' ? newAddress : originalAddress;
-        const finalTime = newTime && newTime.trim() !== '' ? newTime : originalTime;
-        const finalProtein = newProtein && newProtein.trim() !== '' ? newProtein : originalProtein;
-        const finalCarb = newCarb && newCarb.trim() !== '' ? newCarb : originalCarb;
+        const updateData: any = {};
 
-        const { error: upsertError } = await supabase
-          .from('orders')
-          .upsert({
-            customer_id: customer.id,
-            delivery_date: date,
-            meal_type: mealType,
-            delivery_address: finalAddress,
-            delivery_time: finalTime,
-            protein: finalProtein,
-            carbohydrate: finalCarb,
-            vegetables: vegetables || '',
-            salad: salad || '',
-            sauce: sauce || '',
-            status: 'pending',
-          }, {
-            onConflict: 'customer_id,delivery_date,meal_type',
-          });
+        if (newAddress && newAddress.trim() !== '') {
+          updateData.modified_delivery_address = newAddress.trim();
+        }
 
-        if (!upsertError) {
-          updatedCount++;
+        if (newTime && newTime.trim() !== '') {
+          updateData.modified_delivery_time = newTime.trim();
+        }
+
+        if (newProtein && newProtein.trim() !== '') {
+          updateData.modified_protein_name = newProtein.trim();
+        }
+
+        if (newCarb && newCarb.trim() !== '') {
+          updateData.modified_carb_name = newCarb.trim();
+        }
+
+        if (Object.keys(updateData).length > 0 && existingOrder) {
+          updateData.is_cancelled = false;
+
+          const { error: updateError } = await supabase
+            .from('orders')
+            .update(updateData)
+            .eq('id', existingOrder.id);
+
+          if (!updateError) {
+            updatedCount++;
+          }
         }
       }
     }

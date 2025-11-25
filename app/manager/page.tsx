@@ -89,9 +89,9 @@ export default function ManagerPage() {
       const { data: modifiedOrdersData } = await supabase
         .from('orders')
         .select('*')
-        .eq('delivery_date', selectedDate)
+        .eq('order_date', selectedDate)
         .eq('meal_type', selectedMealType)
-        .neq('status', 'cancelled');
+        .eq('is_cancelled', false);
 
       const modifiedOrdersMap = new Map(
         modifiedOrdersData?.map((o: any) => [o.customer_id, o]) || []
@@ -116,10 +116,16 @@ export default function ManagerPage() {
         let deliverySchedule;
 
         if (modifiedOrder) {
+          const defaultSchedule = customerData.delivery_schedules?.find(
+            (ds: any) =>
+              ds.day_of_week === adjustedDayOfWeek &&
+              ds.meal_type === selectedMealType &&
+              ds.is_active
+          );
           deliverySchedule = {
-            ...customerData.delivery_schedules?.[0],
-            delivery_time: modifiedOrder.delivery_time,
-            delivery_address: modifiedOrder.delivery_address,
+            ...defaultSchedule,
+            delivery_time: modifiedOrder.modified_delivery_time || defaultSchedule?.delivery_time,
+            delivery_address: modifiedOrder.modified_delivery_address || defaultSchedule?.delivery_address,
           };
         } else {
           deliverySchedule = customerData.delivery_schedules?.find(

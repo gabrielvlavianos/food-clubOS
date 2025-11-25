@@ -226,9 +226,9 @@ export default function KitchenDashboardPage() {
       const { data: modifiedOrdersData } = await supabase
         .from('orders')
         .select('*')
-        .eq('delivery_date', selectedDate)
+        .eq('order_date', selectedDate)
         .eq('meal_type', selectedMealType)
-        .neq('status', 'cancelled');
+        .eq('is_cancelled', false);
 
       const modifiedOrdersMap = new Map(
         modifiedOrdersData?.map((o: any) => [o.customer_id, o]) || []
@@ -294,30 +294,35 @@ export default function KitchenDashboardPage() {
         const modifiedOrder = modifiedOrdersMap.get(customerData.id);
 
         if (modifiedOrder) {
+          const defaultSchedule = customerData.delivery_schedules?.find(
+            (ds: any) =>
+              ds.day_of_week === adjustedDayOfWeek &&
+              ds.meal_type === selectedMealType &&
+              ds.is_active
+          );
+
           const deliverySchedule = {
-            ...customerData.delivery_schedules?.[0],
-            delivery_time: modifiedOrder.delivery_time,
-            delivery_address: modifiedOrder.delivery_address,
+            ...defaultSchedule,
+            delivery_time: modifiedOrder.modified_delivery_time || defaultSchedule?.delivery_time,
+            delivery_address: modifiedOrder.modified_delivery_address || defaultSchedule?.delivery_address,
           };
 
           const customMenuRecipes: any = { ...menuRecipes };
-          const proteinName = menuRecipes.protein ? (menuRecipes.protein as any).name : '';
-          const carbName = menuRecipes.carb ? (menuRecipes.carb as any).name : '';
 
-          if (modifiedOrder.protein && modifiedOrder.protein !== proteinName) {
+          if (modifiedOrder.modified_protein_name) {
             const { data: customProtein } = await supabase
               .from('recipes')
               .select('*')
-              .eq('name', modifiedOrder.protein)
+              .eq('name', modifiedOrder.modified_protein_name)
               .maybeSingle();
             if (customProtein) customMenuRecipes.protein = customProtein;
           }
 
-          if (modifiedOrder.carbohydrate && modifiedOrder.carbohydrate !== carbName) {
+          if (modifiedOrder.modified_carb_name) {
             const { data: customCarb } = await supabase
               .from('recipes')
               .select('*')
-              .eq('name', modifiedOrder.carbohydrate)
+              .eq('name', modifiedOrder.modified_carb_name)
               .maybeSingle();
             if (customCarb) customMenuRecipes.carb = customCarb;
           }
