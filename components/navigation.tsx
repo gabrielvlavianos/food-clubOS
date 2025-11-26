@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { Users, BookOpen, ChefHat, CalendarDays, UtensilsCrossed, Truck, LayoutDashboard, Settings } from 'lucide-react';
+import { Users, BookOpen, ChefHat, CalendarDays, UtensilsCrossed, Truck, LayoutDashboard, Settings, UserPlus } from 'lucide-react';
 
 const navItems = [
   { href: '/manager', label: 'Gerencial', icon: LayoutDashboard },
@@ -11,6 +11,7 @@ const navItems = [
   { href: '/deliveries', label: 'Expedição', icon: Truck },
   { href: '/menu', label: 'Cardápio Mensal', icon: CalendarDays },
   { href: '/customers', label: 'Clientes', icon: Users },
+  { href: '/entrantes', label: 'Novos Entrantes', icon: UserPlus },
   { href: '/recipes', label: 'Receitas', icon: BookOpen },
   { href: '/settings', label: 'Configurações', icon: Settings },
 ];

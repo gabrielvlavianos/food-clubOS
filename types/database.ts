@@ -67,6 +67,9 @@ export interface Database {
           dinner_protein: number | null;
           dinner_fat: number | null;
           is_active: boolean;
+          status: 'pending_approval' | 'active' | 'inactive';
+          has_nutritionist: boolean;
+          meal_plan_file_url: string | null;
           created_at: string;
         };
         Insert: {
@@ -103,6 +106,9 @@ export interface Database {
           dinner_protein?: number | null;
           dinner_fat?: number | null;
           is_active?: boolean;
+          status?: 'pending_approval' | 'active' | 'inactive';
+          has_nutritionist?: boolean;
+          meal_plan_file_url?: string | null;
           created_at?: string;
         };
         Update: {
@@ -139,6 +145,9 @@ export interface Database {
           dinner_protein?: number | null;
           dinner_fat?: number | null;
           is_active?: boolean;
+          status?: 'pending_approval' | 'active' | 'inactive';
+          has_nutritionist?: boolean;
+          meal_plan_file_url?: string | null;
           created_at?: string;
         };
       };
