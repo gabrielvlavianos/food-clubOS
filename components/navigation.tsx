@@ -23,7 +23,7 @@ export function Navigation() {
     <nav className="border-b bg-white">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center">
-          <div className="flex items-center gap-3 mr-8">
+          <Link href="/cadastro" className="flex items-center gap-3 mr-8 hover:opacity-80 transition-opacity">
             <svg width="32" height="32" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="100" cy="100" r="80" stroke="#5F7469" strokeWidth="6" fill="none" opacity="0.3"/>
               <path d="M100 50 L100 150 M100 50 L85 70 M100 50 L115 70" stroke="#5F7469" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
@@ -33,7 +33,7 @@ export function Navigation() {
               <circle cx="115" cy="65" r="6" fill="#7A9283"/>
             </svg>
             <span className="text-xl font-bold" style={{ color: '#3D3D3D', letterSpacing: '0.05em' }}>PURIC</span>
-          </div>
+          </Link>
           <div className="flex gap-1">
             {navItems.map((item) => {
               const Icon = item.icon;
