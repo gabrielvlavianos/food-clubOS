@@ -16,7 +16,8 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle2, UserCheck, Clock, ExternalLink } from 'lucide-react';
+import { CheckCircle2, UserCheck, Clock, ExternalLink, Trash2, Download, FileDown, ChevronDown, ChevronUp } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import {
   Dialog,
   DialogContent,
@@ -33,6 +34,9 @@ export default function EntrantesPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<PendingCustomer | null>(null);
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState<PendingCustomer | null>(null);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
 
   const [lunchCarbs, setLunchCarbs] = useState('');
   const [lunchProtein, setLunchProtein] = useState('');
@@ -79,6 +83,90 @@ export default function EntrantesPage() {
     setDinnerProtein(customer.dinner_protein?.toString() || '');
     setDinnerFat(customer.dinner_fat?.toString() || '');
     setShowApprovalDialog(true);
+  }
+
+  function toggleCardExpansion(customerId: string) {
+    const newExpanded = new Set(expandedCards);
+    if (newExpanded.has(customerId)) {
+      newExpanded.delete(customerId);
+    } else {
+      newExpanded.add(customerId);
+    }
+    setExpandedCards(newExpanded);
+  }
+
+  async function deleteCustomer() {
+    if (!customerToDelete) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('customers')
+        .delete()
+        .eq('id', customerToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Cliente excluído',
+        description: `${customerToDelete.name} foi removido do sistema`,
+      });
+
+      setShowDeleteDialog(false);
+      setCustomerToDelete(null);
+      loadPendingCustomers();
+    } catch (error) {
+      console.error('Error deleting customer:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível excluir o cliente',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function exportToExcel() {
+    const allCustomers = [...withNutritionist, ...withoutNutritionist];
+
+    const dataToExport = allCustomers.map(customer => ({
+      'Nome': customer.name,
+      'Email': customer.email || '-',
+      'Telefone': customer.phone || '-',
+      'Data Cadastro': new Date(customer.created_at).toLocaleDateString('pt-BR'),
+      'Tem Nutricionista': customer.has_nutritionist ? 'Sim' : 'Não',
+      'Nutricionista': customer.nutritionist_name || '-',
+      'Contato Nutri': customer.nutritionist_phone || '-',
+      'Objetivo': customer.main_goal || '-',
+      'Peso Atual (kg)': customer.current_weight_kg || '-',
+      'Peso Alvo (kg)': customer.goal_weight_kg || '-',
+      'Altura (cm)': customer.height_cm || '-',
+      'Gênero': customer.gender || '-',
+      'Data Nascimento': customer.birth_date || '-',
+      'Restrições': customer.food_restrictions || '-',
+      'Alergias': customer.allergies?.join(', ') || '-',
+      'Condições Clínicas': customer.clinical_conditions || '-',
+      'Medicamentos': customer.medication_use || '-',
+      'Rotina Trabalho': customer.work_routine || '-',
+      'Freq Aeróbico': customer.aerobic_frequency || '-',
+      'Intensidade Aeróbico': customer.aerobic_intensity || '-',
+      'Freq Musculação': customer.strength_frequency || '-',
+      'Intensidade Musculação': customer.strength_intensity || '-',
+      'Refeições/Dia': customer.meals_per_day || '-',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Novos Entrantes');
+
+    const fileName = `novos-entrantes-${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+    toast({
+      title: 'Exportado!',
+      description: 'Dados exportados para Excel com sucesso',
+    });
   }
 
   async function approveCustomer() {
@@ -132,6 +220,8 @@ export default function EntrantesPage() {
   }
 
   function CustomerCard({ customer }: { customer: PendingCustomer }) {
+    const isExpanded = expandedCards.has(customer.id);
+
     return (
       <Card className="hover:shadow-lg transition-shadow">
         <CardHeader>
@@ -157,34 +247,42 @@ export default function EntrantesPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-slate-600">Email:</span>
-              <span className="font-medium">{customer.email || '-'}</span>
+              <span className="font-medium text-right break-all">{customer.email || '-'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-600">Objetivo:</span>
-              <span className="font-medium">{customer.main_goal || '-'}</span>
+              <span className="font-medium text-right">{customer.main_goal || '-'}</span>
             </div>
+
             {customer.has_nutritionist && (
               <>
                 <div className="flex justify-between">
                   <span className="text-slate-600">Nutricionista:</span>
                   <span className="font-medium">{customer.nutritionist_name || '-'}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Contato Nutri:</span>
+                  <span className="font-medium">{customer.nutritionist_phone || '-'}</span>
+                </div>
                 {customer.meal_plan_file_url && (
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-600">Plano:</span>
+                    <span className="text-slate-600">Plano Alimentar:</span>
                     <a
                       href={customer.meal_plan_file_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+                      className="flex items-center gap-1 text-white px-3 py-1 rounded-md text-xs hover:opacity-90 transition-opacity"
+                      style={{ backgroundColor: '#5F7469' }}
+                      download
                     >
-                      Ver arquivo
-                      <ExternalLink className="w-3 h-3" />
+                      <FileDown className="w-3 h-3" />
+                      Baixar PDF
                     </a>
                   </div>
                 )}
               </>
             )}
+
             {!customer.has_nutritionist && (
               <>
                 <div className="flex justify-between">
@@ -195,18 +293,144 @@ export default function EntrantesPage() {
                   <span className="text-slate-600">Altura:</span>
                   <span className="font-medium">{customer.height_cm}cm</span>
                 </div>
+                {customer.gender && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Gênero:</span>
+                    <span className="font-medium">{customer.gender}</span>
+                  </div>
+                )}
+                {customer.birth_date && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Data Nascimento:</span>
+                    <span className="font-medium">{new Date(customer.birth_date).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                )}
               </>
+            )}
+
+            {isExpanded && (
+              <div className="space-y-2 pt-3 border-t border-slate-200">
+                {customer.food_restrictions && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-slate-600">Restrições Alimentares:</span>
+                    <span className="font-medium text-sm bg-slate-50 p-2 rounded">{customer.food_restrictions}</span>
+                  </div>
+                )}
+                {customer.allergies && customer.allergies.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-slate-600">Alergias:</span>
+                    <span className="font-medium text-sm bg-red-50 p-2 rounded text-red-800">{customer.allergies.join(', ')}</span>
+                  </div>
+                )}
+                {customer.clinical_conditions && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-slate-600">Condições Clínicas:</span>
+                    <span className="font-medium text-sm bg-slate-50 p-2 rounded">{customer.clinical_conditions}</span>
+                  </div>
+                )}
+                {customer.medication_use && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-slate-600">Uso de Medicamentos:</span>
+                    <span className="font-medium text-sm bg-slate-50 p-2 rounded">{customer.medication_use}</span>
+                  </div>
+                )}
+                {customer.body_fat_percentage && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">% Gordura:</span>
+                    <span className="font-medium">{customer.body_fat_percentage}%</span>
+                  </div>
+                )}
+                {customer.skeletal_muscle_mass && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Massa Muscular:</span>
+                    <span className="font-medium">{customer.skeletal_muscle_mass}kg</span>
+                  </div>
+                )}
+                {customer.work_routine && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-slate-600">Rotina de Trabalho:</span>
+                    <span className="font-medium text-sm bg-slate-50 p-2 rounded">{customer.work_routine}</span>
+                  </div>
+                )}
+                {customer.aerobic_frequency && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Frequência Aeróbico:</span>
+                    <span className="font-medium text-right">{customer.aerobic_frequency}</span>
+                  </div>
+                )}
+                {customer.aerobic_intensity && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Intensidade Aeróbico:</span>
+                    <span className="font-medium text-right">{customer.aerobic_intensity}</span>
+                  </div>
+                )}
+                {customer.strength_frequency && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Frequência Musculação:</span>
+                    <span className="font-medium text-right">{customer.strength_frequency}</span>
+                  </div>
+                )}
+                {customer.strength_intensity && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Intensidade Musculação:</span>
+                    <span className="font-medium text-right">{customer.strength_intensity}</span>
+                  </div>
+                )}
+                {customer.meals_per_day && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Refeições por Dia:</span>
+                    <span className="font-medium">{customer.meals_per_day}</span>
+                  </div>
+                )}
+                {customer.dietary_notes && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-slate-600">Observações Nutricionais:</span>
+                    <span className="font-medium text-sm bg-slate-50 p-2 rounded">{customer.dietary_notes}</span>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
           <Button
-            onClick={() => openApprovalDialog(customer)}
+            onClick={() => toggleCardExpansion(customer.id)}
+            variant="outline"
             className="w-full"
-            variant="default"
+            size="sm"
           >
-            <UserCheck className="w-4 h-4 mr-2" />
-            Revisar e Aprovar
+            {isExpanded ? (
+              <>
+                <ChevronUp className="w-4 h-4 mr-2" />
+                Ver Menos
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4 mr-2" />
+                Ver Todas Informações
+              </>
+            )}
           </Button>
+
+          <div className="flex gap-2">
+            <Button
+              onClick={() => openApprovalDialog(customer)}
+              className="flex-1"
+              variant="default"
+            >
+              <UserCheck className="w-4 h-4 mr-2" />
+              Revisar e Aprovar
+            </Button>
+            <Button
+              onClick={() => {
+                setCustomerToDelete(customer);
+                setShowDeleteDialog(true);
+              }}
+              variant="destructive"
+              size="icon"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
@@ -216,11 +440,22 @@ export default function EntrantesPage() {
     <>
       <Navigation />
       <div className="container mx-auto p-6 max-w-7xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">Novos Entrantes</h1>
-        <p className="text-slate-600">
-          Clientes que finalizaram o cadastro e aguardam aprovação
-        </p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Novos Entrantes</h1>
+          <p className="text-slate-600">
+            Clientes que finalizaram o cadastro e aguardam aprovação
+          </p>
+        </div>
+        <Button
+          onClick={exportToExcel}
+          variant="outline"
+          className="flex items-center gap-2"
+          disabled={withNutritionist.length === 0 && withoutNutritionist.length === 0}
+        >
+          <Download className="w-4 h-4" />
+          Exportar Excel
+        </Button>
       </div>
 
       <Tabs defaultValue="with-nutritionist" className="space-y-6">
@@ -286,6 +521,72 @@ export default function EntrantesPage() {
           </DialogHeader>
 
           <div className="space-y-6">
+            {selectedCustomer && (
+              <div className="border rounded-lg p-4 bg-blue-50 space-y-2 text-sm">
+                <h4 className="font-semibold text-blue-900 mb-3">Resumo do Cliente</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-blue-700">Email:</span>
+                    <p className="font-medium text-blue-900">{selectedCustomer.email || '-'}</p>
+                  </div>
+                  <div>
+                    <span className="text-blue-700">Telefone:</span>
+                    <p className="font-medium text-blue-900">{selectedCustomer.phone || '-'}</p>
+                  </div>
+                  <div>
+                    <span className="text-blue-700">Objetivo:</span>
+                    <p className="font-medium text-blue-900">{selectedCustomer.main_goal || '-'}</p>
+                  </div>
+                  {selectedCustomer.has_nutritionist && (
+                    <>
+                      <div>
+                        <span className="text-blue-700">Nutricionista:</span>
+                        <p className="font-medium text-blue-900">{selectedCustomer.nutritionist_name || '-'}</p>
+                      </div>
+                      {selectedCustomer.meal_plan_file_url && (
+                        <div className="col-span-2">
+                          <a
+                            href={selectedCustomer.meal_plan_file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-white px-3 py-2 rounded-md text-sm hover:opacity-90 transition-opacity w-fit"
+                            style={{ backgroundColor: '#5F7469' }}
+                            download
+                          >
+                            <FileDown className="w-4 h-4" />
+                            Baixar Plano Alimentar (PDF)
+                          </a>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {!selectedCustomer.has_nutritionist && (
+                    <>
+                      <div>
+                        <span className="text-blue-700">Peso:</span>
+                        <p className="font-medium text-blue-900">{selectedCustomer.current_weight_kg}kg → {selectedCustomer.goal_weight_kg}kg</p>
+                      </div>
+                      <div>
+                        <span className="text-blue-700">Altura:</span>
+                        <p className="font-medium text-blue-900">{selectedCustomer.height_cm}cm</p>
+                      </div>
+                    </>
+                  )}
+                  {selectedCustomer.allergies && selectedCustomer.allergies.length > 0 && (
+                    <div className="col-span-2 bg-red-100 p-2 rounded border border-red-300">
+                      <span className="text-red-700 font-semibold">Alergias:</span>
+                      <p className="font-medium text-red-900">{selectedCustomer.allergies.join(', ')}</p>
+                    </div>
+                  )}
+                  {selectedCustomer.food_restrictions && (
+                    <div className="col-span-2">
+                      <span className="text-blue-700">Restrições:</span>
+                      <p className="font-medium text-blue-900">{selectedCustomer.food_restrictions}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="border rounded-lg p-4 space-y-4 bg-slate-50">
               <h4 className="font-semibold text-lg">Almoço</h4>
               <div className="grid grid-cols-3 gap-4">
@@ -377,6 +678,40 @@ export default function EntrantesPage() {
                 {loading ? 'Aprovando...' : 'Aprovar Cliente'}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir o cadastro de <strong>{customerToDelete?.name}</strong>?
+              <br />
+              <br />
+              Esta ação não pode ser desfeita e todos os dados serão permanentemente removidos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteDialog(false);
+                setCustomerToDelete(null);
+              }}
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={deleteCustomer}
+              disabled={loading}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {loading ? 'Excluindo...' : 'Excluir Cliente'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
