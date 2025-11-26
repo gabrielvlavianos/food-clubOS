@@ -174,6 +174,32 @@ export function RegistrationForm() {
     setLoading(true);
 
     try {
+      let mealPlanFileUrl: string | null = null;
+
+      if (mealPlanFile && hasNutritionist) {
+        const fileExt = mealPlanFile.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('meal-plans')
+          .upload(filePath, mealPlanFile, {
+            contentType: mealPlanFile.type,
+            upsert: false
+          });
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          throw new Error('Erro ao fazer upload do arquivo');
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('meal-plans')
+          .getPublicUrl(filePath);
+
+        mealPlanFileUrl = publicUrl;
+      }
+
       const { data: customerData, error: customerError } = await (supabase as any)
         .from('customers')
         .insert([{
@@ -186,6 +212,7 @@ export function RegistrationForm() {
           status: 'pending_approval',
           nutritionist_name: hasNutritionist ? nutritionistName : null,
           nutritionist_phone: hasNutritionist ? nutritionistPhone : null,
+          meal_plan_file_url: mealPlanFileUrl,
           main_goal: mainGoal || null,
           allergies: selectedAllergies,
           food_restrictions: foodRestrictions || null,
