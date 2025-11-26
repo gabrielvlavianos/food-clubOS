@@ -23,9 +23,16 @@ export function Navigation() {
     <nav className="border-b bg-white">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center">
-          <div className="flex items-center gap-2 mr-8">
-            <ChefHat className="h-6 w-6" />
-            <span className="text-xl font-bold">Food Club OS</span>
+          <div className="flex items-center gap-3 mr-8">
+            <svg width="32" height="32" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="100" cy="100" r="80" stroke="#5F7469" strokeWidth="6" fill="none" opacity="0.3"/>
+              <path d="M100 50 L100 150 M100 50 L85 70 M100 50 L115 70" stroke="#5F7469" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M85 80 Q70 85 70 100 Q70 115 85 120" stroke="#5F7469" strokeWidth="5" fill="none"/>
+              <path d="M115 80 Q130 85 130 100 Q130 115 115 120" stroke="#5F7469" strokeWidth="5" fill="none"/>
+              <circle cx="85" cy="60" r="6" fill="#7A9283"/>
+              <circle cx="115" cy="65" r="6" fill="#7A9283"/>
+            </svg>
+            <span className="text-xl font-bold" style={{ color: '#3D3D3D', letterSpacing: '0.05em' }}>PURIC</span>
           </div>
           <div className="flex gap-1">
             {navItems.map((item) => {

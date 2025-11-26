@@ -273,7 +273,7 @@ export function RegistrationForm() {
 
         <div className="grid md:grid-cols-2 gap-6">
           <Card
-            className="p-8 cursor-pointer hover:shadow-lg transition-all hover:scale-105 border-2 hover:border-emerald-500"
+            className="p-8 cursor-pointer hover:shadow-lg transition-all hover:scale-105 border-2 hover:border-[#5F7469]"
             onClick={() => handleNutritionistChoice(true)}
           >
             <div className="text-center space-y-4">
@@ -288,7 +288,7 @@ export function RegistrationForm() {
           </Card>
 
           <Card
-            className="p-8 cursor-pointer hover:shadow-lg transition-all hover:scale-105 border-2 hover:border-emerald-500"
+            className="p-8 cursor-pointer hover:shadow-lg transition-all hover:scale-105 border-2 hover:border-[#5F7469]"
             onClick={() => handleNutritionistChoice(false)}
           >
             <div className="text-center space-y-4">
@@ -333,16 +333,17 @@ export function RegistrationForm() {
               <div key={idx} className="flex items-center flex-1">
                 <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${
                   idx === currentSection
-                    ? 'bg-emerald-600 text-white'
+                    ? 'text-white'
                     : idx < currentSection
-                    ? 'bg-emerald-200 text-emerald-700'
-                    : 'bg-slate-200 text-slate-500'
-                }`}>
+                    ? 'bg-stone-200 text-stone-500'
+                    : 'bg-stone-200 text-stone-500'
+                }`}
+                style={idx === currentSection ? { backgroundColor: '#5F7469' } : {}}>
                   {idx + 1}
                 </div>
                 {idx < sections.length - 1 && (
                   <div className={`flex-1 h-1 mx-2 ${
-                    idx < currentSection ? 'bg-emerald-200' : 'bg-slate-200'
+                    idx < currentSection ? 'bg-stone-300' : 'bg-stone-200'
                   }`} />
                 )}
               </div>
