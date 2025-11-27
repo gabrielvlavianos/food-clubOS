@@ -542,6 +542,38 @@ export interface Database {
           updated_at?: string;
         };
       };
+      customer_documents: {
+        Row: {
+          id: string;
+          customer_id: string;
+          file_name: string;
+          file_url: string;
+          file_type: string;
+          description: string | null;
+          uploaded_at: string;
+          uploaded_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          customer_id: string;
+          file_name: string;
+          file_url: string;
+          file_type?: string;
+          description?: string | null;
+          uploaded_at?: string;
+          uploaded_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          customer_id?: string;
+          file_name?: string;
+          file_url?: string;
+          file_type?: string;
+          description?: string | null;
+          uploaded_at?: string;
+          uploaded_by?: string | null;
+        };
+      };
     };
   };
 }

@@ -10,6 +10,7 @@ export type DeliverySchedule = Database['public']['Tables']['delivery_schedules'
 export type NutritionPlan = Database['public']['Tables']['nutrition_plans']['Row'];
 export type Order = Database['public']['Tables']['orders']['Row'];
 export type OrderItem = Database['public']['Tables']['order_items']['Row'];
+export type CustomerDocument = Database['public']['Tables']['customer_documents']['Row'];
 
 export type CustomerWithAddresses = Customer & {
   addresses: Address[];

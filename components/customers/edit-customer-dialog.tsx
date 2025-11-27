@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { CustomerWithAddresses } from '@/types';
+import type { CustomerWithAddresses, CustomerDocument } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,7 +58,10 @@ export function EditCustomerDialog({
   const [medicationUse, setMedicationUse] = useState('');
   const [dietaryNotes, setDietaryNotes] = useState('');
   const [mealPlanFileUrl, setMealPlanFileUrl] = useState('');
-  const [mealPlanFile, setMealPlanFile] = useState<File | null>(null);
+  const [documents, setDocuments] = useState<CustomerDocument[]>([]);
+  const [newFile, setNewFile] = useState<File | null>(null);
+  const [newFileType, setNewFileType] = useState('meal_plan');
+  const [newFileDescription, setNewFileDescription] = useState('');
   const [uploadingFile, setUploadingFile] = useState(false);
   const [deliverySchedules, setDeliverySchedules] = useState<DeliveryScheduleForm>({});
   const [height, setHeight] = useState('');
@@ -98,6 +101,17 @@ export function EditCustomerDialog({
         setMedicationUse(customer.medication_use || '');
         setDietaryNotes(customer.dietary_notes || '');
         setMealPlanFileUrl(customer.meal_plan_file_url || '');
+
+        const { data: customerDocuments } = await supabase
+          .from('customer_documents')
+          .select('*')
+          .eq('customer_id', customer.id)
+          .order('uploaded_at', { ascending: false });
+
+        if (customerDocuments) {
+          setDocuments(customerDocuments);
+        }
+
         setHeight(customer.height_cm?.toString() || '');
         setCurrentWeight(customer.current_weight_kg?.toString() || '');
         setGoalWeight(customer.goal_weight_kg?.toString() || '');
@@ -172,18 +186,18 @@ export function EditCustomerDialog({
     }));
   }
 
-  async function handleFileUpload() {
-    if (!mealPlanFile || !customer) return;
+  async function handleAddDocument() {
+    if (!newFile || !customer) return;
 
     setUploadingFile(true);
     try {
-      const fileExt = mealPlanFile.name.split('.').pop();
+      const fileExt = newFile.name.split('.').pop();
       const fileName = `${customer.id}-${Date.now()}.${fileExt}`;
-      const filePath = `meal-plans/${fileName}`;
+      const filePath = `customer-documents/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('customer-files')
-        .upload(filePath, mealPlanFile, {
+        .upload(filePath, newFile, {
           cacheControl: '3600',
           upsert: false
         });
@@ -194,15 +208,36 @@ export function EditCustomerDialog({
         .from('customer-files')
         .getPublicUrl(filePath);
 
-      setMealPlanFileUrl(publicUrl);
-      setMealPlanFile(null);
+      const { error: dbError } = await (supabase as any)
+        .from('customer_documents')
+        .insert({
+          customer_id: customer.id,
+          file_name: newFile.name,
+          file_url: publicUrl,
+          file_type: newFileType,
+          description: newFileDescription || null,
+        });
+
+      if (dbError) throw dbError;
+
+      const { data: customerDocuments } = await supabase
+        .from('customer_documents')
+        .select('*')
+        .eq('customer_id', customer.id)
+        .order('uploaded_at', { ascending: false });
+
+      if (customerDocuments) {
+        setDocuments(customerDocuments);
+      }
+
+      setNewFile(null);
+      setNewFileDescription('');
+      setNewFileType('meal_plan');
 
       toast({
-        title: 'Arquivo enviado',
-        description: 'Plano alimentar atualizado com sucesso',
+        title: 'Documento adicionado',
+        description: 'Documento enviado com sucesso',
       });
-
-      return publicUrl;
     } catch (error) {
       console.error('Error uploading file:', error);
       toast({
@@ -210,9 +245,43 @@ export function EditCustomerDialog({
         description: 'Não foi possível enviar o arquivo',
         variant: 'destructive',
       });
-      return null;
     } finally {
       setUploadingFile(false);
+    }
+  }
+
+  async function handleDeleteDocument(documentId: string) {
+    if (!customer) return;
+
+    try {
+      const { error } = await supabase
+        .from('customer_documents')
+        .delete()
+        .eq('id', documentId);
+
+      if (error) throw error;
+
+      const { data: customerDocuments } = await supabase
+        .from('customer_documents')
+        .select('*')
+        .eq('customer_id', customer.id)
+        .order('uploaded_at', { ascending: false });
+
+      if (customerDocuments) {
+        setDocuments(customerDocuments);
+      }
+
+      toast({
+        title: 'Documento removido',
+        description: 'Documento removido com sucesso',
+      });
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível remover o documento',
+        variant: 'destructive',
+      });
     }
   }
 
@@ -223,15 +292,6 @@ export function EditCustomerDialog({
     setLoading(true);
 
     try {
-      let newMealPlanUrl = mealPlanFileUrl;
-
-      if (mealPlanFile) {
-        const uploadedUrl = await handleFileUpload();
-        if (uploadedUrl) {
-          newMealPlanUrl = uploadedUrl;
-        }
-      }
-
       const updateData: any = {
         name,
         phone: phone || null,
@@ -263,7 +323,6 @@ export function EditCustomerDialog({
         dinner_carbs: dinnerCarbs ? parseFloat(dinnerCarbs) : null,
         dinner_protein: dinnerProtein ? parseFloat(dinnerProtein) : null,
         dinner_fat: dinnerFat ? parseFloat(dinnerFat) : null,
-        meal_plan_file_url: newMealPlanUrl || null,
       };
 
       const { error: customerError } = await (supabase as any)
@@ -517,42 +576,105 @@ export function EditCustomerDialog({
               </div>
 
               <div>
-                <Label>Plano Alimentar</Label>
-                <div className="mt-2 space-y-3">
-                  {mealPlanFileUrl && (
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => window.open(mealPlanFileUrl, '_blank')}
-                      >
-                        Ver Plano Alimentar Atual
-                      </Button>
-                    </div>
-                  )}
+                <Label className="block mb-3">Documentos do Cliente</Label>
+
+                {documents.length > 0 && (
+                  <div className="mb-4 space-y-2">
+                    {documents.map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{doc.file_name}</p>
+                          <div className="flex gap-2 text-xs text-gray-600 mt-1">
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded">
+                              {doc.file_type === 'meal_plan' ? 'Plano Alimentar' :
+                               doc.file_type === 'exam' ? 'Exame' :
+                               doc.file_type === 'prescription' ? 'Prescrição' : 'Outro'}
+                            </span>
+                            <span>{new Date(doc.uploaded_at).toLocaleDateString('pt-BR')}</span>
+                          </div>
+                          {doc.description && (
+                            <p className="text-xs text-gray-600 mt-1">{doc.description}</p>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(doc.file_url, '_blank')}
+                          >
+                            Ver
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteDocument(doc.id)}
+                          >
+                            Remover
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="border-t pt-4 space-y-3">
+                  <p className="text-sm font-medium">Adicionar Novo Documento</p>
+
                   <div>
+                    <Label htmlFor="fileType">Tipo de Documento</Label>
+                    <Select value={newFileType} onValueChange={setNewFileType}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="meal_plan">Plano Alimentar</SelectItem>
+                        <SelectItem value="exam">Exame</SelectItem>
+                        <SelectItem value="prescription">Prescrição</SelectItem>
+                        <SelectItem value="other">Outro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="fileDescription">Descrição (opcional)</Label>
                     <Input
+                      id="fileDescription"
+                      value={newFileDescription}
+                      onChange={(e) => setNewFileDescription(e.target.value)}
+                      placeholder="Ex: Plano Alimentar Abril 2024"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="newFile">Arquivo</Label>
+                    <Input
+                      id="newFile"
                       type="file"
                       accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          setMealPlanFile(file);
+                          setNewFile(file);
                         }
                       }}
                       disabled={uploadingFile}
                     />
-                    {mealPlanFile && (
+                    {newFile && (
                       <p className="text-sm text-gray-600 mt-1">
-                        Novo arquivo selecionado: {mealPlanFile.name}
-                      </p>
-                    )}
-                    {uploadingFile && (
-                      <p className="text-sm text-blue-600 mt-1">
-                        Enviando arquivo...
+                        Arquivo selecionado: {newFile.name}
                       </p>
                     )}
                   </div>
+
+                  <Button
+                    type="button"
+                    onClick={handleAddDocument}
+                    disabled={!newFile || uploadingFile}
+                  >
+                    {uploadingFile ? 'Enviando...' : 'Adicionar Documento'}
+                  </Button>
                 </div>
               </div>
             </TabsContent>
