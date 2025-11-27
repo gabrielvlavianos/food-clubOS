@@ -410,6 +410,22 @@ export function RegistrationForm() {
         if (scheduleError) throw scheduleError;
       }
 
+      if (mealPlanFileUrl && mealPlanFile) {
+        const { error: documentError } = await (supabase as any)
+          .from('customer_documents')
+          .insert({
+            customer_id: customerData.id,
+            file_name: mealPlanFile.name,
+            file_url: mealPlanFileUrl,
+            file_type: 'document',
+            description: '1º Envio Plano Alimentar',
+          });
+
+        if (documentError) {
+          console.error('Error saving document:', documentError);
+        }
+      }
+
       toast({
         title: 'Cadastro realizado!',
         description: 'Seu cadastro foi enviado e está em análise. Em breve entraremos em contato!',

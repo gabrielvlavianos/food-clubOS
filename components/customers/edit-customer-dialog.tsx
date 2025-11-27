@@ -60,7 +60,6 @@ export function EditCustomerDialog({
   const [mealPlanFileUrl, setMealPlanFileUrl] = useState('');
   const [documents, setDocuments] = useState<CustomerDocument[]>([]);
   const [newFile, setNewFile] = useState<File | null>(null);
-  const [newFileType, setNewFileType] = useState('meal_plan');
   const [newFileDescription, setNewFileDescription] = useState('');
   const [uploadingFile, setUploadingFile] = useState(false);
   const [deliverySchedules, setDeliverySchedules] = useState<DeliveryScheduleForm>({});
@@ -214,8 +213,8 @@ export function EditCustomerDialog({
           customer_id: customer.id,
           file_name: newFile.name,
           file_url: publicUrl,
-          file_type: newFileType,
-          description: newFileDescription || null,
+          file_type: 'document',
+          description: newFileDescription.trim() || 'Documento sem descrição',
         });
 
       if (dbError) throw dbError;
@@ -232,7 +231,6 @@ export function EditCustomerDialog({
 
       setNewFile(null);
       setNewFileDescription('');
-      setNewFileType('meal_plan');
 
       toast({
         title: 'Documento adicionado',
@@ -890,12 +888,7 @@ export function EditCustomerDialog({
                       <div className="flex-1">
                         <p className="font-medium text-sm">{doc.file_name}</p>
                         <div className="flex gap-2 text-xs text-gray-600 mt-1">
-                          <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded">
-                            {doc.file_type === 'meal_plan' ? 'Plano Alimentar' :
-                             doc.file_type === 'exam' ? 'Exame' :
-                             doc.file_type === 'prescription' ? 'Prescrição' : 'Outro'}
-                          </span>
-                          <span>{new Date(doc.uploaded_at).toLocaleDateString('pt-BR')}</span>
+                          <span>{new Date(doc.uploaded_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
                         {doc.description && (
                           <p className="text-xs text-gray-600 mt-1">{doc.description}</p>
@@ -930,27 +923,13 @@ export function EditCustomerDialog({
                 <h3 className="font-semibold text-sm">Adicionar Novo Documento</h3>
 
                 <div>
-                  <Label htmlFor="fileType">Tipo de Documento</Label>
-                  <Select value={newFileType} onValueChange={setNewFileType}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="meal_plan">Plano Alimentar</SelectItem>
-                      <SelectItem value="exam">Exame</SelectItem>
-                      <SelectItem value="prescription">Prescrição</SelectItem>
-                      <SelectItem value="other">Outro</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="fileDescription">Descrição (opcional)</Label>
+                  <Label htmlFor="fileDescription">Descrição *</Label>
                   <Input
                     id="fileDescription"
                     value={newFileDescription}
                     onChange={(e) => setNewFileDescription(e.target.value)}
                     placeholder="Ex: Plano Alimentar Abril 2024"
+                    required
                   />
                 </div>
 
@@ -978,7 +957,7 @@ export function EditCustomerDialog({
                 <Button
                   type="button"
                   onClick={handleAddDocument}
-                  disabled={!newFile || uploadingFile}
+                  disabled={!newFile || !newFileDescription.trim() || uploadingFile}
                   className="w-full"
                 >
                   {uploadingFile ? 'Enviando...' : 'Adicionar Documento'}
