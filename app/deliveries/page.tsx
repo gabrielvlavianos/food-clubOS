@@ -33,9 +33,12 @@ export default function ExpeditionPage() {
     loadOrders();
   }, [selectedDate, selectedMealType]);
 
-  function calculatePickupTime(deliveryTime: string): string {
+  async function calculatePickupTime(deliveryTime: string, deliverySchedule: any): Promise<string> {
+    const driverPrepTimeMinutes = 10;
+    let travelTimeMinutes = deliverySchedule.travel_time_minutes || 20;
+
     const [hours, minutes] = deliveryTime.split(':').map(Number);
-    const totalMinutes = hours * 60 + minutes - 30;
+    const totalMinutes = hours * 60 + minutes - (travelTimeMinutes + driverPrepTimeMinutes);
     const pickupHours = Math.floor(totalMinutes / 60);
     const pickupMinutes = totalMinutes % 60;
     return `${String(pickupHours).padStart(2, '0')}:${String(pickupMinutes).padStart(2, '0')}`;
@@ -108,7 +111,7 @@ export default function ExpeditionPage() {
         }
 
         if (deliverySchedule && deliverySchedule.delivery_time && deliverySchedule.delivery_address) {
-          const pickupTime = calculatePickupTime(deliverySchedule.delivery_time);
+          const pickupTime = await calculatePickupTime(deliverySchedule.delivery_time, deliverySchedule);
           const orderStatus = statusMap.get(customerData.id);
 
           deliveryOrders.push({

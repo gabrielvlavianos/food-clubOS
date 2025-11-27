@@ -27,6 +27,11 @@ interface GoogleMapsSettings {
   api_key: string;
 }
 
+interface DeliverySettings {
+  kitchen_address: string;
+  driver_prep_time_minutes: number;
+}
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<GlobalSettings>({
     vegetables_amount: 100,
@@ -41,12 +46,19 @@ export default function SettingsPage() {
   const [googleMapsSettings, setGoogleMapsSettings] = useState<GoogleMapsSettings>({
     api_key: '',
   });
+  const [deliverySettings, setDeliverySettings] = useState<DeliverySettings>({
+    kitchen_address: 'Rua Clodomiro Amazonas, 134',
+    driver_prep_time_minutes: 10,
+  });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sheetsLoading, setSheetsLoading] = useState(false);
   const [sheetsSaving, setSheetsSaving] = useState(false);
   const [mapsLoading, setMapsLoading] = useState(false);
   const [mapsSaving, setMapsSaving] = useState(false);
+  const [deliveryLoading, setDeliveryLoading] = useState(false);
+  const [deliverySaving, setDeliverySaving] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importingLunch, setImportingLunch] = useState(false);
   const [importingDinner, setImportingDinner] = useState(false);
@@ -55,6 +67,7 @@ export default function SettingsPage() {
     loadSettings();
     loadSheetsSettings();
     loadGoogleMapsSettings();
+    loadDeliverySettings();
   }, []);
 
   async function loadSettings() {
@@ -373,6 +386,103 @@ export default function SettingsPage() {
     setGoogleMapsSettings({ api_key: value });
   }
 
+  async function loadDeliverySettings() {
+    setDeliveryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('key, value')
+        .in('key', ['kitchen_address', 'driver_prep_time_minutes']);
+
+      if (error) throw error;
+
+      if (data) {
+        const settingsMap = Object.fromEntries(
+          data.map((s: any) => [s.key, s.value])
+        );
+        setDeliverySettings({
+          kitchen_address: settingsMap.kitchen_address || 'Rua Clodomiro Amazonas, 134',
+          driver_prep_time_minutes: parseInt(settingsMap.driver_prep_time_minutes || '10'),
+        });
+      }
+    } catch (error) {
+      console.error('Error loading delivery settings:', error);
+      toast.error('Erro ao carregar configurações de entrega');
+    } finally {
+      setDeliveryLoading(false);
+    }
+  }
+
+  async function saveDeliverySettings() {
+    if (!deliverySettings.kitchen_address || deliverySettings.driver_prep_time_minutes <= 0) {
+      toast.error('Preencha todos os campos corretamente');
+      return;
+    }
+
+    setDeliverySaving(true);
+    try {
+      const updates = [
+        { key: 'kitchen_address', value: deliverySettings.kitchen_address },
+        { key: 'driver_prep_time_minutes', value: deliverySettings.driver_prep_time_minutes.toString() },
+      ];
+
+      for (const update of updates) {
+        const { error } = await (supabase as any)
+          .from('settings')
+          .upsert(
+            { key: update.key, value: update.value, updated_at: new Date().toISOString() },
+            { onConflict: 'key' }
+          );
+
+        if (error) throw error;
+      }
+
+      toast.success('Configurações de entrega salvas com sucesso!');
+      await loadDeliverySettings();
+    } catch (error) {
+      console.error('Error saving delivery settings:', error);
+      toast.error('Erro ao salvar configurações de entrega');
+    } finally {
+      setDeliverySaving(false);
+    }
+  }
+
+  async function recalculateAllTravelTimes() {
+    setRecalculating(true);
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/recalculate-all-travel-times`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`Recalculado com sucesso! ${result.successCount} endereços atualizados`);
+        if (result.errorCount > 0) {
+          toast.error(`${result.errorCount} endereços com erro. Verifique os logs.`);
+          console.error('Errors:', result.errors);
+        }
+      } else {
+        toast.error(`Erro ao recalcular: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error recalculating:', error);
+      toast.error('Erro ao recalcular tempos de viagem');
+    } finally {
+      setRecalculating(false);
+    }
+  }
+
+  function handleDeliveryChange(field: keyof DeliverySettings, value: string | number) {
+    setDeliverySettings(prev => ({ ...prev, [field]: value }));
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
@@ -386,8 +496,9 @@ export default function SettingsPage() {
         </div>
 
         <Tabs defaultValue="amounts" className="max-w-4xl">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="amounts">Quantidades Padrão</TabsTrigger>
+            <TabsTrigger value="delivery">Configurações de Entrega</TabsTrigger>
             <TabsTrigger value="maps">Google Maps</TabsTrigger>
             <TabsTrigger value="export">
               <Sheet className="h-4 w-4 mr-2" />
@@ -507,6 +618,142 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="delivery">
+            {deliveryLoading ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600">Carregando configurações...</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Configurações de Entrega</CardTitle>
+                  <CardDescription>
+                    Configure o endereço da cozinha e o tempo de chegada do motoboy para cálculos precisos de horário de solicitação.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="kitchenAddress">
+                        Endereço da Cozinha
+                      </Label>
+                      <Input
+                        id="kitchenAddress"
+                        type="text"
+                        value={deliverySettings.kitchen_address}
+                        onChange={(e) => handleDeliveryChange('kitchen_address', e.target.value)}
+                        placeholder="Rua Clodomiro Amazonas, 134"
+                        className="text-base"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Endereço completo da cozinha para cálculo de rotas
+                      </p>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="driverPrepTime">
+                        Tempo de Chegada do Motoboy (minutos)
+                      </Label>
+                      <Input
+                        id="driverPrepTime"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={deliverySettings.driver_prep_time_minutes}
+                        onChange={(e) => handleDeliveryChange('driver_prep_time_minutes', parseInt(e.target.value) || 0)}
+                        className="text-lg font-semibold"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Tempo estimado para o motoboy aceitar e chegar na cozinha
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      onClick={saveDeliverySettings}
+                      disabled={deliverySaving}
+                      className="flex-1"
+                      size="lg"
+                    >
+                      {deliverySaving ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Salvando...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          Salvar Configurações
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={loadDeliverySettings}
+                      variant="outline"
+                      disabled={deliveryLoading || deliverySaving}
+                      size="lg"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${deliveryLoading ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </div>
+
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      Recalcular Tempos de Viagem
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Use este botão para recalcular os tempos de viagem de todos os endereços cadastrados no sistema usando as configurações atuais e tráfego em tempo real.
+                    </p>
+                    <Button
+                      onClick={recalculateAllTravelTimes}
+                      disabled={recalculating}
+                      size="lg"
+                      variant="outline"
+                      className="w-full"
+                    >
+                      {recalculating ? (
+                        <>
+                          <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
+                          Recalculando...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-5 w-5 mr-2" />
+                          Recalcular Todos os Tempos de Viagem
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-900 mb-2">
+                      <strong>Como funciona o cálculo:</strong>
+                    </p>
+                    <p className="text-sm text-blue-800">
+                      Horário de Solicitar Motoboy = Horário de Entrega - (Tempo de Viagem + Tempo de Chegada do Motoboy)
+                    </p>
+                  </div>
+
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <p className="text-sm text-green-900 mb-2">
+                      <strong>Quando recalcular:</strong>
+                    </p>
+                    <ul className="text-sm text-green-800 space-y-1 list-disc list-inside">
+                      <li>Após mudar o endereço da cozinha</li>
+                      <li>Após alterar a API Key do Google Maps</li>
+                      <li>Periodicamente para atualizar com dados de tráfego atuais</li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 
