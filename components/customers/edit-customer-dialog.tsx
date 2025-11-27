@@ -929,7 +929,6 @@ export function EditCustomerDialog({
                     value={newFileDescription}
                     onChange={(e) => setNewFileDescription(e.target.value)}
                     placeholder="Ex: Plano Alimentar Abril 2024"
-                    required
                   />
                 </div>
 
