@@ -345,16 +345,22 @@ export default function SettingsPage() {
 
     setMapsSaving(true);
     try {
-      const { error } = await (supabase as any)
+      console.log('Saving Google Maps API Key:', googleMapsSettings.api_key);
+
+      const { data, error } = await (supabase as any)
         .from('settings')
         .upsert(
           { key: 'google_maps_api_key', value: googleMapsSettings.api_key, updated_at: new Date().toISOString() },
           { onConflict: 'key' }
-        );
+        )
+        .select();
+
+      console.log('Upsert result:', { data, error });
 
       if (error) throw error;
 
       toast.success('API Key do Google Maps salva com sucesso!');
+      await loadGoogleMapsSettings(); // Reload to confirm
     } catch (error) {
       console.error('Error saving Google Maps settings:', error);
       toast.error('Erro ao salvar API Key do Google Maps');
