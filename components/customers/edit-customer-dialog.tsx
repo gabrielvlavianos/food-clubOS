@@ -406,12 +406,13 @@ export function EditCustomerDialog({
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <Tabs defaultValue="personal" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="personal">Pessoal</TabsTrigger>
               <TabsTrigger value="goals">Objetivos</TabsTrigger>
               <TabsTrigger value="macros">Macronutrientes</TabsTrigger>
               <TabsTrigger value="delivery">Entrega</TabsTrigger>
               <TabsTrigger value="health">Saúde & Fitness</TabsTrigger>
+              <TabsTrigger value="files">Arquivos</TabsTrigger>
             </TabsList>
 
             <TabsContent value="personal" className="space-y-4">
@@ -573,109 +574,6 @@ export function EditCustomerDialog({
                   placeholder="Informações adicionais sobre a dieta"
                   rows={2}
                 />
-              </div>
-
-              <div>
-                <Label className="block mb-3">Documentos do Cliente</Label>
-
-                {documents.length > 0 && (
-                  <div className="mb-4 space-y-2">
-                    {documents.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{doc.file_name}</p>
-                          <div className="flex gap-2 text-xs text-gray-600 mt-1">
-                            <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded">
-                              {doc.file_type === 'meal_plan' ? 'Plano Alimentar' :
-                               doc.file_type === 'exam' ? 'Exame' :
-                               doc.file_type === 'prescription' ? 'Prescrição' : 'Outro'}
-                            </span>
-                            <span>{new Date(doc.uploaded_at).toLocaleDateString('pt-BR')}</span>
-                          </div>
-                          {doc.description && (
-                            <p className="text-xs text-gray-600 mt-1">{doc.description}</p>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(doc.file_url, '_blank')}
-                          >
-                            Ver
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDeleteDocument(doc.id)}
-                          >
-                            Remover
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="border-t pt-4 space-y-3">
-                  <p className="text-sm font-medium">Adicionar Novo Documento</p>
-
-                  <div>
-                    <Label htmlFor="fileType">Tipo de Documento</Label>
-                    <Select value={newFileType} onValueChange={setNewFileType}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="meal_plan">Plano Alimentar</SelectItem>
-                        <SelectItem value="exam">Exame</SelectItem>
-                        <SelectItem value="prescription">Prescrição</SelectItem>
-                        <SelectItem value="other">Outro</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="fileDescription">Descrição (opcional)</Label>
-                    <Input
-                      id="fileDescription"
-                      value={newFileDescription}
-                      onChange={(e) => setNewFileDescription(e.target.value)}
-                      placeholder="Ex: Plano Alimentar Abril 2024"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="newFile">Arquivo</Label>
-                    <Input
-                      id="newFile"
-                      type="file"
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setNewFile(file);
-                        }
-                      }}
-                      disabled={uploadingFile}
-                    />
-                    {newFile && (
-                      <p className="text-sm text-gray-600 mt-1">
-                        Arquivo selecionado: {newFile.name}
-                      </p>
-                    )}
-                  </div>
-
-                  <Button
-                    type="button"
-                    onClick={handleAddDocument}
-                    disabled={!newFile || uploadingFile}
-                  >
-                    {uploadingFile ? 'Enviando...' : 'Adicionar Documento'}
-                  </Button>
-                </div>
               </div>
             </TabsContent>
 
@@ -976,6 +874,115 @@ export function EditCustomerDialog({
                   onChange={(e) => setMealsPerDay(e.target.value)}
                   placeholder="3"
                 />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="files" className="space-y-4">
+              <p className="text-sm text-gray-600 mb-4">
+                Gerencie documentos do cliente como planos alimentares, exames e prescrições.
+              </p>
+
+              {documents.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm">Documentos Anexados</h3>
+                  {documents.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{doc.file_name}</p>
+                        <div className="flex gap-2 text-xs text-gray-600 mt-1">
+                          <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded">
+                            {doc.file_type === 'meal_plan' ? 'Plano Alimentar' :
+                             doc.file_type === 'exam' ? 'Exame' :
+                             doc.file_type === 'prescription' ? 'Prescrição' : 'Outro'}
+                          </span>
+                          <span>{new Date(doc.uploaded_at).toLocaleDateString('pt-BR')}</span>
+                        </div>
+                        {doc.description && (
+                          <p className="text-xs text-gray-600 mt-1">{doc.description}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(doc.file_url, '_blank')}
+                        >
+                          Ver
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteDocument(doc.id)}
+                        >
+                          Remover
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h3 className="font-semibold text-sm">Adicionar Novo Documento</h3>
+
+                <div>
+                  <Label htmlFor="fileType">Tipo de Documento</Label>
+                  <Select value={newFileType} onValueChange={setNewFileType}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="meal_plan">Plano Alimentar</SelectItem>
+                      <SelectItem value="exam">Exame</SelectItem>
+                      <SelectItem value="prescription">Prescrição</SelectItem>
+                      <SelectItem value="other">Outro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="fileDescription">Descrição (opcional)</Label>
+                  <Input
+                    id="fileDescription"
+                    value={newFileDescription}
+                    onChange={(e) => setNewFileDescription(e.target.value)}
+                    placeholder="Ex: Plano Alimentar Abril 2024"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="newFile">Arquivo</Label>
+                  <Input
+                    id="newFile"
+                    type="file"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setNewFile(file);
+                      }
+                    }}
+                    disabled={uploadingFile}
+                  />
+                  {newFile && (
+                    <p className="text-sm text-gray-600 mt-1">
+                      Arquivo selecionado: {newFile.name}
+                    </p>
+                  )}
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={handleAddDocument}
+                  disabled={!newFile || uploadingFile}
+                  className="w-full"
+                >
+                  {uploadingFile ? 'Enviando...' : 'Adicionar Documento'}
+                </Button>
               </div>
             </TabsContent>
           </Tabs>
