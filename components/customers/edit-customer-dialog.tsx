@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { calculateMacroRecommendation } from '@/lib/calculations';
 import type { CustomerWithAddresses, CustomerDocument } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -82,6 +83,8 @@ export function EditCustomerDialog({
   const [dinnerProtein, setDinnerProtein] = useState('');
   const [dinnerFat, setDinnerFat] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hasNutritionist, setHasNutritionist] = useState(false);
+  const [macroSuggestions, setMacroSuggestions] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -129,6 +132,34 @@ export function EditCustomerDialog({
         setDinnerCarbs(customer.dinner_carbs?.toString() || '');
         setDinnerProtein(customer.dinner_protein?.toString() || '');
         setDinnerFat(customer.dinner_fat?.toString() || '');
+        setHasNutritionist(customer.has_nutritionist || false);
+
+        if (!customer.has_nutritionist &&
+            customer.height_cm && customer.current_weight_kg &&
+            customer.goal_weight_kg && customer.birth_date &&
+            customer.work_routine && customer.aerobic_frequency &&
+            customer.aerobic_intensity && customer.strength_frequency &&
+            customer.strength_intensity && customer.main_goal) {
+          try {
+            const suggestions = calculateMacroRecommendation({
+              gender: customer.gender || 'Masculino',
+              height_cm: customer.height_cm,
+              current_weight_kg: customer.current_weight_kg,
+              goal_weight_kg: customer.goal_weight_kg,
+              work_routine: customer.work_routine,
+              aerobic_frequency: customer.aerobic_frequency,
+              aerobic_intensity: customer.aerobic_intensity,
+              strength_frequency: customer.strength_frequency,
+              strength_intensity: customer.strength_intensity,
+              main_goal: customer.main_goal,
+              birth_date: customer.birth_date,
+              meals_per_day: customer.meals_per_day || 3
+            });
+            setMacroSuggestions(suggestions);
+          } catch (error) {
+            console.error('Error calculating macro suggestions:', error);
+          }
+        }
 
         const { data: schedules } = await supabase
           .from('delivery_schedules')
@@ -576,6 +607,34 @@ export function EditCustomerDialog({
             </TabsContent>
 
             <TabsContent value="macros" className="space-y-4">
+              {!hasNutritionist && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🤖</span>
+                    <div>
+                      <p className="font-semibold text-blue-900">Recomendação Automática</p>
+                      <p className="text-xs text-blue-700">Cliente sem nutricionista - valores calculados com base nas informações fornecidas</p>
+                    </div>
+                  </div>
+                  {macroSuggestions && (
+                    <div className="text-xs text-blue-800 mt-2 space-y-1">
+                      <p className="font-medium">Meta diária: {macroSuggestions.daily.kcal} kcal</p>
+                      <p>Proteína: {macroSuggestions.daily.protein}g | Carboidrato: {macroSuggestions.daily.carb}g | Gordura: {macroSuggestions.daily.fat}g</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {hasNutritionist && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">👩‍⚕️</span>
+                    <div>
+                      <p className="font-semibold text-green-900">Com Nutricionista</p>
+                      <p className="text-xs text-green-700">Valores fornecidos pela nutricionista do cliente</p>
+                    </div>
+                  </div>
+                </div>
+              )}
               <p className="text-sm text-gray-600">
                 Defina as metas de macronutrientes para cada refeição do dia.
               </p>
@@ -584,36 +643,51 @@ export function EditCustomerDialog({
                 <h4 className="font-semibold text-lg text-gray-900">Almoço</h4>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="lunchCarbs">Carboidratos (g)</Label>
+                    <div className="flex justify-between items-center mb-1">
+                      <Label htmlFor="lunchCarbs">Carboidratos (g)</Label>
+                      {!hasNutritionist && macroSuggestions && (
+                        <span className="text-xs text-blue-600 font-medium">↗ {macroSuggestions.lunch.carb}g</span>
+                      )}
+                    </div>
                     <Input
                       id="lunchCarbs"
                       type="number"
                       step="0.01"
                       value={lunchCarbs}
                       onChange={(e) => setLunchCarbs(e.target.value)}
-                      placeholder="Ex: 50"
+                      placeholder={!hasNutritionist && macroSuggestions ? `Sugestão: ${macroSuggestions.lunch.carb}` : "Ex: 50"}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="lunchProtein">Proteínas (g)</Label>
+                    <div className="flex justify-between items-center mb-1">
+                      <Label htmlFor="lunchProtein">Proteínas (g)</Label>
+                      {!hasNutritionist && macroSuggestions && (
+                        <span className="text-xs text-blue-600 font-medium">↗ {macroSuggestions.lunch.protein}g</span>
+                      )}
+                    </div>
                     <Input
                       id="lunchProtein"
                       type="number"
                       step="0.01"
                       value={lunchProtein}
                       onChange={(e) => setLunchProtein(e.target.value)}
-                      placeholder="Ex: 35"
+                      placeholder={!hasNutritionist && macroSuggestions ? `Sugestão: ${macroSuggestions.lunch.protein}` : "Ex: 35"}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="lunchFat">Gorduras (g)</Label>
+                    <div className="flex justify-between items-center mb-1">
+                      <Label htmlFor="lunchFat">Gorduras (g)</Label>
+                      {!hasNutritionist && macroSuggestions && (
+                        <span className="text-xs text-blue-600 font-medium">↗ {macroSuggestions.lunch.fat}g</span>
+                      )}
+                    </div>
                     <Input
                       id="lunchFat"
                       type="number"
                       step="0.01"
                       value={lunchFat}
                       onChange={(e) => setLunchFat(e.target.value)}
-                      placeholder="Ex: 15"
+                      placeholder={!hasNutritionist && macroSuggestions ? `Sugestão: ${macroSuggestions.lunch.fat}` : "Ex: 15"}
                     />
                   </div>
                 </div>
@@ -623,36 +697,51 @@ export function EditCustomerDialog({
                 <h4 className="font-semibold text-lg text-gray-900">Jantar</h4>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="dinnerCarbs">Carboidratos (g)</Label>
+                    <div className="flex justify-between items-center mb-1">
+                      <Label htmlFor="dinnerCarbs">Carboidratos (g)</Label>
+                      {!hasNutritionist && macroSuggestions && (
+                        <span className="text-xs text-blue-600 font-medium">↗ {macroSuggestions.dinner.carb}g</span>
+                      )}
+                    </div>
                     <Input
                       id="dinnerCarbs"
                       type="number"
                       step="0.01"
                       value={dinnerCarbs}
                       onChange={(e) => setDinnerCarbs(e.target.value)}
-                      placeholder="Ex: 40"
+                      placeholder={!hasNutritionist && macroSuggestions ? `Sugestão: ${macroSuggestions.dinner.carb}` : "Ex: 40"}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="dinnerProtein">Proteínas (g)</Label>
+                    <div className="flex justify-between items-center mb-1">
+                      <Label htmlFor="dinnerProtein">Proteínas (g)</Label>
+                      {!hasNutritionist && macroSuggestions && (
+                        <span className="text-xs text-blue-600 font-medium">↗ {macroSuggestions.dinner.protein}g</span>
+                      )}
+                    </div>
                     <Input
                       id="dinnerProtein"
                       type="number"
                       step="0.01"
                       value={dinnerProtein}
                       onChange={(e) => setDinnerProtein(e.target.value)}
-                      placeholder="Ex: 30"
+                      placeholder={!hasNutritionist && macroSuggestions ? `Sugestão: ${macroSuggestions.dinner.protein}` : "Ex: 30"}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="dinnerFat">Gorduras (g)</Label>
+                    <div className="flex justify-between items-center mb-1">
+                      <Label htmlFor="dinnerFat">Gorduras (g)</Label>
+                      {!hasNutritionist && macroSuggestions && (
+                        <span className="text-xs text-blue-600 font-medium">↗ {macroSuggestions.dinner.fat}g</span>
+                      )}
+                    </div>
                     <Input
                       id="dinnerFat"
                       type="number"
                       step="0.01"
                       value={dinnerFat}
                       onChange={(e) => setDinnerFat(e.target.value)}
-                      placeholder="Ex: 12"
+                      placeholder={!hasNutritionist && macroSuggestions ? `Sugestão: ${macroSuggestions.dinner.fat}` : "Ex: 12"}
                     />
                   </div>
                 </div>
