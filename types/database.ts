@@ -46,6 +46,7 @@ export interface Database {
           nutritionist_phone: string | null;
           main_goal: string | null;
           allergies: string[];
+          other_allergies: string | null;
           food_restrictions: string | null;
           clinical_conditions: string | null;
           medication_use: string | null;
@@ -85,6 +86,7 @@ export interface Database {
           nutritionist_phone?: string | null;
           main_goal?: string | null;
           allergies?: string[];
+          other_allergies?: string | null;
           food_restrictions?: string | null;
           clinical_conditions?: string | null;
           medication_use?: string | null;
@@ -124,6 +126,7 @@ export interface Database {
           nutritionist_phone?: string | null;
           main_goal?: string | null;
           allergies?: string[];
+          other_allergies?: string | null;
           food_restrictions?: string | null;
           clinical_conditions?: string | null;
           medication_use?: string | null;

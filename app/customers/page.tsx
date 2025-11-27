@@ -23,6 +23,7 @@ const CUSTOMER_COLUMNS: ExcelColumn[] = [
   { header: 'Telefone do Nutricionista', key: 'nutritionist_phone', example: '+5511977777777' },
   { header: 'Objetivo Principal', key: 'main_goal', example: 'Perda de peso' },
   { header: 'Alergias', key: 'allergies', example: 'Amendoim, Camarão' },
+  { header: 'Outras Alergias', key: 'other_allergies', example: 'Detalhes adicionais' },
   { header: 'Restrições Alimentares', key: 'food_restrictions', example: 'Sem glúten' },
   { header: 'Condições Clínicas', key: 'clinical_conditions', example: 'Diabetes tipo 2' },
   { header: 'Uso de Medicamentos', key: 'medication_use', example: 'Metformina' },

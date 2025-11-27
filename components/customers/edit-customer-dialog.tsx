@@ -53,7 +53,11 @@ export function EditCustomerDialog({
   const [nutritionistPhone, setNutritionistPhone] = useState('');
   const [mainGoal, setMainGoal] = useState('');
   const [selectedAllergies, setSelectedAllergies] = useState<string[]>([]);
+  const [otherAllergies, setOtherAllergies] = useState('');
   const [foodRestrictions, setFoodRestrictions] = useState('');
+  const [medicationUse, setMedicationUse] = useState('');
+  const [dietaryNotes, setDietaryNotes] = useState('');
+  const [mealPlanFileUrl, setMealPlanFileUrl] = useState('');
   const [deliverySchedules, setDeliverySchedules] = useState<DeliveryScheduleForm>({});
   const [height, setHeight] = useState('');
   const [currentWeight, setCurrentWeight] = useState('');
@@ -87,7 +91,11 @@ export function EditCustomerDialog({
         setNutritionistPhone(customer.nutritionist_phone || '');
         setMainGoal(customer.main_goal || '');
         setSelectedAllergies(customer.allergies || []);
+        setOtherAllergies(customer.other_allergies || '');
         setFoodRestrictions(customer.food_restrictions || '');
+        setMedicationUse(customer.medication_use || '');
+        setDietaryNotes(customer.dietary_notes || '');
+        setMealPlanFileUrl(customer.meal_plan_file_url || '');
         setHeight(customer.height_cm?.toString() || '');
         setCurrentWeight(customer.current_weight_kg?.toString() || '');
         setGoalWeight(customer.goal_weight_kg?.toString() || '');
@@ -178,7 +186,10 @@ export function EditCustomerDialog({
         nutritionist_phone: nutritionistPhone || null,
         main_goal: mainGoal || null,
         allergies: selectedAllergies.length > 0 ? selectedAllergies : [],
+        other_allergies: otherAllergies || null,
         food_restrictions: foodRestrictions || null,
+        medication_use: medicationUse || null,
+        dietary_notes: dietaryNotes || null,
         height_cm: height ? parseFloat(height) : null,
         current_weight_kg: currentWeight ? parseFloat(currentWeight) : null,
         goal_weight_kg: goalWeight ? parseFloat(goalWeight) : null,
@@ -402,6 +413,18 @@ export function EditCustomerDialog({
                     </div>
                   ))}
                 </div>
+                {selectedAllergies.includes('Outros') && (
+                  <div className="mt-3">
+                    <Label htmlFor="otherAllergies">Outras Alergias ou Intolerâncias</Label>
+                    <Textarea
+                      id="otherAllergies"
+                      value={otherAllergies}
+                      onChange={(e) => setOtherAllergies(e.target.value)}
+                      placeholder="Descreva outras alergias ou intolerâncias"
+                      rows={2}
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -414,6 +437,43 @@ export function EditCustomerDialog({
                   rows={3}
                 />
               </div>
+
+              <div>
+                <Label htmlFor="medicationUse">Uso de Medicamentos</Label>
+                <Textarea
+                  id="medicationUse"
+                  value={medicationUse}
+                  onChange={(e) => setMedicationUse(e.target.value)}
+                  placeholder="Liste os medicamentos em uso"
+                  rows={2}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="dietaryNotes">Notas Dietéticas</Label>
+                <Textarea
+                  id="dietaryNotes"
+                  value={dietaryNotes}
+                  onChange={(e) => setDietaryNotes(e.target.value)}
+                  placeholder="Informações adicionais sobre a dieta"
+                  rows={2}
+                />
+              </div>
+
+              {mealPlanFileUrl && (
+                <div>
+                  <Label>Plano Alimentar Anexado</Label>
+                  <div className="mt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => window.open(mealPlanFileUrl, '_blank')}
+                    >
+                      Ver Plano Alimentar
+                    </Button>
+                  </div>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="macros" className="space-y-4">
