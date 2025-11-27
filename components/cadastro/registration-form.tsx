@@ -26,8 +26,21 @@ import { Upload, ChevronRight, ChevronLeft } from 'lucide-react';
 interface DeliveryScheduleForm {
   [key: string]: {
     time: string;
+    cep: string;
     address: string;
+    number: string;
+    complement: string;
+    addressDetails?: {
+      street: string;
+      neighborhood: string;
+      city: string;
+      state: string;
+    };
   };
+}
+
+interface SelectedDayMeal {
+  [key: string]: boolean;
 }
 
 export function RegistrationForm() {
@@ -65,7 +78,9 @@ export function RegistrationForm() {
   const [strengthIntensity, setStrengthIntensity] = useState('');
   const [mealsPerDay, setMealsPerDay] = useState('');
 
+  const [selectedDaysMeals, setSelectedDaysMeals] = useState<SelectedDayMeal>({});
   const [deliverySchedules, setDeliverySchedules] = useState<DeliveryScheduleForm>({});
+  const [loadingCep, setLoadingCep] = useState<string>('');
 
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -83,15 +98,119 @@ export function RegistrationForm() {
     );
   };
 
-  const handleDeliveryScheduleChange = (day: string, meal: string, field: 'time' | 'address', value: string) => {
+  const handleDayMealToggle = (day: string, meal: string) => {
+    const key = `${day}_${meal}`;
+    setSelectedDaysMeals(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const handleDeliveryScheduleChange = (day: string, meal: string, field: 'time' | 'cep' | 'number' | 'complement', value: string) => {
     const key = `${day}_${meal}`;
     setDeliverySchedules(prev => ({
       ...prev,
       [key]: {
         ...prev[key],
+        time: prev[key]?.time || '',
+        cep: prev[key]?.cep || '',
+        address: prev[key]?.address || '',
+        number: prev[key]?.number || '',
+        complement: prev[key]?.complement || '',
         [field]: value
       }
     }));
+  };
+
+  const fetchAddressByCep = async (cep: string, day: string, meal: string) => {
+    const key = `${day}_${meal}`;
+    const cleanCep = cep.replace(/\D/g, '');
+
+    if (cleanCep.length !== 8) {
+      return;
+    }
+
+    setLoadingCep(key);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data = await response.json();
+
+      if (data.erro) {
+        toast({
+          title: 'CEP não encontrado',
+          description: 'Verifique o CEP digitado e tente novamente.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const fullAddress = `${data.logradouro}, ${data.bairro}, ${data.localidade} - ${data.uf}`;
+
+      setDeliverySchedules(prev => ({
+        ...prev,
+        [key]: {
+          ...prev[key],
+          time: prev[key]?.time || '',
+          cep: cleanCep,
+          address: fullAddress,
+          number: prev[key]?.number || '',
+          complement: prev[key]?.complement || '',
+          addressDetails: {
+            street: data.logradouro,
+            neighborhood: data.bairro,
+            city: data.localidade,
+            state: data.uf,
+          }
+        }
+      }));
+    } catch (error) {
+      toast({
+        title: 'Erro ao buscar CEP',
+        description: 'Não foi possível buscar o endereço. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingCep('');
+    }
+  };
+
+  const replicateAddress = (sourceDay: string, sourceMeal: string) => {
+    const sourceKey = `${sourceDay}_${sourceMeal}`;
+    const sourceSchedule = deliverySchedules[sourceKey];
+
+    if (!sourceSchedule || !sourceSchedule.cep) {
+      toast({
+        title: 'Endereço incompleto',
+        description: 'Preencha o CEP e endereço antes de replicar.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const updated = { ...deliverySchedules };
+
+    Object.entries(selectedDaysMeals).forEach(([key, isSelected]) => {
+      if (isSelected && key !== sourceKey) {
+        const [, meal] = key.split('_');
+        if (meal === sourceMeal) {
+          updated[key] = {
+            ...updated[key],
+            cep: sourceSchedule.cep,
+            address: sourceSchedule.address,
+            number: sourceSchedule.number,
+            complement: sourceSchedule.complement,
+            addressDetails: sourceSchedule.addressDetails,
+            time: updated[key]?.time || '',
+          };
+        }
+      }
+    });
+
+    setDeliverySchedules(updated);
+    toast({
+      title: 'Endereço replicado',
+      description: `Endereço copiado para todos os ${sourceMeal === 'lunch' ? 'almoços' : 'jantares'} selecionados.`,
+    });
   };
 
   const validateCurrentSection = (): boolean => {
@@ -161,11 +280,26 @@ export function RegistrationForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    const hasSchedules = Object.values(deliverySchedules).some(s => s.time || s.address);
-    if (!hasSchedules) {
+    const selectedKeys = Object.entries(selectedDaysMeals).filter(([_, selected]) => selected).map(([key]) => key);
+
+    if (selectedKeys.length === 0) {
       toast({
         title: 'Agenda obrigatória',
-        description: 'Configure pelo menos um dia de entrega',
+        description: 'Selecione pelo menos um dia e turno de entrega',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const incompleteSchedules = selectedKeys.filter(key => {
+      const schedule = deliverySchedules[key];
+      return !schedule || !schedule.time || !schedule.cep || !schedule.number;
+    });
+
+    if (incompleteSchedules.length > 0) {
+      toast({
+        title: 'Agenda incompleta',
+        description: 'Preencha horário, CEP e número para todos os dias selecionados',
         variant: 'destructive'
       });
       return;
@@ -247,18 +381,22 @@ export function RegistrationForm() {
         'sunday': 7,
       };
 
-      const schedules = Object.entries(deliverySchedules)
-        .filter(([_, schedule]) => schedule.time || schedule.address)
-        .map(([key, schedule]) => {
-          const [day, meal] = key.split('_');
-          return {
-            customer_id: customerData.id,
-            day_of_week: dayKeyToNumber[day],
-            meal_type: meal,
-            delivery_time: schedule.time || null,
-            delivery_address: schedule.address || null,
-          };
-        });
+      const schedules = selectedKeys.map(key => {
+        const [day, meal] = key.split('_');
+        const schedule = deliverySchedules[key];
+
+        const fullAddress = schedule.addressDetails
+          ? `${schedule.addressDetails.street}, ${schedule.number}${schedule.complement ? ', ' + schedule.complement : ''}, ${schedule.addressDetails.neighborhood}, ${schedule.addressDetails.city} - ${schedule.addressDetails.state}`
+          : `${schedule.address}, ${schedule.number}${schedule.complement ? ', ' + schedule.complement : ''}`;
+
+        return {
+          customer_id: customerData.id,
+          day_of_week: dayKeyToNumber[day],
+          meal_type: meal,
+          delivery_time: schedule.time,
+          delivery_address: fullAddress,
+        };
+      });
 
       if (schedules.length > 0) {
         const { error: scheduleError } = await supabase
@@ -760,42 +898,162 @@ export function RegistrationForm() {
         )}
 
         {isLastSection && (
-          <div className="space-y-4">
-            <p className="text-sm text-slate-600 mb-4">
-              Configure os dias e horários em que deseja receber suas refeições. Você pode escolher almoço, jantar ou ambos para cada dia.
-            </p>
+          <div className="space-y-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-900 font-medium mb-2">
+                Como funciona:
+              </p>
+              <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                <li>Selecione os dias e turnos que deseja receber suas refeições</li>
+                <li>Preencha horário, CEP e endereço para cada dia selecionado</li>
+                <li>Use o botão "Replicar" para copiar endereços entre os mesmos turnos</li>
+              </ol>
+            </div>
 
-            {DAYS_OF_WEEK.map(({ key: day, label: dayLabel }) => (
-              <div key={day} className="border rounded-lg p-4 space-y-3 bg-slate-50">
-                <h4 className="font-medium text-slate-900">{dayLabel}</h4>
-
-                {MEAL_TYPES.map(({ key: meal, label: mealLabel }) => (
-                  <div key={meal} className="space-y-2 pl-4">
-                    <p className="text-sm font-medium text-slate-700">{mealLabel}</p>
-                    <div className="grid md:grid-cols-2 gap-3">
-                      <div>
-                        <Label htmlFor={`${day}-${meal}-time`} className="text-xs">Horário</Label>
-                        <Input
-                          id={`${day}-${meal}-time`}
-                          type="time"
-                          value={deliverySchedules[`${day}_${meal}`]?.time || ''}
-                          onChange={(e) => handleDeliveryScheduleChange(day, meal, 'time', e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`${day}-${meal}-address`} className="text-xs">Endereço</Label>
-                        <Input
-                          id={`${day}-${meal}-address`}
-                          value={deliverySchedules[`${day}_${meal}`]?.address || ''}
-                          onChange={(e) => handleDeliveryScheduleChange(day, meal, 'address', e.target.value)}
-                          placeholder="Endereço completo"
-                        />
-                      </div>
+            <div className="border rounded-lg p-4 bg-white">
+              <h4 className="font-semibold text-slate-900 mb-4">Selecione os dias e turnos</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {DAYS_OF_WEEK.map(({ key: day, label: dayLabel }) => (
+                  <div key={day} className="space-y-2">
+                    <p className="font-medium text-slate-700">{dayLabel}</p>
+                    <div className="flex gap-4 pl-3">
+                      {MEAL_TYPES.map(({ key: meal, label: mealLabel }) => (
+                        <div key={meal} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`select-${day}-${meal}`}
+                            checked={selectedDaysMeals[`${day}_${meal}`] || false}
+                            onCheckedChange={() => handleDayMealToggle(day, meal)}
+                          />
+                          <label
+                            htmlFor={`select-${day}-${meal}`}
+                            className="text-sm font-medium leading-none cursor-pointer"
+                          >
+                            {mealLabel}
+                          </label>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
               </div>
-            ))}
+            </div>
+
+            {Object.entries(selectedDaysMeals).some(([_, selected]) => selected) && (
+              <div className="border rounded-lg p-4 bg-white space-y-4">
+                <h4 className="font-semibold text-slate-900">Configure horário e endereço</h4>
+
+                {DAYS_OF_WEEK.map(({ key: day, label: dayLabel }) => (
+                  <div key={day}>
+                    {MEAL_TYPES.map(({ key: meal, label: mealLabel }) => {
+                      const dayMealKey = `${day}_${meal}`;
+                      if (!selectedDaysMeals[dayMealKey]) return null;
+
+                      const schedule = deliverySchedules[dayMealKey];
+                      const isLoadingThisCep = loadingCep === dayMealKey;
+
+                      return (
+                        <div key={dayMealKey} className="border-l-4 border-l-blue-500 bg-slate-50 rounded-lg p-4 mb-3 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h5 className="font-medium text-slate-900">
+                              {dayLabel} - {mealLabel}
+                            </h5>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => replicateAddress(day, meal)}
+                              disabled={!schedule?.cep || !schedule?.number}
+                              className="text-xs"
+                            >
+                              Replicar para todos os {meal === 'lunch' ? 'almoços' : 'jantares'}
+                            </Button>
+                          </div>
+
+                          <div className="grid md:grid-cols-2 gap-3">
+                            <div>
+                              <Label htmlFor={`${dayMealKey}-time`} className="text-sm">
+                                Horário de entrega *
+                              </Label>
+                              <Input
+                                id={`${dayMealKey}-time`}
+                                type="time"
+                                value={schedule?.time || ''}
+                                onChange={(e) => handleDeliveryScheduleChange(day, meal, 'time', e.target.value)}
+                                required
+                              />
+                            </div>
+
+                            <div>
+                              <Label htmlFor={`${dayMealKey}-cep`} className="text-sm">
+                                CEP *
+                              </Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  id={`${dayMealKey}-cep`}
+                                  value={schedule?.cep || ''}
+                                  onChange={(e) => {
+                                    const value = e.target.value.replace(/\D/g, '');
+                                    handleDeliveryScheduleChange(day, meal, 'cep', value);
+                                    if (value.length === 8) {
+                                      fetchAddressByCep(value, day, meal);
+                                    }
+                                  }}
+                                  placeholder="00000000"
+                                  maxLength={8}
+                                  required
+                                  disabled={isLoadingThisCep}
+                                />
+                                {isLoadingThisCep && (
+                                  <div className="flex items-center">
+                                    <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full" />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {schedule?.address && (
+                            <div className="space-y-3 bg-white p-3 rounded border">
+                              <div>
+                                <Label className="text-xs text-slate-600">Endereço encontrado</Label>
+                                <p className="text-sm font-medium text-slate-900">{schedule.address}</p>
+                              </div>
+
+                              <div className="grid md:grid-cols-2 gap-3">
+                                <div>
+                                  <Label htmlFor={`${dayMealKey}-number`} className="text-sm">
+                                    Número *
+                                  </Label>
+                                  <Input
+                                    id={`${dayMealKey}-number`}
+                                    value={schedule.number || ''}
+                                    onChange={(e) => handleDeliveryScheduleChange(day, meal, 'number', e.target.value)}
+                                    placeholder="123"
+                                    required
+                                  />
+                                </div>
+
+                                <div>
+                                  <Label htmlFor={`${dayMealKey}-complement`} className="text-sm">
+                                    Complemento
+                                  </Label>
+                                  <Input
+                                    id={`${dayMealKey}-complement`}
+                                    value={schedule.complement || ''}
+                                    onChange={(e) => handleDeliveryScheduleChange(day, meal, 'complement', e.target.value)}
+                                    placeholder="Apto 101, Bloco A"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
