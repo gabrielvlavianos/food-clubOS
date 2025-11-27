@@ -124,14 +124,6 @@ export default function KitchenDashboardPage() {
       totalFat += saladRecipe.fat_per_100g * factor;
     }
 
-    if (sauceRecipe && quantities.sauce > 0) {
-      const factor = quantities.sauce / 100;
-      totalKcal += sauceRecipe.kcal_per_100g * factor;
-      totalProtein += sauceRecipe.protein_per_100g * factor;
-      totalCarbs += sauceRecipe.carb_per_100g * factor;
-      totalFat += sauceRecipe.fat_per_100g * factor;
-    }
-
     return {
       kcal: Math.round(totalKcal),
       protein: Math.round(totalProtein * 10) / 10,
