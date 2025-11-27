@@ -11,6 +11,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import PhoneInput from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
 import {
   MAIN_GOALS,
   COMMON_ALLERGENS,
@@ -172,26 +174,6 @@ export function RegistrationForm() {
     } finally {
       setLoadingCep('');
     }
-  };
-
-  const formatPhoneNumber = (value: string): string => {
-    const numbers = value.replace(/\D/g, '');
-
-    if (numbers.length === 0) return '';
-
-    if (numbers.startsWith('55')) {
-      return `+${numbers}`;
-    }
-
-    if (numbers.length === 11) {
-      return `+55${numbers}`;
-    }
-
-    if (numbers.length === 10) {
-      return `+55${numbers}`;
-    }
-
-    return `+55${numbers}`;
   };
 
   const replicateAddress = (sourceDay: string, sourceMeal: string) => {
@@ -557,14 +539,13 @@ export function RegistrationForm() {
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="phone">Telefone *</Label>
-                <Input
+                <PhoneInput
                   id="phone"
+                  international
+                  defaultCountry="BR"
                   value={phone}
-                  onChange={(e) => {
-                    const formatted = formatPhoneNumber(e.target.value);
-                    setPhone(formatted);
-                  }}
-                  placeholder="+5511998765432"
+                  onChange={(value) => setPhone(value || '')}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   required
                 />
               </div>
@@ -628,14 +609,13 @@ export function RegistrationForm() {
 
             <div>
               <Label htmlFor="nutritionistPhone">Telefone da Nutricionista *</Label>
-              <Input
+              <PhoneInput
                 id="nutritionistPhone"
+                international
+                defaultCountry="BR"
                 value={nutritionistPhone}
-                onChange={(e) => {
-                  const formatted = formatPhoneNumber(e.target.value);
-                  setNutritionistPhone(formatted);
-                }}
-                placeholder="+5511912345678"
+                onChange={(value) => setNutritionistPhone(value || '')}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 required
               />
             </div>
