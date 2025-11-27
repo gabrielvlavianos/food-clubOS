@@ -35,17 +35,73 @@ export default function ManagerPage() {
   const [selectedMealType, setSelectedMealType] = useState<'lunch' | 'dinner'>('lunch');
   const [orders, setOrders] = useState<ManagerOrder[]>([]);
   const [loading, setLoading] = useState(false);
+  const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadGoogleMapsApiKey();
+  }, []);
 
   useEffect(() => {
     loadOrders();
   }, [selectedDate, selectedMealType]);
 
-  function calculatePickupTime(deliveryTime: string): string {
+  async function loadGoogleMapsApiKey() {
+    try {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'google_maps_api_key')
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setGoogleMapsApiKey((data as any).value);
+      }
+    } catch (error) {
+      console.error('Error loading Google Maps API key:', error);
+    }
+  }
+
+  function calculatePickupTime(deliveryTime: string, travelTimeMinutes?: number | null): string {
+    const minutesToSubtract = travelTimeMinutes || 30;
     const [hours, minutes] = deliveryTime.split(':').map(Number);
-    const totalMinutes = hours * 60 + minutes - 30;
+    const totalMinutes = hours * 60 + minutes - minutesToSubtract;
     const pickupHours = Math.floor(totalMinutes / 60);
     const pickupMinutes = totalMinutes % 60;
     return `${String(pickupHours).padStart(2, '0')}:${String(pickupMinutes).padStart(2, '0')}`;
+  }
+
+  async function calculateTravelTime(address: string): Promise<number | null> {
+    if (!googleMapsApiKey) {
+      return null;
+    }
+
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/calculate-travel-time`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          destination: address,
+          apiKey: googleMapsApiKey,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Failed to calculate travel time');
+        return null;
+      }
+
+      const result = await response.json();
+      return result.pickupTimeMinutes;
+    } catch (error) {
+      console.error('Error calculating travel time:', error);
+      return null;
+    }
   }
 
   function getKanbanStage(orderStatus: OrderStatus): KanbanStage {
@@ -137,7 +193,20 @@ export default function ManagerPage() {
         }
 
         if (deliverySchedule && deliverySchedule.delivery_time && deliverySchedule.delivery_address) {
-          const pickupTime = calculatePickupTime(deliverySchedule.delivery_time);
+          let travelTimeMinutes = deliverySchedule.travel_time_minutes;
+
+          if (!travelTimeMinutes && googleMapsApiKey) {
+            travelTimeMinutes = await calculateTravelTime(deliverySchedule.delivery_address);
+
+            if (travelTimeMinutes) {
+              await (supabase as any)
+                .from('delivery_schedules')
+                .update({ travel_time_minutes: travelTimeMinutes })
+                .eq('id', deliverySchedule.id);
+            }
+          }
+
+          const pickupTime = calculatePickupTime(deliverySchedule.delivery_time, travelTimeMinutes);
           const orderStatusData = statusMap.get(customerData.id);
 
           const orderStatus: OrderStatus = {

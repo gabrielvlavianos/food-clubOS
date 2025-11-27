@@ -23,6 +23,10 @@ interface SheetsSettings {
   api_key: string;
 }
 
+interface GoogleMapsSettings {
+  api_key: string;
+}
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<GlobalSettings>({
     vegetables_amount: 100,
@@ -34,10 +38,15 @@ export default function SettingsPage() {
     sheet_name: '',
     api_key: '',
   });
+  const [googleMapsSettings, setGoogleMapsSettings] = useState<GoogleMapsSettings>({
+    api_key: '',
+  });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sheetsLoading, setSheetsLoading] = useState(false);
   const [sheetsSaving, setSheetsSaving] = useState(false);
+  const [mapsLoading, setMapsLoading] = useState(false);
+  const [mapsSaving, setMapsSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importingLunch, setImportingLunch] = useState(false);
   const [importingDinner, setImportingDinner] = useState(false);
@@ -45,6 +54,7 @@ export default function SettingsPage() {
   useEffect(() => {
     loadSettings();
     loadSheetsSettings();
+    loadGoogleMapsSettings();
   }, []);
 
   async function loadSettings() {
@@ -303,6 +313,60 @@ export default function SettingsPage() {
     setSheetsSettings(prev => ({ ...prev, [field]: value }));
   }
 
+  async function loadGoogleMapsSettings() {
+    setMapsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('key, value')
+        .eq('key', 'google_maps_api_key')
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setGoogleMapsSettings({
+          api_key: (data as any).value || '',
+        });
+      }
+    } catch (error) {
+      console.error('Error loading Google Maps settings:', error);
+      toast.error('Erro ao carregar configurações do Google Maps');
+    } finally {
+      setMapsLoading(false);
+    }
+  }
+
+  async function saveGoogleMapsSettings() {
+    if (!googleMapsSettings.api_key) {
+      toast.error('Preencha a API Key do Google Maps');
+      return;
+    }
+
+    setMapsSaving(true);
+    try {
+      const { error } = await (supabase as any)
+        .from('settings')
+        .upsert(
+          { key: 'google_maps_api_key', value: googleMapsSettings.api_key, updated_at: new Date().toISOString() },
+          { onConflict: 'key' }
+        );
+
+      if (error) throw error;
+
+      toast.success('API Key do Google Maps salva com sucesso!');
+    } catch (error) {
+      console.error('Error saving Google Maps settings:', error);
+      toast.error('Erro ao salvar API Key do Google Maps');
+    } finally {
+      setMapsSaving(false);
+    }
+  }
+
+  function handleGoogleMapsChange(value: string) {
+    setGoogleMapsSettings({ api_key: value });
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
@@ -316,11 +380,12 @@ export default function SettingsPage() {
         </div>
 
         <Tabs defaultValue="amounts" className="max-w-4xl">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="amounts">Quantidades Padrão</TabsTrigger>
+            <TabsTrigger value="maps">Google Maps</TabsTrigger>
             <TabsTrigger value="export">
               <Sheet className="h-4 w-4 mr-2" />
-              Exportar para Sheets
+              Google Sheets
             </TabsTrigger>
           </TabsList>
 
@@ -436,6 +501,110 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="maps">
+            {mapsLoading ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600">Carregando configurações...</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Google Maps Distance Matrix API</CardTitle>
+                  <CardDescription>
+                    Configure a API Key do Google Maps para calcular tempos de entrega precisos baseados em rotas reais de moto.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="mapsApiKey">
+                        API Key do Google Maps
+                      </Label>
+                      <Input
+                        id="mapsApiKey"
+                        type="password"
+                        value={googleMapsSettings.api_key}
+                        onChange={(e) => handleGoogleMapsChange(e.target.value)}
+                        placeholder="AIza...."
+                        className="font-mono"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Sua chave da API Distance Matrix. Mantenha em segredo!
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      onClick={saveGoogleMapsSettings}
+                      disabled={mapsSaving}
+                      className="flex-1"
+                      size="lg"
+                    >
+                      {mapsSaving ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Salvando...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          Salvar API Key
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={loadGoogleMapsSettings}
+                      variant="outline"
+                      disabled={mapsLoading || mapsSaving}
+                      size="lg"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${mapsLoading ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-900 mb-3">
+                      <strong>Como obter sua API Key:</strong>
+                    </p>
+                    <ol className="text-sm text-blue-800 space-y-2 list-decimal list-inside">
+                      <li>Acesse o <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Google Cloud Console</a></li>
+                      <li>Crie um novo projeto ou selecione um existente</li>
+                      <li>Ative a <strong>Distance Matrix API</strong></li>
+                      <li>Vá em &quot;Credenciais&quot; e crie uma API Key</li>
+                      <li>Cole a chave no campo acima</li>
+                    </ol>
+                  </div>
+
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <p className="text-sm text-green-900 mb-2">
+                      <strong>O que será calculado:</strong>
+                    </p>
+                    <ul className="text-sm text-green-800 space-y-1 list-disc list-inside">
+                      <li>Tempo real de viagem de moto da cozinha até cada cliente</li>
+                      <li>Considera tráfego em tempo real</li>
+                      <li>Adiciona automaticamente 10 minutos (tempo do motoboy aceitar)</li>
+                      <li>Horário ideal para solicitar o motoboy será mais preciso</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p className="text-sm text-yellow-900 mb-2">
+                      <strong>Endereço da Cozinha:</strong>
+                    </p>
+                    <p className="text-sm text-yellow-800 font-mono">
+                      Rua Clodomiro Amazonas, 134
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 
