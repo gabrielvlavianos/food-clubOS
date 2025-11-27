@@ -283,6 +283,15 @@ export function RegistrationForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
+    if (!hasNutritionist && !mainGoal) {
+      toast({
+        title: 'Campo obrigatório',
+        description: 'Por favor, selecione seu objetivo principal',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     const selectedKeys = Object.entries(selectedDaysMeals).filter(([_, selected]) => selected).map(([key]) => key);
 
     if (selectedKeys.length === 0) {
@@ -668,7 +677,7 @@ export function RegistrationForm() {
         {((hasNutritionist && currentSection === 2) || (!hasNutritionist && currentSection === 1)) && (
           <div className="space-y-4">
             <div>
-              <Label htmlFor="mainGoal">Objetivo Principal</Label>
+              <Label htmlFor="mainGoal">Objetivo Principal{!hasNutritionist && ' *'}</Label>
               <Select value={mainGoal} onValueChange={setMainGoal}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione seu objetivo" />
