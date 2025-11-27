@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { LayoutDashboard, Calendar, Clock, MapPin, RefreshCw, Phone, Package, ChefHat, Truck, Navigation as NavigationIcon, CheckCircle2 } from 'lucide-react';
+import { LayoutDashboard, Calendar, Clock, RefreshCw, Package, ChefHat, Truck, Navigation as NavigationIcon, CheckCircle2 } from 'lucide-react';
 import { format, getDay } from 'date-fns';
 import { formatPhoneNumber, formatTime } from '@/lib/format-utils';
 import type { Customer, DeliverySchedule } from '@/types';
@@ -210,57 +210,29 @@ export default function ManagerPage() {
 
     const config = stageConfig[stage];
     const cardClass = order.isCancelled
-      ? 'bg-red-50/50 border-red-300 border-2 mb-3'
-      : `${config.color} border-2 mb-3 hover:shadow-md transition-shadow`;
+      ? 'bg-red-50/50 border-l-4 border-red-500 mb-2 hover:bg-red-100/50'
+      : `${config.color} border-l-4 mb-2 hover:shadow-sm transition-all`;
 
     return (
-      <Card className={cardClass}>
-        <CardContent className="p-4">
-          <div className="space-y-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h4 className="font-bold text-gray-900 text-base">{order.customer.name}</h4>
-                  {order.isCancelled && (
-                    <Badge variant="destructive" className="bg-red-500 text-xs">CANCELADO</Badge>
-                  )}
-                </div>
-                <Badge className={`${config.badgeColor} text-xs px-2 py-1`}>
-                  {config.statusText}
-                </Badge>
-              </div>
+      <div className={`${cardClass} p-3 rounded-lg cursor-pointer`}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h4 className="font-semibold text-gray-900 text-sm truncate">{order.customer.name}</h4>
+              {order.isCancelled && (
+                <Badge variant="destructive" className="text-xs py-0 px-2 h-5">CANCELADO</Badge>
+              )}
             </div>
-
-            <div className="text-sm text-gray-700 space-y-2">
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                <span className="font-medium">{formatPhoneNumber(order.customer.phone)}</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-orange-600 flex-shrink-0" />
-                <div className="flex flex-col">
-                  <span className="text-xs text-gray-600">Solicitar motoboy:</span>
-                  <span className="font-bold text-orange-600">{order.pickupTime}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-green-600 flex-shrink-0" />
-                <div className="flex flex-col">
-                  <span className="text-xs text-gray-600">Entrega:</span>
-                  <span className="font-bold text-green-600">{formatTime(order.deliverySchedule.delivery_time)}</span>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2">
-                <MapPin className="h-4 w-4 text-gray-600 flex-shrink-0 mt-0.5" />
-                <span className="text-xs line-clamp-2">{order.deliverySchedule.delivery_address}</span>
-              </div>
-            </div>
+            <Badge className={`${config.badgeColor} text-xs px-2 py-0.5`}>
+              {config.statusText}
+            </Badge>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Clock className="h-4 w-4 text-green-600" />
+            <span className="font-bold text-green-700 text-base">{formatTime(order.deliverySchedule.delivery_time)}</span>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -278,23 +250,23 @@ export default function ManagerPage() {
     description: string;
   }) {
     return (
-      <div className="flex-1 min-w-[300px]">
+      <div className="flex-1 min-w-[280px]">
         <Card className={`${color} border-2 h-full`}>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center justify-between text-base">
-              <div className="flex flex-col gap-1">
+          <CardHeader className="pb-2 pt-4">
+            <CardTitle className="flex items-center justify-between text-sm">
+              <div className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-2">
-                  <Icon className="h-5 w-5" />
-                  {title}
+                  <Icon className="h-4 w-4" />
+                  <span className="font-bold">{title}</span>
                 </div>
                 <p className="text-xs font-normal text-gray-600">{description}</p>
               </div>
-              <Badge variant="secondary" className="text-lg font-bold px-3 py-1">
+              <Badge variant="secondary" className="text-base font-bold px-2.5 py-0.5">
                 {orders.length}
               </Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent className="max-h-[calc(100vh-320px)] overflow-y-auto">
+          <CardContent className="max-h-[calc(100vh-320px)] overflow-y-auto pt-2">
             {orders.length === 0 ? (
               <div className="text-center py-8 text-gray-500 text-sm">
                 <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
