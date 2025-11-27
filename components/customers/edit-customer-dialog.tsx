@@ -58,6 +58,8 @@ export function EditCustomerDialog({
   const [medicationUse, setMedicationUse] = useState('');
   const [dietaryNotes, setDietaryNotes] = useState('');
   const [mealPlanFileUrl, setMealPlanFileUrl] = useState('');
+  const [mealPlanFile, setMealPlanFile] = useState<File | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const [deliverySchedules, setDeliverySchedules] = useState<DeliveryScheduleForm>({});
   const [height, setHeight] = useState('');
   const [currentWeight, setCurrentWeight] = useState('');
@@ -170,6 +172,50 @@ export function EditCustomerDialog({
     }));
   }
 
+  async function handleFileUpload() {
+    if (!mealPlanFile || !customer) return;
+
+    setUploadingFile(true);
+    try {
+      const fileExt = mealPlanFile.name.split('.').pop();
+      const fileName = `${customer.id}-${Date.now()}.${fileExt}`;
+      const filePath = `meal-plans/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('customer-files')
+        .upload(filePath, mealPlanFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('customer-files')
+        .getPublicUrl(filePath);
+
+      setMealPlanFileUrl(publicUrl);
+      setMealPlanFile(null);
+
+      toast({
+        title: 'Arquivo enviado',
+        description: 'Plano alimentar atualizado com sucesso',
+      });
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível enviar o arquivo',
+        variant: 'destructive',
+      });
+      return null;
+    } finally {
+      setUploadingFile(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!customer) return;
@@ -177,6 +223,15 @@ export function EditCustomerDialog({
     setLoading(true);
 
     try {
+      let newMealPlanUrl = mealPlanFileUrl;
+
+      if (mealPlanFile) {
+        const uploadedUrl = await handleFileUpload();
+        if (uploadedUrl) {
+          newMealPlanUrl = uploadedUrl;
+        }
+      }
+
       const updateData: any = {
         name,
         phone: phone || null,
@@ -208,6 +263,7 @@ export function EditCustomerDialog({
         dinner_carbs: dinnerCarbs ? parseFloat(dinnerCarbs) : null,
         dinner_protein: dinnerProtein ? parseFloat(dinnerProtein) : null,
         dinner_fat: dinnerFat ? parseFloat(dinnerFat) : null,
+        meal_plan_file_url: newMealPlanUrl || null,
       };
 
       const { error: customerError } = await (supabase as any)
@@ -460,20 +516,45 @@ export function EditCustomerDialog({
                 />
               </div>
 
-              {mealPlanFileUrl && (
-                <div>
-                  <Label>Plano Alimentar Anexado</Label>
-                  <div className="mt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => window.open(mealPlanFileUrl, '_blank')}
-                    >
-                      Ver Plano Alimentar
-                    </Button>
+              <div>
+                <Label>Plano Alimentar</Label>
+                <div className="mt-2 space-y-3">
+                  {mealPlanFileUrl && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => window.open(mealPlanFileUrl, '_blank')}
+                      >
+                        Ver Plano Alimentar Atual
+                      </Button>
+                    </div>
+                  )}
+                  <div>
+                    <Input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setMealPlanFile(file);
+                        }
+                      }}
+                      disabled={uploadingFile}
+                    />
+                    {mealPlanFile && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        Novo arquivo selecionado: {mealPlanFile.name}
+                      </p>
+                    )}
+                    {uploadingFile && (
+                      <p className="text-sm text-blue-600 mt-1">
+                        Enviando arquivo...
+                      </p>
+                    )}
                   </div>
                 </div>
-              )}
+              </div>
             </TabsContent>
 
             <TabsContent value="macros" className="space-y-4">
