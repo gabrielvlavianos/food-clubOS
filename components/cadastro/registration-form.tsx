@@ -62,6 +62,7 @@ export function RegistrationForm() {
 
   const [mainGoal, setMainGoal] = useState('');
   const [selectedAllergies, setSelectedAllergies] = useState<string[]>([]);
+  const [otherAllergies, setOtherAllergies] = useState('');
   const [foodRestrictions, setFoodRestrictions] = useState('');
   const [clinicalConditions, setClinicalConditions] = useState('');
   const [medicationUse, setMedicationUse] = useState('');
@@ -351,6 +352,7 @@ export function RegistrationForm() {
           meal_plan_file_url: mealPlanFileUrl,
           main_goal: mainGoal || null,
           allergies: selectedAllergies,
+          other_allergies: otherAllergies || null,
           food_restrictions: foodRestrictions || null,
           clinical_conditions: clinicalConditions || null,
           medication_use: medicationUse || null,
@@ -684,6 +686,18 @@ export function RegistrationForm() {
                   </div>
                 ))}
               </div>
+              {selectedAllergies.includes('Outros') && (
+                <div className="mt-3">
+                  <Label htmlFor="otherAllergies">Especifique outras alergias ou intolerâncias</Label>
+                  <Textarea
+                    id="otherAllergies"
+                    value={otherAllergies}
+                    onChange={(e) => setOtherAllergies(e.target.value)}
+                    placeholder="Descreva outras alergias ou intolerâncias"
+                    className="mt-1"
+                  />
+                </div>
+              )}
             </div>
 
             <div>

@@ -79,6 +79,7 @@ export const COMMON_ALLERGENS = [
   'Peixe',
   'Crustáceos',
   'Nenhum',
+  'Outros',
 ] as const;
 
 export const WORK_ROUTINES = [
