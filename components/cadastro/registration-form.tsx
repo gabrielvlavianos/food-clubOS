@@ -174,14 +174,34 @@ export function RegistrationForm() {
     }
   };
 
+  const formatPhoneNumber = (value: string): string => {
+    const numbers = value.replace(/\D/g, '');
+
+    if (numbers.length === 0) return '';
+
+    if (numbers.startsWith('55')) {
+      return `+${numbers}`;
+    }
+
+    if (numbers.length === 11) {
+      return `+55${numbers}`;
+    }
+
+    if (numbers.length === 10) {
+      return `+55${numbers}`;
+    }
+
+    return `+55${numbers}`;
+  };
+
   const replicateAddress = (sourceDay: string, sourceMeal: string) => {
     const sourceKey = `${sourceDay}_${sourceMeal}`;
     const sourceSchedule = deliverySchedules[sourceKey];
 
-    if (!sourceSchedule || !sourceSchedule.cep) {
+    if (!sourceSchedule || !sourceSchedule.cep || !sourceSchedule.time) {
       toast({
-        title: 'Endereço incompleto',
-        description: 'Preencha o CEP e endereço antes de replicar.',
+        title: 'Dados incompletos',
+        description: 'Preencha horário, CEP e endereço antes de replicar.',
         variant: 'destructive',
       });
       return;
@@ -195,12 +215,12 @@ export function RegistrationForm() {
         if (meal === sourceMeal) {
           updated[key] = {
             ...updated[key],
+            time: sourceSchedule.time,
             cep: sourceSchedule.cep,
             address: sourceSchedule.address,
             number: sourceSchedule.number,
             complement: sourceSchedule.complement,
             addressDetails: sourceSchedule.addressDetails,
-            time: updated[key]?.time || '',
           };
         }
       }
@@ -208,8 +228,8 @@ export function RegistrationForm() {
 
     setDeliverySchedules(updated);
     toast({
-      title: 'Endereço replicado',
-      description: `Endereço copiado para todos os ${sourceMeal === 'lunch' ? 'almoços' : 'jantares'} selecionados.`,
+      title: 'Horário e endereço replicados',
+      description: `Dados copiados para todos os ${sourceMeal === 'lunch' ? 'almoços' : 'jantares'} selecionados.`,
     });
   };
 
@@ -540,8 +560,11 @@ export function RegistrationForm() {
                 <Input
                   id="phone"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+5511912345678"
+                  onChange={(e) => {
+                    const formatted = formatPhoneNumber(e.target.value);
+                    setPhone(formatted);
+                  }}
+                  placeholder="+5511998765432"
                   required
                 />
               </div>
@@ -608,7 +631,10 @@ export function RegistrationForm() {
               <Input
                 id="nutritionistPhone"
                 value={nutritionistPhone}
-                onChange={(e) => setNutritionistPhone(e.target.value)}
+                onChange={(e) => {
+                  const formatted = formatPhoneNumber(e.target.value);
+                  setNutritionistPhone(formatted);
+                }}
                 placeholder="+5511912345678"
                 required
               />
@@ -972,13 +998,15 @@ export function RegistrationForm() {
                           <div className="grid md:grid-cols-2 gap-3">
                             <div>
                               <Label htmlFor={`${dayMealKey}-time`} className="text-sm">
-                                Horário de entrega *
+                                Horário de entrega * ({meal === 'lunch' ? '11:30-14:00' : '18:00-21:00'})
                               </Label>
                               <Input
                                 id={`${dayMealKey}-time`}
                                 type="time"
                                 value={schedule?.time || ''}
                                 onChange={(e) => handleDeliveryScheduleChange(day, meal, 'time', e.target.value)}
+                                min={meal === 'lunch' ? '11:30' : '18:00'}
+                                max={meal === 'lunch' ? '14:00' : '21:00'}
                                 required
                               />
                             </div>
