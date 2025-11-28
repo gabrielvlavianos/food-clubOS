@@ -213,7 +213,7 @@ export default function KitchenDashboardPage() {
           *,
           delivery_schedules!delivery_schedules_customer_id_fkey(*)
         `)
-        .eq('status', 'approved')
+        .eq('status', 'active')
         .eq('is_active', true);
 
       if (customersError) throw customersError;

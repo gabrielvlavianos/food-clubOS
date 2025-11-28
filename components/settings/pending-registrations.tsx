@@ -67,7 +67,7 @@ export function PendingRegistrations() {
       const { error } = await (supabase as any)
         .from('customers')
         .update({
-          status: 'approved',
+          status: 'active',
           is_active: true
         })
         .eq('id', customerId);
