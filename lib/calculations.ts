@@ -1,4 +1,5 @@
 import { Recipe, PrepItemWithRecipe, MacroTotals, PrepSessionSummary, RecipeCategory } from '@/types';
+import { supabase } from '@/lib/supabase';
 
 export function roundToMultipleOf10(value: number): number {
   return Math.round(value / 10) * 10;
@@ -134,60 +135,142 @@ function calculateBMR(customer: CustomerData): number {
   }
 }
 
-function calculateActivityMultiplier(customer: CustomerData): number {
+interface MacroSettings {
+  work_sedentary: number;
+  work_light_active: number;
+  work_moderate_active: number;
+  work_very_active: number;
+  work_extremely_active: number;
+  freq_none: number;
+  freq_1_2_week: number;
+  freq_3_4_week: number;
+  freq_5_6_week: number;
+  freq_daily: number;
+  intensity_light: number;
+  intensity_moderate: number;
+  intensity_intense: number;
+  exercise_bonus_multiplier: number;
+  goal_weight_loss_offset: number;
+  goal_maintenance_offset: number;
+  goal_muscle_gain_offset: number;
+  goal_definition_offset: number;
+  goal_performance_offset: number;
+  goal_health_offset: number;
+  protein_weight_loss: number;
+  protein_maintenance: number;
+  protein_muscle_gain: number;
+  protein_definition: number;
+  protein_performance: number;
+  protein_health: number;
+  fat_percentage_muscle_gain: number;
+  fat_percentage_default: number;
+  lunch_percentage: number;
+  dinner_percentage: number;
+  meals_2_lunch_dinner_pct: number;
+  meals_3_lunch_dinner_pct: number;
+  meals_4_lunch_dinner_pct: number;
+  meals_5plus_lunch_dinner_pct: number;
+}
+
+async function getMacroSettings(): Promise<MacroSettings> {
+  const { data, error } = await supabase
+    .from('macro_calculation_settings')
+    .select('*')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error || !data) {
+    return {
+      work_sedentary: 0.2,
+      work_light_active: 0.375,
+      work_moderate_active: 0.55,
+      work_very_active: 0.725,
+      work_extremely_active: 0.9,
+      freq_none: 0,
+      freq_1_2_week: 1,
+      freq_3_4_week: 2,
+      freq_5_6_week: 3,
+      freq_daily: 4,
+      intensity_light: 0.5,
+      intensity_moderate: 1,
+      intensity_intense: 1.5,
+      exercise_bonus_multiplier: 0.05,
+      goal_weight_loss_offset: -500,
+      goal_maintenance_offset: 0,
+      goal_muscle_gain_offset: 300,
+      goal_definition_offset: -300,
+      goal_performance_offset: 200,
+      goal_health_offset: 0,
+      protein_weight_loss: 2.0,
+      protein_maintenance: 1.8,
+      protein_muscle_gain: 2.2,
+      protein_definition: 2.4,
+      protein_performance: 1.8,
+      protein_health: 1.8,
+      fat_percentage_muscle_gain: 0.25,
+      fat_percentage_default: 0.30,
+      lunch_percentage: 0.55,
+      dinner_percentage: 0.45,
+      meals_2_lunch_dinner_pct: 1.0,
+      meals_3_lunch_dinner_pct: 0.70,
+      meals_4_lunch_dinner_pct: 0.55,
+      meals_5plus_lunch_dinner_pct: 0.45,
+    };
+  }
+
+  return data as any;
+}
+
+async function calculateActivityMultiplier(customer: CustomerData, settings: MacroSettings): Promise<number> {
   const workActivityLevel: Record<string, number> = {
-    'Sedentário': 0.2,
-    'Levemente ativo': 0.375,
-    'Moderadamente ativo': 0.55,
-    'Muito ativo': 0.725,
-    'Extremamente ativo': 0.9
+    'Sedentário (trabalho em escritório, pouca movimentação)': settings.work_sedentary,
+    'Moderadamente ativo (trabalho com alguma movimentação)': settings.work_moderate_active,
+    'Muito ativo (trabalho físico, muita movimentação)': settings.work_very_active,
   };
 
   const frequencyScore: Record<string, number> = {
-    'Nenhuma': 0,
-    '1-2x por semana': 1,
-    '3-4x por semana': 2,
-    '5-6x por semana': 3,
-    'Diariamente': 4
+    'Nenhuma vez': settings.freq_none,
+    '1-2 vezes por semana': settings.freq_1_2_week,
+    '3-4 vezes por semana': settings.freq_3_4_week,
+    '5-6 vezes por semana': settings.freq_5_6_week,
+    'Todos os dias': settings.freq_daily,
   };
 
   const intensityScore: Record<string, number> = {
-    'Leve': 0.5,
-    'Moderada': 1,
-    'Intensa': 1.5
+    'Leve': settings.intensity_light,
+    'Moderada': settings.intensity_moderate,
+    'Intensa': settings.intensity_intense,
   };
 
-  const workBase = workActivityLevel[customer.work_routine] || 0.2;
+  const workBase = workActivityLevel[customer.work_routine] || settings.work_sedentary;
 
   const aerobicScore = (frequencyScore[customer.aerobic_frequency] || 0) *
                        (intensityScore[customer.aerobic_intensity] || 0);
   const strengthScore = (frequencyScore[customer.strength_frequency] || 0) *
                         (intensityScore[customer.strength_intensity] || 0);
 
-  const exerciseBonus = (aerobicScore + strengthScore) * 0.05;
+  const exerciseBonus = (aerobicScore + strengthScore) * settings.exercise_bonus_multiplier;
 
   return 1.2 + workBase + exerciseBonus;
 }
 
-function calculateTDEE(customer: CustomerData): number {
+async function calculateTDEE(customer: CustomerData, settings: MacroSettings): Promise<number> {
   const bmr = calculateBMR(customer);
-  const activityMultiplier = calculateActivityMultiplier(customer);
+  const activityMultiplier = await calculateActivityMultiplier(customer, settings);
   return bmr * activityMultiplier;
 }
 
-function adjustCaloriesForGoal(tdee: number, mainGoal: string, currentWeight: number, goalWeight: number): number {
+function adjustCaloriesForGoal(tdee: number, mainGoal: string, currentWeight: number, goalWeight: number, settings: MacroSettings): number {
   const goalAdjustments: Record<string, number> = {
-    'Emagrecimento': -500,
-    'Manutenção de peso': 0,
-    'Ganho de massa muscular': 300,
-    'Definição muscular': -300,
-    'Performance esportiva': 200,
-    'Saúde e bem-estar': 0
+    'Hipertrofia/Ganho de massa muscular': settings.goal_muscle_gain_offset,
+    'Perda de gordura/perda de peso': settings.goal_weight_loss_offset,
+    'Saúde em geral/Manutenção do peso': settings.goal_maintenance_offset,
+    'Melhora na Performance (esportiva ou cognitiva)': settings.goal_performance_offset,
   };
 
   let adjustment = goalAdjustments[mainGoal] || 0;
 
-  if (mainGoal === 'Emagrecimento' && currentWeight > goalWeight) {
+  if (mainGoal === 'Perda de gordura/perda de peso' && currentWeight > goalWeight) {
     const deficit = Math.min(currentWeight - goalWeight, 20) * 10;
     adjustment = Math.min(adjustment - deficit, -300);
   }
@@ -195,22 +278,47 @@ function adjustCaloriesForGoal(tdee: number, mainGoal: string, currentWeight: nu
   return Math.round(tdee + adjustment);
 }
 
-export function calculateMacroRecommendation(customer: CustomerData): MacroRecommendation {
-  const tdee = calculateTDEE(customer);
+function getProteinTarget(mainGoal: string, settings: MacroSettings): number {
+  const proteinTargets: Record<string, number> = {
+    'Hipertrofia/Ganho de massa muscular': settings.protein_muscle_gain,
+    'Perda de gordura/perda de peso': settings.protein_weight_loss,
+    'Saúde em geral/Manutenção do peso': settings.protein_maintenance,
+    'Melhora na Performance (esportiva ou cognitiva)': settings.protein_performance,
+  };
+
+  return proteinTargets[mainGoal] || settings.protein_maintenance;
+}
+
+function getFatPercentage(mainGoal: string, settings: MacroSettings): number {
+  if (mainGoal === 'Hipertrofia/Ganho de massa muscular') {
+    return settings.fat_percentage_muscle_gain;
+  }
+  return settings.fat_percentage_default;
+}
+
+function getLunchDinnerPercentage(mealsPerDay: number, settings: MacroSettings): number {
+  if (mealsPerDay === 2) return settings.meals_2_lunch_dinner_pct;
+  if (mealsPerDay === 3) return settings.meals_3_lunch_dinner_pct;
+  if (mealsPerDay === 4) return settings.meals_4_lunch_dinner_pct;
+  return settings.meals_5plus_lunch_dinner_pct;
+}
+
+export async function calculateMacroRecommendation(customer: CustomerData): Promise<MacroRecommendation> {
+  const settings = await getMacroSettings();
+
+  const tdee = await calculateTDEE(customer, settings);
   const targetCalories = adjustCaloriesForGoal(
     tdee,
     customer.main_goal,
     customer.current_weight_kg,
-    customer.goal_weight_kg
+    customer.goal_weight_kg,
+    settings
   );
 
-  const proteinPerKg = customer.main_goal === 'Ganho de massa muscular' ? 2.2 :
-                       customer.main_goal === 'Definição muscular' ? 2.4 :
-                       customer.main_goal === 'Emagrecimento' ? 2.0 : 1.8;
-
+  const proteinPerKg = getProteinTarget(customer.main_goal, settings);
   const dailyProtein = customer.current_weight_kg * proteinPerKg;
 
-  const fatPercentage = customer.main_goal === 'Ganho de massa muscular' ? 0.25 : 0.30;
+  const fatPercentage = getFatPercentage(customer.main_goal, settings);
   const dailyFat = (targetCalories * fatPercentage) / 9;
 
   const proteinCalories = dailyProtein * 4;
@@ -219,12 +327,10 @@ export function calculateMacroRecommendation(customer: CustomerData): MacroRecom
   const dailyCarb = carbCalories / 4;
 
   const mealsPerDay = customer.meals_per_day || 3;
-  const lunchDinnerPercentage = mealsPerDay === 2 ? 1.0 :
-                                 mealsPerDay === 3 ? 0.70 :
-                                 mealsPerDay === 4 ? 0.55 : 0.45;
+  const lunchDinnerPercentage = getLunchDinnerPercentage(mealsPerDay, settings);
 
-  const lunchPercentage = 0.55;
-  const dinnerPercentage = 0.45;
+  const lunchPercentage = settings.lunch_percentage;
+  const dinnerPercentage = settings.dinner_percentage;
 
   const lunchProtein = Math.round((dailyProtein * lunchDinnerPercentage * lunchPercentage) * 10) / 10;
   const lunchCarb = Math.round((dailyCarb * lunchDinnerPercentage * lunchPercentage) * 10) / 10;

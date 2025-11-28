@@ -141,7 +141,7 @@ export function EditCustomerDialog({
             customer.aerobic_intensity && customer.strength_frequency &&
             customer.strength_intensity && customer.main_goal) {
           try {
-            const suggestions = calculateMacroRecommendation({
+            const suggestions = await calculateMacroRecommendation({
               gender: customer.gender || 'Masculino',
               height_cm: customer.height_cm,
               current_weight_kg: customer.current_weight_kg,

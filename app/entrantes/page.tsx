@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle2, UserCheck, Clock, ExternalLink, Trash2, Download, FileDown, ChevronDown, ChevronUp } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { calculateMacroRecommendation } from '@/lib/calculations';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,8 @@ export default function EntrantesPage() {
   const [dinnerCarbs, setDinnerCarbs] = useState('');
   const [dinnerProtein, setDinnerProtein] = useState('');
   const [dinnerFat, setDinnerFat] = useState('');
+  const [macroSuggestions, setMacroSuggestions] = useState<any>(null);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   const { toast } = useToast();
 
@@ -74,7 +77,7 @@ export default function EntrantesPage() {
     }
   }
 
-  function openApprovalDialog(customer: PendingCustomer) {
+  async function openApprovalDialog(customer: PendingCustomer) {
     setSelectedCustomer(customer);
     setLunchCarbs(customer.lunch_carbs?.toString() || '');
     setLunchProtein(customer.lunch_protein?.toString() || '');
@@ -82,7 +85,47 @@ export default function EntrantesPage() {
     setDinnerCarbs(customer.dinner_carbs?.toString() || '');
     setDinnerProtein(customer.dinner_protein?.toString() || '');
     setDinnerFat(customer.dinner_fat?.toString() || '');
+    setMacroSuggestions(null);
     setShowApprovalDialog(true);
+
+    if (!customer.has_nutritionist &&
+        customer.height_cm && customer.current_weight_kg &&
+        customer.goal_weight_kg && customer.birth_date &&
+        customer.work_routine && customer.aerobic_frequency &&
+        customer.aerobic_intensity && customer.strength_frequency &&
+        customer.strength_intensity && customer.main_goal) {
+      setLoadingSuggestions(true);
+      try {
+        const suggestions = await calculateMacroRecommendation({
+          gender: customer.gender || 'Masculino',
+          height_cm: customer.height_cm,
+          current_weight_kg: customer.current_weight_kg,
+          goal_weight_kg: customer.goal_weight_kg,
+          work_routine: customer.work_routine,
+          aerobic_frequency: customer.aerobic_frequency,
+          aerobic_intensity: customer.aerobic_intensity,
+          strength_frequency: customer.strength_frequency,
+          strength_intensity: customer.strength_intensity,
+          main_goal: customer.main_goal,
+          birth_date: customer.birth_date,
+          meals_per_day: customer.meals_per_day || 3
+        });
+        setMacroSuggestions(suggestions);
+
+        if (!customer.lunch_carbs) {
+          setLunchCarbs(suggestions.lunch.carb.toString());
+          setLunchProtein(suggestions.lunch.protein.toString());
+          setLunchFat(suggestions.lunch.fat.toString());
+          setDinnerCarbs(suggestions.dinner.carb.toString());
+          setDinnerProtein(suggestions.dinner.protein.toString());
+          setDinnerFat(suggestions.dinner.fat.toString());
+        }
+      } catch (error) {
+        console.error('Error calculating macro suggestions:', error);
+      } finally {
+        setLoadingSuggestions(false);
+      }
+    }
   }
 
   function toggleCardExpansion(customerId: string) {
@@ -587,40 +630,77 @@ export default function EntrantesPage() {
                 </div>
               </div>
             )}
+
+            {selectedCustomer && !selectedCustomer.has_nutritionist && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">🤖</span>
+                  <div>
+                    <p className="font-semibold text-blue-900">Recomendação Automática</p>
+                    <p className="text-xs text-blue-700">Cliente sem nutricionista - valores calculados com base nas informações fornecidas</p>
+                  </div>
+                </div>
+                {loadingSuggestions && (
+                  <p className="text-sm text-blue-700">Calculando recomendações...</p>
+                )}
+                {!loadingSuggestions && macroSuggestions && (
+                  <div className="text-xs text-blue-800 mt-2 space-y-1">
+                    <p className="font-medium">Meta diária: {macroSuggestions.daily.kcal} kcal</p>
+                    <p>Proteína: {macroSuggestions.daily.protein}g | Carboidrato: {macroSuggestions.daily.carb}g | Gordura: {macroSuggestions.daily.fat}g</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="border rounded-lg p-4 space-y-4 bg-slate-50">
               <h4 className="font-semibold text-lg">Almoço</h4>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="lunchCarbs">Carboidratos (g)</Label>
+                  <div className="flex justify-between items-center mb-1">
+                    <Label htmlFor="lunchCarbs">Carboidratos (g)</Label>
+                    {selectedCustomer && !selectedCustomer.has_nutritionist && macroSuggestions && (
+                      <span className="text-xs text-blue-600 font-medium">↗ {macroSuggestions.lunch.carb}g</span>
+                    )}
+                  </div>
                   <Input
                     id="lunchCarbs"
                     type="number"
                     step="0.01"
                     value={lunchCarbs}
                     onChange={(e) => setLunchCarbs(e.target.value)}
-                    placeholder="50"
+                    placeholder={macroSuggestions ? macroSuggestions.lunch.carb.toString() : "50"}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="lunchProtein">Proteínas (g)</Label>
+                  <div className="flex justify-between items-center mb-1">
+                    <Label htmlFor="lunchProtein">Proteínas (g)</Label>
+                    {selectedCustomer && !selectedCustomer.has_nutritionist && macroSuggestions && (
+                      <span className="text-xs text-blue-600 font-medium">↗ {macroSuggestions.lunch.protein}g</span>
+                    )}
+                  </div>
                   <Input
                     id="lunchProtein"
                     type="number"
                     step="0.01"
                     value={lunchProtein}
                     onChange={(e) => setLunchProtein(e.target.value)}
-                    placeholder="35"
+                    placeholder={macroSuggestions ? macroSuggestions.lunch.protein.toString() : "35"}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="lunchFat">Gorduras (g)</Label>
+                  <div className="flex justify-between items-center mb-1">
+                    <Label htmlFor="lunchFat">Gorduras (g)</Label>
+                    {selectedCustomer && !selectedCustomer.has_nutritionist && macroSuggestions && (
+                      <span className="text-xs text-blue-600 font-medium">↗ {macroSuggestions.lunch.fat}g</span>
+                    )}
+                  </div>
                   <Input
                     id="lunchFat"
                     type="number"
                     step="0.01"
                     value={lunchFat}
                     onChange={(e) => setLunchFat(e.target.value)}
-                    placeholder="15"
+                    placeholder={macroSuggestions ? macroSuggestions.lunch.fat.toString() : "15"}
                   />
                 </div>
               </div>
@@ -630,36 +710,51 @@ export default function EntrantesPage() {
               <h4 className="font-semibold text-lg">Jantar</h4>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="dinnerCarbs">Carboidratos (g)</Label>
+                  <div className="flex justify-between items-center mb-1">
+                    <Label htmlFor="dinnerCarbs">Carboidratos (g)</Label>
+                    {selectedCustomer && !selectedCustomer.has_nutritionist && macroSuggestions && (
+                      <span className="text-xs text-blue-600 font-medium">↗ {macroSuggestions.dinner.carb}g</span>
+                    )}
+                  </div>
                   <Input
                     id="dinnerCarbs"
                     type="number"
                     step="0.01"
                     value={dinnerCarbs}
                     onChange={(e) => setDinnerCarbs(e.target.value)}
-                    placeholder="40"
+                    placeholder={macroSuggestions ? macroSuggestions.dinner.carb.toString() : "40"}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="dinnerProtein">Proteínas (g)</Label>
+                  <div className="flex justify-between items-center mb-1">
+                    <Label htmlFor="dinnerProtein">Proteínas (g)</Label>
+                    {selectedCustomer && !selectedCustomer.has_nutritionist && macroSuggestions && (
+                      <span className="text-xs text-blue-600 font-medium">↗ {macroSuggestions.dinner.protein}g</span>
+                    )}
+                  </div>
                   <Input
                     id="dinnerProtein"
                     type="number"
                     step="0.01"
                     value={dinnerProtein}
                     onChange={(e) => setDinnerProtein(e.target.value)}
-                    placeholder="30"
+                    placeholder={macroSuggestions ? macroSuggestions.dinner.protein.toString() : "30"}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="dinnerFat">Gorduras (g)</Label>
+                  <div className="flex justify-between items-center mb-1">
+                    <Label htmlFor="dinnerFat">Gorduras (g)</Label>
+                    {selectedCustomer && !selectedCustomer.has_nutritionist && macroSuggestions && (
+                      <span className="text-xs text-blue-600 font-medium">↗ {macroSuggestions.dinner.fat}g</span>
+                    )}
+                  </div>
                   <Input
                     id="dinnerFat"
                     type="number"
                     step="0.01"
                     value={dinnerFat}
                     onChange={(e) => setDinnerFat(e.target.value)}
-                    placeholder="12"
+                    placeholder={macroSuggestions ? macroSuggestions.dinner.fat.toString() : "12"}
                   />
                 </div>
               </div>
