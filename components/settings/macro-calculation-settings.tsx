@@ -103,17 +103,70 @@ export function MacroCalculationSettings() {
 
     setSaving(true);
     try {
+      const updateData = {
+        work_sedentary: settings.work_sedentary,
+        work_moderate_active: settings.work_moderate_active,
+        work_very_active: settings.work_very_active,
+        aerobic_none: settings.aerobic_none,
+        aerobic_1_2_light: settings.aerobic_1_2_light,
+        aerobic_1_2_moderate: settings.aerobic_1_2_moderate,
+        aerobic_1_2_intense: settings.aerobic_1_2_intense,
+        aerobic_3_4_light: settings.aerobic_3_4_light,
+        aerobic_3_4_moderate: settings.aerobic_3_4_moderate,
+        aerobic_3_4_intense: settings.aerobic_3_4_intense,
+        aerobic_5_6_light: settings.aerobic_5_6_light,
+        aerobic_5_6_moderate: settings.aerobic_5_6_moderate,
+        aerobic_5_6_intense: settings.aerobic_5_6_intense,
+        aerobic_daily_light: settings.aerobic_daily_light,
+        aerobic_daily_moderate: settings.aerobic_daily_moderate,
+        aerobic_daily_intense: settings.aerobic_daily_intense,
+        strength_none: settings.strength_none,
+        strength_1_2_light: settings.strength_1_2_light,
+        strength_1_2_moderate: settings.strength_1_2_moderate,
+        strength_1_2_intense: settings.strength_1_2_intense,
+        strength_3_4_light: settings.strength_3_4_light,
+        strength_3_4_moderate: settings.strength_3_4_moderate,
+        strength_3_4_intense: settings.strength_3_4_intense,
+        strength_5_6_light: settings.strength_5_6_light,
+        strength_5_6_moderate: settings.strength_5_6_moderate,
+        strength_5_6_intense: settings.strength_5_6_intense,
+        strength_daily_light: settings.strength_daily_light,
+        strength_daily_moderate: settings.strength_daily_moderate,
+        strength_daily_intense: settings.strength_daily_intense,
+        goal_muscle_gain_multiplier: settings.goal_muscle_gain_multiplier,
+        goal_weight_loss_multiplier: settings.goal_weight_loss_multiplier,
+        goal_maintenance_multiplier: settings.goal_maintenance_multiplier,
+        goal_performance_multiplier: settings.goal_performance_multiplier,
+        protein_muscle_gain: settings.protein_muscle_gain,
+        protein_weight_loss: settings.protein_weight_loss,
+        protein_maintenance: settings.protein_maintenance,
+        protein_performance: settings.protein_performance,
+        fat_muscle_gain: settings.fat_muscle_gain,
+        fat_weight_loss: settings.fat_weight_loss,
+        fat_maintenance: settings.fat_maintenance,
+        fat_performance: settings.fat_performance,
+        lunch_percentage: settings.lunch_percentage,
+        dinner_percentage: settings.dinner_percentage,
+        meals_2_lunch_dinner_pct: settings.meals_2_lunch_dinner_pct,
+        meals_3_lunch_dinner_pct: settings.meals_3_lunch_dinner_pct,
+        meals_4_lunch_dinner_pct: settings.meals_4_lunch_dinner_pct,
+        meals_5plus_lunch_dinner_pct: settings.meals_5plus_lunch_dinner_pct,
+        updated_at: new Date().toISOString(),
+      };
+
       const { error } = await (supabase as any)
         .from('macro_calculation_settings')
-        .update({
-          ...settings,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', 1);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
       toast.success('Configurações de cálculo salvas com sucesso!');
+
+      await loadSettings();
     } catch (error) {
       console.error('Error saving macro settings:', error);
       toast.error('Erro ao salvar configurações');
