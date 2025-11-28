@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Printer, FileText } from 'lucide-react';
-import { calculateSessionSummary, formatMacro, formatCost, formatWeight } from '@/lib/calculations';
+import { calculatePrepSessionSummary, formatMacro, formatCost, formatWeight } from '@/lib/calculations';
 import { format } from 'date-fns';
 
 interface PrepSessionCardProps {
@@ -14,7 +14,7 @@ interface PrepSessionCardProps {
 }
 
 export function PrepSessionCard({ session, onUpdate }: PrepSessionCardProps) {
-  const summary = calculateSessionSummary(session.items);
+  const summary = calculatePrepSessionSummary(session.items);
 
   return (
     <Card>

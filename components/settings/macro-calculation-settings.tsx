@@ -7,44 +7,56 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Save, RefreshCw, Calculator } from 'lucide-react';
+import { Save, RefreshCw, Calculator, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MacroSettings {
   work_sedentary: number;
-  work_light_active: number;
   work_moderate_active: number;
   work_very_active: number;
-  work_extremely_active: number;
 
-  freq_none: number;
-  freq_1_2_week: number;
-  freq_3_4_week: number;
-  freq_5_6_week: number;
-  freq_daily: number;
+  aerobic_none: number;
+  aerobic_1_2_light: number;
+  aerobic_1_2_moderate: number;
+  aerobic_1_2_intense: number;
+  aerobic_3_4_light: number;
+  aerobic_3_4_moderate: number;
+  aerobic_3_4_intense: number;
+  aerobic_5_6_light: number;
+  aerobic_5_6_moderate: number;
+  aerobic_5_6_intense: number;
+  aerobic_daily_light: number;
+  aerobic_daily_moderate: number;
+  aerobic_daily_intense: number;
 
-  intensity_light: number;
-  intensity_moderate: number;
-  intensity_intense: number;
+  strength_none: number;
+  strength_1_2_light: number;
+  strength_1_2_moderate: number;
+  strength_1_2_intense: number;
+  strength_3_4_light: number;
+  strength_3_4_moderate: number;
+  strength_3_4_intense: number;
+  strength_5_6_light: number;
+  strength_5_6_moderate: number;
+  strength_5_6_intense: number;
+  strength_daily_light: number;
+  strength_daily_moderate: number;
+  strength_daily_intense: number;
 
-  exercise_bonus_multiplier: number;
+  goal_muscle_gain_multiplier: number;
+  goal_weight_loss_multiplier: number;
+  goal_maintenance_multiplier: number;
+  goal_performance_multiplier: number;
 
-  goal_weight_loss_offset: number;
-  goal_maintenance_offset: number;
-  goal_muscle_gain_offset: number;
-  goal_definition_offset: number;
-  goal_performance_offset: number;
-  goal_health_offset: number;
-
+  protein_muscle_gain: number;
   protein_weight_loss: number;
   protein_maintenance: number;
-  protein_muscle_gain: number;
-  protein_definition: number;
   protein_performance: number;
-  protein_health: number;
 
-  fat_percentage_muscle_gain: number;
-  fat_percentage_default: number;
+  fat_muscle_gain: number;
+  fat_weight_loss: number;
+  fat_maintenance: number;
+  fat_performance: number;
 
   lunch_percentage: number;
   dinner_percentage: number;
@@ -134,17 +146,36 @@ export function MacroCalculationSettings() {
           <div>
             <CardTitle>Configurações de Cálculo de Macros</CardTitle>
             <CardDescription>
-              Ajuste os fatores usados no cálculo automático de macronutrientes. Alterações afetam todas as recomendações.
+              Ajuste os multiplicadores usados no cálculo automático de macronutrientes
             </CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-8">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start gap-2">
+            <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+            <div className="text-sm text-blue-900 space-y-2">
+              <p className="font-semibold">Fórmula de Cálculo:</p>
+              <p className="font-mono text-xs bg-blue-100 p-2 rounded">
+                GET Ajustado = TMB × Fator¹(Rotina) × Fator²(Aeróbico) × Fator³(Musculação) × Fator⁴(Objetivo)
+              </p>
+              <p className="text-xs">
+                <strong>TMB</strong> = Taxa Metabólica Basal (Mifflin-St Jeor)<br/>
+                <strong>Kcal por Refeição</strong> = GET Ajustado × % Refeição (ex: 55%) × % Nº Refeições (ex: 70%)<br/>
+                <strong>Proteína</strong> = Peso (kg) × g/kg por Objetivo<br/>
+                <strong>Gordura</strong> = Peso (kg) × g/kg por Objetivo<br/>
+                <strong>Carboidrato</strong> = (Kcal - Proteína×4 - Gordura×9) ÷ 4
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="space-y-6">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Rotina de Trabalho</h3>
-            <p className="text-sm text-gray-600 mb-4">Multiplicadores de atividade base (somados a 1.2)</p>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Fator 1: Rotina de Trabalho</h3>
+            <p className="text-sm text-gray-600 mb-4">Multiplicadores da TMB baseados na rotina diária</p>
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="work_sedentary" className="text-xs">Sedentário</Label>
                 <Input
@@ -153,17 +184,6 @@ export function MacroCalculationSettings() {
                   step="0.01"
                   value={settings.work_sedentary}
                   onChange={(e) => handleChange('work_sedentary', e.target.value)}
-                  className="font-mono"
-                />
-              </div>
-              <div>
-                <Label htmlFor="work_light_active" className="text-xs">Levemente Ativo</Label>
-                <Input
-                  id="work_light_active"
-                  type="number"
-                  step="0.01"
-                  value={settings.work_light_active}
-                  onChange={(e) => handleChange('work_light_active', e.target.value)}
                   className="font-mono"
                 />
               </div>
@@ -189,211 +209,362 @@ export function MacroCalculationSettings() {
                   className="font-mono"
                 />
               </div>
-              <div>
-                <Label htmlFor="work_extremely_active" className="text-xs">Extremamente Ativo</Label>
-                <Input
-                  id="work_extremely_active"
-                  type="number"
-                  step="0.01"
-                  value={settings.work_extremely_active}
-                  onChange={(e) => handleChange('work_extremely_active', e.target.value)}
-                  className="font-mono"
-                />
-              </div>
             </div>
           </div>
 
           <Separator />
 
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Atividade Física</h3>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Frequência (pontos)</p>
-                <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
-                  <div>
-                    <Label htmlFor="freq_none" className="text-xs">Nenhuma</Label>
-                    <Input
-                      id="freq_none"
-                      type="number"
-                      step="0.1"
-                      value={settings.freq_none}
-                      onChange={(e) => handleChange('freq_none', e.target.value)}
-                      className="font-mono"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="freq_1_2_week" className="text-xs">1-2x/sem</Label>
-                    <Input
-                      id="freq_1_2_week"
-                      type="number"
-                      step="0.1"
-                      value={settings.freq_1_2_week}
-                      onChange={(e) => handleChange('freq_1_2_week', e.target.value)}
-                      className="font-mono"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="freq_3_4_week" className="text-xs">3-4x/sem</Label>
-                    <Input
-                      id="freq_3_4_week"
-                      type="number"
-                      step="0.1"
-                      value={settings.freq_3_4_week}
-                      onChange={(e) => handleChange('freq_3_4_week', e.target.value)}
-                      className="font-mono"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="freq_5_6_week" className="text-xs">5-6x/sem</Label>
-                    <Input
-                      id="freq_5_6_week"
-                      type="number"
-                      step="0.1"
-                      value={settings.freq_5_6_week}
-                      onChange={(e) => handleChange('freq_5_6_week', e.target.value)}
-                      className="font-mono"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="freq_daily" className="text-xs">Diário</Label>
-                    <Input
-                      id="freq_daily"
-                      type="number"
-                      step="0.1"
-                      value={settings.freq_daily}
-                      onChange={(e) => handleChange('freq_daily', e.target.value)}
-                      className="font-mono"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Intensidade (multiplicador)</p>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="intensity_light" className="text-xs">Leve</Label>
-                    <Input
-                      id="intensity_light"
-                      type="number"
-                      step="0.1"
-                      value={settings.intensity_light}
-                      onChange={(e) => handleChange('intensity_light', e.target.value)}
-                      className="font-mono"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="intensity_moderate" className="text-xs">Moderada</Label>
-                    <Input
-                      id="intensity_moderate"
-                      type="number"
-                      step="0.1"
-                      value={settings.intensity_moderate}
-                      onChange={(e) => handleChange('intensity_moderate', e.target.value)}
-                      className="font-mono"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="intensity_intense" className="text-xs">Intensa</Label>
-                    <Input
-                      id="intensity_intense"
-                      type="number"
-                      step="0.1"
-                      value={settings.intensity_intense}
-                      onChange={(e) => handleChange('intensity_intense', e.target.value)}
-                      className="font-mono"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="exercise_bonus_multiplier" className="text-sm font-medium">Multiplicador de Bônus de Exercício</Label>
-                <Input
-                  id="exercise_bonus_multiplier"
-                  type="number"
-                  step="0.01"
-                  value={settings.exercise_bonus_multiplier}
-                  onChange={(e) => handleChange('exercise_bonus_multiplier', e.target.value)}
-                  className="font-mono max-w-xs"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Aplicado ao score combinado de frequência × intensidade
-                </p>
-              </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Fator 2: Atividade Aeróbica</h3>
+            <p className="text-sm text-gray-600 mb-4">Multiplicadores baseados em Frequência × Intensidade</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border p-2 text-left">Frequência</th>
+                    <th className="border p-2">Leve</th>
+                    <th className="border p-2">Moderada</th>
+                    <th className="border p-2">Intensa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border p-2 font-medium">Nenhuma vez</td>
+                    <td className="border p-2" colSpan={3}>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.aerobic_none}
+                        onChange={(e) => handleChange('aerobic_none', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border p-2 font-medium">1-2 vezes/semana</td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.aerobic_1_2_light}
+                        onChange={(e) => handleChange('aerobic_1_2_light', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.aerobic_1_2_moderate}
+                        onChange={(e) => handleChange('aerobic_1_2_moderate', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.aerobic_1_2_intense}
+                        onChange={(e) => handleChange('aerobic_1_2_intense', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border p-2 font-medium">3-4 vezes/semana</td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.aerobic_3_4_light}
+                        onChange={(e) => handleChange('aerobic_3_4_light', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.aerobic_3_4_moderate}
+                        onChange={(e) => handleChange('aerobic_3_4_moderate', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.aerobic_3_4_intense}
+                        onChange={(e) => handleChange('aerobic_3_4_intense', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border p-2 font-medium">5-6 vezes/semana</td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.aerobic_5_6_light}
+                        onChange={(e) => handleChange('aerobic_5_6_light', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.aerobic_5_6_moderate}
+                        onChange={(e) => handleChange('aerobic_5_6_moderate', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.aerobic_5_6_intense}
+                        onChange={(e) => handleChange('aerobic_5_6_intense', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border p-2 font-medium">Todos os dias</td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.aerobic_daily_light}
+                        onChange={(e) => handleChange('aerobic_daily_light', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.aerobic_daily_moderate}
+                        onChange={(e) => handleChange('aerobic_daily_moderate', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.aerobic_daily_intense}
+                        onChange={(e) => handleChange('aerobic_daily_intense', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
           <Separator />
 
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Ajuste Calórico por Objetivo</h3>
-            <p className="text-sm text-gray-600 mb-4">Offset em kcal aplicado ao TDEE</p>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Fator 3: Musculação</h3>
+            <p className="text-sm text-gray-600 mb-4">Multiplicadores baseados em Frequência × Intensidade</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border p-2 text-left">Frequência</th>
+                    <th className="border p-2">Leve</th>
+                    <th className="border p-2">Moderada</th>
+                    <th className="border p-2">Intensa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border p-2 font-medium">Nenhuma vez</td>
+                    <td className="border p-2" colSpan={3}>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.strength_none}
+                        onChange={(e) => handleChange('strength_none', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border p-2 font-medium">1-2 vezes/semana</td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.strength_1_2_light}
+                        onChange={(e) => handleChange('strength_1_2_light', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.strength_1_2_moderate}
+                        onChange={(e) => handleChange('strength_1_2_moderate', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.strength_1_2_intense}
+                        onChange={(e) => handleChange('strength_1_2_intense', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border p-2 font-medium">3-4 vezes/semana</td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.strength_3_4_light}
+                        onChange={(e) => handleChange('strength_3_4_light', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.strength_3_4_moderate}
+                        onChange={(e) => handleChange('strength_3_4_moderate', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.strength_3_4_intense}
+                        onChange={(e) => handleChange('strength_3_4_intense', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border p-2 font-medium">5-6 vezes/semana</td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.strength_5_6_light}
+                        onChange={(e) => handleChange('strength_5_6_light', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.strength_5_6_moderate}
+                        onChange={(e) => handleChange('strength_5_6_moderate', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.strength_5_6_intense}
+                        onChange={(e) => handleChange('strength_5_6_intense', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border p-2 font-medium">Todos os dias</td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.strength_daily_light}
+                        onChange={(e) => handleChange('strength_daily_light', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.strength_daily_moderate}
+                        onChange={(e) => handleChange('strength_daily_moderate', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                    <td className="border p-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings.strength_daily_intense}
+                        onChange={(e) => handleChange('strength_daily_intense', e.target.value)}
+                        className="font-mono text-center"
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Fator 4: Objetivo</h3>
+            <p className="text-sm text-gray-600 mb-4">Multiplicadores do GET baseados no objetivo</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <Label htmlFor="goal_weight_loss_offset" className="text-xs">Emagrecimento</Label>
+                <Label htmlFor="goal_muscle_gain_multiplier" className="text-xs">Hipertrofia/Ganho</Label>
                 <Input
-                  id="goal_weight_loss_offset"
+                  id="goal_muscle_gain_multiplier"
                   type="number"
-                  step="10"
-                  value={settings.goal_weight_loss_offset}
-                  onChange={(e) => handleChange('goal_weight_loss_offset', e.target.value)}
+                  step="0.01"
+                  value={settings.goal_muscle_gain_multiplier}
+                  onChange={(e) => handleChange('goal_muscle_gain_multiplier', e.target.value)}
                   className="font-mono"
                 />
               </div>
               <div>
-                <Label htmlFor="goal_maintenance_offset" className="text-xs">Manutenção</Label>
+                <Label htmlFor="goal_weight_loss_multiplier" className="text-xs">Perda de Gordura</Label>
                 <Input
-                  id="goal_maintenance_offset"
+                  id="goal_weight_loss_multiplier"
                   type="number"
-                  step="10"
-                  value={settings.goal_maintenance_offset}
-                  onChange={(e) => handleChange('goal_maintenance_offset', e.target.value)}
+                  step="0.01"
+                  value={settings.goal_weight_loss_multiplier}
+                  onChange={(e) => handleChange('goal_weight_loss_multiplier', e.target.value)}
                   className="font-mono"
                 />
               </div>
               <div>
-                <Label htmlFor="goal_muscle_gain_offset" className="text-xs">Ganho Muscular</Label>
+                <Label htmlFor="goal_maintenance_multiplier" className="text-xs">Manutenção</Label>
                 <Input
-                  id="goal_muscle_gain_offset"
+                  id="goal_maintenance_multiplier"
                   type="number"
-                  step="10"
-                  value={settings.goal_muscle_gain_offset}
-                  onChange={(e) => handleChange('goal_muscle_gain_offset', e.target.value)}
+                  step="0.01"
+                  value={settings.goal_maintenance_multiplier}
+                  onChange={(e) => handleChange('goal_maintenance_multiplier', e.target.value)}
                   className="font-mono"
                 />
               </div>
               <div>
-                <Label htmlFor="goal_definition_offset" className="text-xs">Definição</Label>
+                <Label htmlFor="goal_performance_multiplier" className="text-xs">Performance</Label>
                 <Input
-                  id="goal_definition_offset"
+                  id="goal_performance_multiplier"
                   type="number"
-                  step="10"
-                  value={settings.goal_definition_offset}
-                  onChange={(e) => handleChange('goal_definition_offset', e.target.value)}
-                  className="font-mono"
-                />
-              </div>
-              <div>
-                <Label htmlFor="goal_performance_offset" className="text-xs">Performance</Label>
-                <Input
-                  id="goal_performance_offset"
-                  type="number"
-                  step="10"
-                  value={settings.goal_performance_offset}
-                  onChange={(e) => handleChange('goal_performance_offset', e.target.value)}
-                  className="font-mono"
-                />
-              </div>
-              <div>
-                <Label htmlFor="goal_health_offset" className="text-xs">Saúde/Bem-estar</Label>
-                <Input
-                  id="goal_health_offset"
-                  type="number"
-                  step="10"
-                  value={settings.goal_health_offset}
-                  onChange={(e) => handleChange('goal_health_offset', e.target.value)}
+                  step="0.01"
+                  value={settings.goal_performance_multiplier}
+                  onChange={(e) => handleChange('goal_performance_multiplier', e.target.value)}
                   className="font-mono"
                 />
               </div>
@@ -405,9 +576,20 @@ export function MacroCalculationSettings() {
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-3">Proteína por Objetivo</h3>
             <p className="text-sm text-gray-600 mb-4">Gramas por kg de peso corporal</p>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <Label htmlFor="protein_weight_loss" className="text-xs">Emagrecimento</Label>
+                <Label htmlFor="protein_muscle_gain" className="text-xs">Hipertrofia/Ganho</Label>
+                <Input
+                  id="protein_muscle_gain"
+                  type="number"
+                  step="0.1"
+                  value={settings.protein_muscle_gain}
+                  onChange={(e) => handleChange('protein_muscle_gain', e.target.value)}
+                  className="font-mono"
+                />
+              </div>
+              <div>
+                <Label htmlFor="protein_weight_loss" className="text-xs">Perda de Gordura</Label>
                 <Input
                   id="protein_weight_loss"
                   type="number"
@@ -429,28 +611,6 @@ export function MacroCalculationSettings() {
                 />
               </div>
               <div>
-                <Label htmlFor="protein_muscle_gain" className="text-xs">Ganho Muscular</Label>
-                <Input
-                  id="protein_muscle_gain"
-                  type="number"
-                  step="0.1"
-                  value={settings.protein_muscle_gain}
-                  onChange={(e) => handleChange('protein_muscle_gain', e.target.value)}
-                  className="font-mono"
-                />
-              </div>
-              <div>
-                <Label htmlFor="protein_definition" className="text-xs">Definição</Label>
-                <Input
-                  id="protein_definition"
-                  type="number"
-                  step="0.1"
-                  value={settings.protein_definition}
-                  onChange={(e) => handleChange('protein_definition', e.target.value)}
-                  className="font-mono"
-                />
-              </div>
-              <div>
                 <Label htmlFor="protein_performance" className="text-xs">Performance</Label>
                 <Input
                   id="protein_performance"
@@ -461,45 +621,56 @@ export function MacroCalculationSettings() {
                   className="font-mono"
                 />
               </div>
-              <div>
-                <Label htmlFor="protein_health" className="text-xs">Saúde/Bem-estar</Label>
-                <Input
-                  id="protein_health"
-                  type="number"
-                  step="0.1"
-                  value={settings.protein_health}
-                  onChange={(e) => handleChange('protein_health', e.target.value)}
-                  className="font-mono"
-                />
-              </div>
             </div>
           </div>
 
           <Separator />
 
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Percentual de Gordura</h3>
-            <p className="text-sm text-gray-600 mb-4">% das calorias totais</p>
-            <div className="grid grid-cols-2 gap-4 max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Gordura por Objetivo</h3>
+            <p className="text-sm text-gray-600 mb-4">Gramas por kg de peso corporal</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <Label htmlFor="fat_percentage_muscle_gain" className="text-xs">Ganho Muscular</Label>
+                <Label htmlFor="fat_muscle_gain" className="text-xs">Hipertrofia/Ganho</Label>
                 <Input
-                  id="fat_percentage_muscle_gain"
+                  id="fat_muscle_gain"
                   type="number"
-                  step="0.01"
-                  value={settings.fat_percentage_muscle_gain}
-                  onChange={(e) => handleChange('fat_percentage_muscle_gain', e.target.value)}
+                  step="0.1"
+                  value={settings.fat_muscle_gain}
+                  onChange={(e) => handleChange('fat_muscle_gain', e.target.value)}
                   className="font-mono"
                 />
               </div>
               <div>
-                <Label htmlFor="fat_percentage_default" className="text-xs">Padrão (outros)</Label>
+                <Label htmlFor="fat_weight_loss" className="text-xs">Perda de Gordura</Label>
                 <Input
-                  id="fat_percentage_default"
+                  id="fat_weight_loss"
                   type="number"
-                  step="0.01"
-                  value={settings.fat_percentage_default}
-                  onChange={(e) => handleChange('fat_percentage_default', e.target.value)}
+                  step="0.1"
+                  value={settings.fat_weight_loss}
+                  onChange={(e) => handleChange('fat_weight_loss', e.target.value)}
+                  className="font-mono"
+                />
+              </div>
+              <div>
+                <Label htmlFor="fat_maintenance" className="text-xs">Manutenção</Label>
+                <Input
+                  id="fat_maintenance"
+                  type="number"
+                  step="0.1"
+                  value={settings.fat_maintenance}
+                  onChange={(e) => handleChange('fat_maintenance', e.target.value)}
+                  className="font-mono"
+                />
+              </div>
+              <div>
+                <Label htmlFor="fat_performance" className="text-xs">Performance</Label>
+                <Input
+                  id="fat_performance"
+                  type="number"
+                  step="0.1"
+                  value={settings.fat_performance}
+                  onChange={(e) => handleChange('fat_performance', e.target.value)}
                   className="font-mono"
                 />
               </div>
