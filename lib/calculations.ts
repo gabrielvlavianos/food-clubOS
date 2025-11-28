@@ -111,6 +111,8 @@ interface MacroRecommendation {
 }
 
 interface MacroSettings {
+  calorie_base: 'tmb' | 'get';
+
   work_sedentary: number;
   work_moderate_active: number;
   work_very_active: number;
@@ -176,6 +178,8 @@ async function getMacroSettings(): Promise<MacroSettings> {
 
   if (error || !data) {
     return {
+      calorie_base: 'get',
+
       work_sedentary: 1.0,
       work_moderate_active: 1.05,
       work_very_active: 1.2,
@@ -354,8 +358,10 @@ export async function calculateMacroRecommendation(customer: CustomerData): Prom
   const mealsPerDay = customer.meals_per_day || 3;
   const mealDistributionPct = getMealDistributionPercentage(mealsPerDay, settings);
 
-  const lunchKcal = adjustedGET * settings.lunch_percentage * mealDistributionPct;
-  const dinnerKcal = adjustedGET * settings.dinner_percentage * mealDistributionPct;
+  const calorieBase = settings.calorie_base === 'tmb' ? bmr : adjustedGET;
+
+  const lunchKcal = calorieBase * settings.lunch_percentage * mealDistributionPct;
+  const dinnerKcal = calorieBase * settings.dinner_percentage * mealDistributionPct;
 
   const proteinPerKg = getProteinTarget(customer.main_goal, settings);
   const fatPerKg = getFatTarget(customer.main_goal, settings);

@@ -9,8 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Save, RefreshCw, Calculator, Info } from 'lucide-react';
 import { toast } from 'sonner';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 interface MacroSettings {
+  calorie_base: 'tmb' | 'get';
+
   work_sedentary: number;
   work_moderate_active: number;
   work_very_active: number;
@@ -104,6 +107,7 @@ export function MacroCalculationSettings() {
     setSaving(true);
     try {
       const updateData = {
+        calorie_base: settings.calorie_base,
         work_sedentary: settings.work_sedentary,
         work_moderate_active: settings.work_moderate_active,
         work_very_active: settings.work_very_active,
@@ -215,13 +219,48 @@ export function MacroCalculationSettings() {
               </p>
               <p className="text-xs">
                 <strong>TMB</strong> = Taxa Metabólica Basal (Mifflin-St Jeor)<br/>
-                <strong>Kcal por Refeição</strong> = GET Ajustado × % Refeição (ex: 55%) × % Nº Refeições (ex: 70%)<br/>
+                <strong>Kcal por Refeição</strong> = {settings.calorie_base === 'tmb' ? 'TMB' : 'GET Ajustado'} × % Refeição (ex: 55%) × % Nº Refeições (ex: 70%)<br/>
                 <strong>Proteína</strong> = Peso (kg) × g/kg por Objetivo<br/>
                 <strong>Gordura</strong> = Peso (kg) × g/kg por Objetivo<br/>
                 <strong>Carboidrato</strong> = (Kcal - Proteína×4 - Gordura×9) ÷ 4
               </p>
             </div>
           </div>
+        </div>
+
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-amber-900 mb-3">Base de Cálculo de Calorias</h3>
+          <p className="text-xs text-amber-800 mb-3">
+            Escolha qual valor usar como base para o cálculo de calorias por refeição:
+          </p>
+          <RadioGroup
+            value={settings.calorie_base}
+            onValueChange={(value: 'tmb' | 'get') => setSettings(prev => prev ? { ...prev, calorie_base: value } : null)}
+            className="space-y-3"
+          >
+            <div className="flex items-start space-x-3 bg-white p-3 rounded border border-amber-300">
+              <RadioGroupItem value="tmb" id="tmb" className="mt-0.5" />
+              <div className="flex-1">
+                <Label htmlFor="tmb" className="font-medium text-sm cursor-pointer">
+                  Usar TMB (Taxa Metabólica Basal)
+                </Label>
+                <p className="text-xs text-gray-600 mt-1">
+                  Calcula as calorias apenas com base no metabolismo basal, ignorando os multiplicadores de atividade e objetivo.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3 bg-white p-3 rounded border border-amber-300">
+              <RadioGroupItem value="get" id="get" className="mt-0.5" />
+              <div className="flex-1">
+                <Label htmlFor="get" className="font-medium text-sm cursor-pointer">
+                  Usar GET Ajustado (Gasto Energético Total)
+                </Label>
+                <p className="text-xs text-gray-600 mt-1">
+                  Calcula as calorias considerando TMB × Rotina × Aeróbico × Musculação × Objetivo (recomendado).
+                </p>
+              </div>
+            </div>
+          </RadioGroup>
         </div>
 
         <div className="space-y-6">
