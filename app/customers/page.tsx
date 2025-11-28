@@ -192,6 +192,7 @@ export default function CustomersPage() {
       const { data: customersData, error: customersError } = await (supabase as any)
         .from('customers')
         .select('*')
+        .eq('status', 'approved')
         .order('name');
 
       if (customersError) {
