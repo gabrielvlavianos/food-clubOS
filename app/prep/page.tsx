@@ -43,6 +43,10 @@ export default function PrepPage() {
   });
   const MARGIN_PERCENTAGE = 0.15;
 
+  function roundToMultipleOf100(value: number): number {
+    return Math.ceil(value / 100) * 100;
+  }
+
   useEffect(() => {
     loadGlobalSettings();
   }, []);
@@ -186,50 +190,55 @@ export default function PrepPage() {
 
       if (proteinRecipe && customersByRecipe.protein.length > 0) {
         const total = customersByRecipe.protein.reduce((sum, c) => sum + c.quantity, 0);
+        const withMargin = total * (1 + MARGIN_PERCENTAGE);
         productionSummary.protein = {
           recipe: proteinRecipe,
           totalQuantity: total,
-          withMargin: Math.ceil(total * (1 + MARGIN_PERCENTAGE)),
+          withMargin: roundToMultipleOf100(withMargin),
           customers: customersByRecipe.protein,
         };
       }
 
       if (carbRecipe && customersByRecipe.carb.length > 0) {
         const total = customersByRecipe.carb.reduce((sum, c) => sum + c.quantity, 0);
+        const withMargin = total * (1 + MARGIN_PERCENTAGE);
         productionSummary.carb = {
           recipe: carbRecipe,
           totalQuantity: total,
-          withMargin: Math.ceil(total * (1 + MARGIN_PERCENTAGE)),
+          withMargin: roundToMultipleOf100(withMargin),
           customers: customersByRecipe.carb,
         };
       }
 
       if (vegetableRecipe && customersByRecipe.vegetable.length > 0) {
         const total = customersByRecipe.vegetable.reduce((sum, c) => sum + c.quantity, 0);
+        const withMargin = total * (1 + MARGIN_PERCENTAGE);
         productionSummary.vegetable = {
           recipe: vegetableRecipe,
           totalQuantity: total,
-          withMargin: Math.ceil(total * (1 + MARGIN_PERCENTAGE)),
+          withMargin: roundToMultipleOf100(withMargin),
           customers: customersByRecipe.vegetable,
         };
       }
 
       if (saladRecipe && customersByRecipe.salad.length > 0) {
         const total = customersByRecipe.salad.reduce((sum, c) => sum + c.quantity, 0);
+        const withMargin = total * (1 + MARGIN_PERCENTAGE);
         productionSummary.salad = {
           recipe: saladRecipe,
           totalQuantity: total,
-          withMargin: Math.ceil(total * (1 + MARGIN_PERCENTAGE)),
+          withMargin: roundToMultipleOf100(withMargin),
           customers: customersByRecipe.salad,
         };
       }
 
       if (sauceRecipe && customersByRecipe.sauce.length > 0) {
         const total = customersByRecipe.sauce.reduce((sum, c) => sum + c.quantity, 0);
+        const withMargin = total * (1 + MARGIN_PERCENTAGE);
         productionSummary.sauce = {
           recipe: sauceRecipe,
           totalQuantity: total,
-          withMargin: Math.ceil(total * (1 + MARGIN_PERCENTAGE)),
+          withMargin: roundToMultipleOf100(withMargin),
           customers: customersByRecipe.sauce,
         };
       }
