@@ -47,6 +47,44 @@ export default function PrepPage() {
     return Math.ceil(value / 100) * 100;
   }
 
+  function calculateQuantities(
+    customer: any,
+    mealType: 'lunch' | 'dinner',
+    proteinRecipe?: Recipe,
+    carbRecipe?: Recipe
+  ) {
+    if (!proteinRecipe || !carbRecipe) {
+      return {
+        protein: 0,
+        carb: 0,
+      };
+    }
+
+    const targetProtein = mealType === 'lunch' ? Number(customer.lunch_protein) : Number(customer.dinner_protein);
+    const targetCarbs = mealType === 'lunch' ? Number(customer.lunch_carbs) : Number(customer.dinner_carbs);
+    const targetFat = mealType === 'lunch' ? Number(customer.lunch_fat) : Number(customer.dinner_fat);
+
+    if (!targetProtein || !targetCarbs || !targetFat) {
+      return {
+        protein: 0,
+        carb: 0,
+      };
+    }
+
+    let proteinAmount = (targetProtein / proteinRecipe.protein_per_100g) * 100;
+
+    const carbsFromProteinRecipe = (proteinAmount / 100) * proteinRecipe.carb_per_100g;
+    let carbAmount = ((targetCarbs - carbsFromProteinRecipe) / carbRecipe.carb_per_100g) * 100;
+
+    proteinAmount = Math.round(proteinAmount / 10) * 10;
+    carbAmount = Math.round(carbAmount / 10) * 10;
+
+    return {
+      protein: Math.max(0, proteinAmount),
+      carb: Math.max(0, carbAmount),
+    };
+  }
+
   useEffect(() => {
     loadGlobalSettings();
   }, []);
@@ -164,18 +202,29 @@ export default function PrepPage() {
 
         if (!deliverySchedule) continue;
 
-        const mealType = selectedMealType;
-        const proteinQty = modifiedOrder?.modified_protein_grams ?? customerData[`${mealType}_protein`] ?? 0;
-        const carbQty = modifiedOrder?.modified_carb_grams ?? customerData[`${mealType}_carbs`] ?? 0;
+        let quantities = calculateQuantities(
+          customerData,
+          selectedMealType,
+          proteinRecipe,
+          carbRecipe
+        );
+
+        if (modifiedOrder?.modified_protein_grams) {
+          quantities.protein = modifiedOrder.modified_protein_grams;
+        }
+        if (modifiedOrder?.modified_carb_grams) {
+          quantities.carb = modifiedOrder.modified_carb_grams;
+        }
+
         const vegetableQty = globalSettings.vegetables_amount;
         const saladQty = globalSettings.salad_amount;
         const sauceQty = globalSettings.salad_dressing_amount;
 
-        if (proteinRecipe && proteinQty > 0) {
-          customersByRecipe.protein.push({ name: customerData.name, quantity: proteinQty });
+        if (proteinRecipe && quantities.protein > 0) {
+          customersByRecipe.protein.push({ name: customerData.name, quantity: quantities.protein });
         }
-        if (carbRecipe && carbQty > 0) {
-          customersByRecipe.carb.push({ name: customerData.name, quantity: carbQty });
+        if (carbRecipe && quantities.carb > 0) {
+          customersByRecipe.carb.push({ name: customerData.name, quantity: quantities.carb });
         }
         if (vegetableRecipe && vegetableQty > 0) {
           customersByRecipe.vegetable.push({ name: customerData.name, quantity: vegetableQty });
