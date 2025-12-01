@@ -8,6 +8,16 @@ export type Json =
 
 export interface Database {
   public: {
+    Functions: {
+      bootstrap_admin_user: {
+        Args: {
+          user_id: string;
+          user_email: string;
+          user_name: string;
+        };
+        Returns: void;
+      };
+    };
     Tables: {
       users: {
         Row: {
