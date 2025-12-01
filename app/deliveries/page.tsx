@@ -532,36 +532,6 @@ export default function ExpeditionPage() {
                           <span className="font-medium">Endereço:</span>
                           <span>{order.deliverySchedule.delivery_address}</span>
                         </div>
-
-                        {/* Dietary restrictions and allergies section */}
-                        {(order.customer.allergies?.length > 0 || order.customer.other_allergies || order.customer.food_restrictions) && (
-                          <div className="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-r">
-                            <div className="space-y-2">
-                              {order.customer.allergies && order.customer.allergies.length > 0 && (
-                                <div>
-                                  <span className="font-semibold text-red-700 text-sm">⚠️ Alergias: </span>
-                                  <span className="text-sm text-gray-800 font-medium">
-                                    {order.customer.allergies.filter(a => a !== 'Outros').join(', ')}
-                                    {order.customer.allergies.filter(a => a !== 'Outros').length > 0 && order.customer.other_allergies ? ', ' : ''}
-                                    {order.customer.other_allergies}
-                                  </span>
-                                </div>
-                              )}
-                              {!order.customer.allergies?.length && order.customer.other_allergies && (
-                                <div>
-                                  <span className="font-semibold text-red-700 text-sm">⚠️ Alergias: </span>
-                                  <span className="text-sm text-gray-800 font-medium">{order.customer.other_allergies}</span>
-                                </div>
-                              )}
-                              {order.customer.food_restrictions && (
-                                <div>
-                                  <span className="font-semibold text-orange-700 text-sm">📋 Restrições/Preferências: </span>
-                                  <span className="text-sm text-gray-800">{order.customer.food_restrictions}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
 
