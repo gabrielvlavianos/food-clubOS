@@ -110,8 +110,7 @@ export default function ExpeditionPage() {
     proteinRecipe?: Recipe,
     carbRecipe?: Recipe,
     vegetableRecipe?: Recipe,
-    saladRecipe?: Recipe,
-    sauceRecipe?: Recipe
+    saladRecipe?: Recipe
   ) {
     let totalKcal = 0;
     let totalProtein = 0;
@@ -148,14 +147,6 @@ export default function ExpeditionPage() {
       totalProtein += saladRecipe.protein_per_100g * factor;
       totalCarbs += saladRecipe.carb_per_100g * factor;
       totalFat += saladRecipe.fat_per_100g * factor;
-    }
-
-    if (sauceRecipe && quantities.sauce > 0) {
-      const factor = quantities.sauce / 100;
-      totalKcal += sauceRecipe.kcal_per_100g * factor;
-      totalProtein += sauceRecipe.protein_per_100g * factor;
-      totalCarbs += sauceRecipe.carb_per_100g * factor;
-      totalFat += sauceRecipe.fat_per_100g * factor;
     }
 
     return {
@@ -232,8 +223,7 @@ export default function ExpeditionPage() {
         proteinRecipe,
         carbRecipe,
         vegetableRecipe,
-        saladRecipe,
-        sauceRecipe
+        saladRecipe
       );
 
       const targetKcal = (targetProtein * 4) + (targetCarbs * 4) + (targetFat * 9);
