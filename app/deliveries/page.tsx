@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { Navigation } from '@/components/navigation';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,10 +10,11 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Truck, Calendar, Clock, MapPin, Package, RefreshCw, Phone } from 'lucide-react';
+import { Truck, Calendar, Clock, MapPin, Package, RefreshCw, Phone, Printer } from 'lucide-react';
 import { format, getDay } from 'date-fns';
-import type { Customer, DeliverySchedule } from '@/types';
+import type { Customer, DeliverySchedule, Recipe } from '@/types';
 import { formatPhoneNumber, formatTime } from '@/lib/format-utils';
+import { DeliveryLabel } from '@/components/deliveries/delivery-label';
 
 interface DeliveryOrder {
   customer: Customer;
@@ -23,15 +25,247 @@ interface DeliveryOrder {
   isCancelled?: boolean;
 }
 
+interface PrintData {
+  menuRecipes: {
+    protein?: Recipe;
+    carb?: Recipe;
+    vegetable?: Recipe;
+    salad?: Recipe;
+    sauce?: Recipe;
+  };
+  quantities: {
+    protein: number;
+    carb: number;
+    vegetable: number;
+    salad: number;
+    sauce: number;
+  };
+  actualMacros: {
+    kcal: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+  targetMacros: {
+    kcal: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+}
+
 export default function ExpeditionPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedMealType, setSelectedMealType] = useState<'lunch' | 'dinner'>('lunch');
   const [orders, setOrders] = useState<DeliveryOrder[]>([]);
   const [loading, setLoading] = useState(false);
+  const [printData, setPrintData] = useState<PrintData | null>(null);
+  const [printOrder, setPrintOrder] = useState<DeliveryOrder | null>(null);
+  const printRef = useRef<HTMLDivElement>(null);
+  const [globalSettings, setGlobalSettings] = useState({
+    vegetables_amount: 100,
+    salad_amount: 100,
+    salad_dressing_amount: 30,
+  });
+
+  useEffect(() => {
+    loadGlobalSettings();
+  }, []);
 
   useEffect(() => {
     loadOrders();
   }, [selectedDate, selectedMealType]);
+
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Etiqueta-${printOrder?.customer.name}-${selectedDate}`,
+  });
+
+  async function loadGlobalSettings() {
+    try {
+      const { data } = await supabase
+        .from('global_settings')
+        .select('*')
+        .eq('id', 1)
+        .maybeSingle();
+
+      if (data) {
+        setGlobalSettings({
+          vegetables_amount: (data as any).vegetables_amount,
+          salad_amount: (data as any).salad_amount,
+          salad_dressing_amount: (data as any).salad_dressing_amount,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading global settings:', error);
+    }
+  }
+
+  function roundToMultipleOf10(value: number): number {
+    return Math.round(value / 10) * 10;
+  }
+
+  function calculateActualMacros(
+    quantities: any,
+    proteinRecipe?: Recipe,
+    carbRecipe?: Recipe,
+    vegetableRecipe?: Recipe,
+    saladRecipe?: Recipe,
+    sauceRecipe?: Recipe
+  ) {
+    let totalKcal = 0;
+    let totalProtein = 0;
+    let totalCarbs = 0;
+    let totalFat = 0;
+
+    if (proteinRecipe && quantities.protein > 0) {
+      const factor = quantities.protein / 100;
+      totalKcal += proteinRecipe.kcal_per_100g * factor;
+      totalProtein += proteinRecipe.protein_per_100g * factor;
+      totalCarbs += proteinRecipe.carb_per_100g * factor;
+      totalFat += proteinRecipe.fat_per_100g * factor;
+    }
+
+    if (carbRecipe && quantities.carb > 0) {
+      const factor = quantities.carb / 100;
+      totalKcal += carbRecipe.kcal_per_100g * factor;
+      totalProtein += carbRecipe.protein_per_100g * factor;
+      totalCarbs += carbRecipe.carb_per_100g * factor;
+      totalFat += carbRecipe.fat_per_100g * factor;
+    }
+
+    if (vegetableRecipe && quantities.vegetable > 0) {
+      const factor = quantities.vegetable / 100;
+      totalKcal += vegetableRecipe.kcal_per_100g * factor;
+      totalProtein += vegetableRecipe.protein_per_100g * factor;
+      totalCarbs += vegetableRecipe.carb_per_100g * factor;
+      totalFat += vegetableRecipe.fat_per_100g * factor;
+    }
+
+    if (saladRecipe && quantities.salad > 0) {
+      const factor = quantities.salad / 100;
+      totalKcal += saladRecipe.kcal_per_100g * factor;
+      totalProtein += saladRecipe.protein_per_100g * factor;
+      totalCarbs += saladRecipe.carb_per_100g * factor;
+      totalFat += saladRecipe.fat_per_100g * factor;
+    }
+
+    if (sauceRecipe && quantities.sauce > 0) {
+      const factor = quantities.sauce / 100;
+      totalKcal += sauceRecipe.kcal_per_100g * factor;
+      totalProtein += sauceRecipe.protein_per_100g * factor;
+      totalCarbs += sauceRecipe.carb_per_100g * factor;
+      totalFat += sauceRecipe.fat_per_100g * factor;
+    }
+
+    return {
+      kcal: totalKcal,
+      protein: totalProtein,
+      carbs: totalCarbs,
+      fat: totalFat,
+    };
+  }
+
+  async function prepareOrderForPrint(order: DeliveryOrder) {
+    try {
+      const mealType = selectedMealType;
+
+      const { data: menuData } = await supabase
+        .from('monthly_menu')
+        .select('protein_recipe_id, carb_recipe_id, vegetable_recipe_id, salad_recipe_id, sauce_recipe_id')
+        .eq('menu_date', selectedDate)
+        .eq('meal_type', mealType)
+        .maybeSingle();
+
+      if (!menuData) {
+        alert('Menu não encontrado para esta data');
+        return;
+      }
+
+      const menu = menuData as any;
+
+      const recipeIds = [
+        menu.protein_recipe_id,
+        menu.carb_recipe_id,
+        menu.vegetable_recipe_id,
+        menu.salad_recipe_id,
+        menu.sauce_recipe_id,
+      ].filter(Boolean);
+
+      const { data: recipesData } = await supabase
+        .from('recipes')
+        .select('*')
+        .in('id', recipeIds);
+
+      const recipesMap = new Map((recipesData || []).map((r: any) => [r.id, r]));
+
+      const proteinRecipe = menu.protein_recipe_id ? recipesMap.get(menu.protein_recipe_id) : undefined;
+      const carbRecipe = menu.carb_recipe_id ? recipesMap.get(menu.carb_recipe_id) : undefined;
+      const vegetableRecipe = menu.vegetable_recipe_id ? recipesMap.get(menu.vegetable_recipe_id) : undefined;
+      const saladRecipe = menu.salad_recipe_id ? recipesMap.get(menu.salad_recipe_id) : undefined;
+      const sauceRecipe = menu.sauce_recipe_id ? recipesMap.get(menu.sauce_recipe_id) : undefined;
+
+      const targetProtein = mealType === 'lunch' ? Number(order.customer.lunch_protein) : Number(order.customer.dinner_protein);
+      const targetCarbs = mealType === 'lunch' ? Number(order.customer.lunch_carbs) : Number(order.customer.dinner_carbs);
+      const targetFat = mealType === 'lunch' ? Number(order.customer.lunch_fat) : Number(order.customer.dinner_fat);
+
+      let proteinAmount = 0;
+      if (proteinRecipe && targetProtein > 0) {
+        proteinAmount = roundToMultipleOf10((targetProtein / proteinRecipe.protein_per_100g) * 100);
+      }
+
+      let carbAmount = 0;
+      if (carbRecipe && targetCarbs > 0) {
+        carbAmount = roundToMultipleOf10((targetCarbs / carbRecipe.carb_per_100g) * 100);
+      }
+
+      const quantities = {
+        protein: proteinAmount,
+        carb: carbAmount,
+        vegetable: globalSettings.vegetables_amount,
+        salad: globalSettings.salad_amount,
+        sauce: globalSettings.salad_dressing_amount,
+      };
+
+      const actualMacros = calculateActualMacros(
+        quantities,
+        proteinRecipe,
+        carbRecipe,
+        vegetableRecipe,
+        saladRecipe,
+        sauceRecipe
+      );
+
+      const targetKcal = (targetProtein * 4) + (targetCarbs * 4) + (targetFat * 9);
+
+      setPrintData({
+        menuRecipes: {
+          protein: proteinRecipe,
+          carb: carbRecipe,
+          vegetable: vegetableRecipe,
+          salad: saladRecipe,
+          sauce: sauceRecipe,
+        },
+        quantities,
+        actualMacros,
+        targetMacros: {
+          kcal: targetKcal,
+          protein: targetProtein,
+          carbs: targetCarbs,
+          fat: targetFat,
+        },
+      });
+
+      setPrintOrder(order);
+
+      setTimeout(() => {
+        handlePrint();
+      }, 100);
+    } catch (error) {
+      console.error('Error preparing print:', error);
+      alert('Erro ao preparar impressão');
+    }
+  }
 
   async function calculatePickupTime(deliveryTime: string, deliverySchedule: any): Promise<string> {
     const driverPrepTimeMinutes = 10;
@@ -355,11 +589,39 @@ export default function ExpeditionPage() {
                           </p>
                         )}
                       </div>
+
+                      <div>
+                        <Button
+                          onClick={() => prepareOrderForPrint(order)}
+                          className="w-full bg-orange-500 hover:bg-orange-600"
+                          disabled={order.isCancelled}
+                        >
+                          <Printer className="h-4 w-4 mr-2" />
+                          Imprimir Etiqueta
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
               </Card>
             ))}
+          </div>
+        )}
+
+        {/* Hidden print component */}
+        {printData && printOrder && (
+          <div style={{ display: 'none' }}>
+            <DeliveryLabel
+              ref={printRef}
+              customer={printOrder.customer}
+              deliverySchedule={printOrder.deliverySchedule}
+              mealType={selectedMealType}
+              orderDate={selectedDate}
+              menuRecipes={printData.menuRecipes}
+              quantities={printData.quantities}
+              actualMacros={printData.actualMacros}
+              targetMacros={printData.targetMacros}
+            />
           </div>
         )}
       </main>
