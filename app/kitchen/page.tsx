@@ -540,6 +540,36 @@ export default function KitchenDashboardPage() {
                           <span>{order.deliverySchedule.delivery_address}</span>
                         </div>
                       </div>
+
+                      {/* Dietary restrictions and allergies section */}
+                      {(order.customer.allergies?.length > 0 || order.customer.other_allergies || order.customer.food_restrictions) && (
+                        <div className="mt-3 p-3 bg-yellow-50 border-2 border-yellow-400 rounded-lg">
+                          <div className="space-y-1">
+                            {order.customer.allergies && order.customer.allergies.length > 0 && (
+                              <div>
+                                <span className="font-bold text-red-700 text-sm">⚠️ ALERGIAS: </span>
+                                <span className="text-sm text-gray-900 font-semibold">
+                                  {order.customer.allergies.filter(a => a !== 'Outros').join(', ')}
+                                  {order.customer.allergies.filter(a => a !== 'Outros').length > 0 && order.customer.other_allergies ? ', ' : ''}
+                                  {order.customer.other_allergies}
+                                </span>
+                              </div>
+                            )}
+                            {!order.customer.allergies?.length && order.customer.other_allergies && (
+                              <div>
+                                <span className="font-bold text-red-700 text-sm">⚠️ ALERGIAS: </span>
+                                <span className="text-sm text-gray-900 font-semibold">{order.customer.other_allergies}</span>
+                              </div>
+                            )}
+                            {order.customer.food_restrictions && (
+                              <div>
+                                <span className="font-bold text-orange-700 text-sm">📋 RESTRIÇÕES: </span>
+                                <span className="text-sm text-gray-800">{order.customer.food_restrictions}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="ml-4">
                       <Select
