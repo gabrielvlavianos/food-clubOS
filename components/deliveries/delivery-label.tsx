@@ -55,13 +55,13 @@ export const DeliveryLabel = forwardRef<HTMLDivElement, DeliveryLabelProps>(
         `}</style>
 
         {/* Header */}
-        <div className="border-b-4 border-black pb-4 mb-4">
-          <h1 className="text-3xl font-bold text-black">{customer.name}</h1>
-          <div className="mt-2 space-y-1">
-            <p className="text-lg font-semibold text-black">
+        <div className="border-b-4 border-black pb-4 mb-6">
+          <h1 className="text-5xl font-black text-black">{customer.name}</h1>
+          <div className="mt-3 space-y-2">
+            <p className="text-3xl font-black text-black">
               Horário: {formatTime(deliverySchedule.delivery_time)}
             </p>
-            <p className="text-sm text-black">
+            <p className="text-xl font-bold text-black">
               {deliverySchedule.delivery_address}
             </p>
           </div>
@@ -69,100 +69,100 @@ export const DeliveryLabel = forwardRef<HTMLDivElement, DeliveryLabelProps>(
 
         {/* Quantities Section */}
         <div className="mb-6">
-          <h2 className="text-xl font-bold text-black mb-3">Quantidades</h2>
-          <div className="space-y-2">
+          <h2 className="text-3xl font-black text-black mb-4">Quantidades</h2>
+          <div className="space-y-3">
             {menuRecipes.protein && quantities.protein > 0 && (
-              <div className="flex justify-between items-center border-2 border-black rounded-lg p-3">
+              <div className="flex justify-between items-center border-3 border-black rounded-lg p-4">
                 <div>
-                  <span className="font-semibold text-black">Proteína: </span>
-                  <span className="text-black">{menuRecipes.protein.name}</span>
+                  <span className="text-xl font-black text-black">Proteína: </span>
+                  <span className="text-xl font-bold text-black">{menuRecipes.protein.name}</span>
                 </div>
-                <span className="text-2xl font-bold text-black">{quantities.protein}g</span>
+                <span className="text-4xl font-black text-black">{quantities.protein}g</span>
               </div>
             )}
 
             {menuRecipes.carb && quantities.carb > 0 && (
-              <div className="flex justify-between items-center border-2 border-black rounded-lg p-3">
+              <div className="flex justify-between items-center border-3 border-black rounded-lg p-4">
                 <div>
-                  <span className="font-semibold text-black">Carboidrato: </span>
-                  <span className="text-black">{menuRecipes.carb.name}</span>
+                  <span className="text-xl font-black text-black">Carboidrato: </span>
+                  <span className="text-xl font-bold text-black">{menuRecipes.carb.name}</span>
                 </div>
-                <span className="text-2xl font-bold text-black">{quantities.carb}g</span>
+                <span className="text-4xl font-black text-black">{quantities.carb}g</span>
               </div>
             )}
 
             {menuRecipes.vegetable && quantities.vegetable > 0 && (
-              <div className="flex justify-between items-center border-2 border-black rounded-lg p-3">
+              <div className="flex justify-between items-center border-3 border-black rounded-lg p-4">
                 <div>
-                  <span className="font-semibold text-black">Legumes: </span>
-                  <span className="text-black">{menuRecipes.vegetable.name}</span>
+                  <span className="text-xl font-black text-black">Legumes: </span>
+                  <span className="text-xl font-bold text-black">{menuRecipes.vegetable.name}</span>
                 </div>
-                <span className="text-2xl font-bold text-black">{quantities.vegetable}g</span>
+                <span className="text-4xl font-black text-black">{quantities.vegetable}g</span>
               </div>
             )}
 
             {menuRecipes.salad && quantities.salad > 0 && (
-              <div className="flex justify-between items-center border-2 border-black rounded-lg p-3">
+              <div className="flex justify-between items-center border-3 border-black rounded-lg p-4">
                 <div>
-                  <span className="font-semibold text-black">Salada: </span>
-                  <span className="text-black">{menuRecipes.salad.name}</span>
+                  <span className="text-xl font-black text-black">Salada: </span>
+                  <span className="text-xl font-bold text-black">{menuRecipes.salad.name}</span>
                 </div>
-                <span className="text-2xl font-bold text-black">{quantities.salad}g</span>
+                <span className="text-4xl font-black text-black">{quantities.salad}g</span>
               </div>
             )}
 
             {menuRecipes.sauce && quantities.sauce > 0 && (
-              <div className="flex justify-between items-center border-2 border-black rounded-lg p-3">
+              <div className="flex justify-between items-center border-3 border-black rounded-lg p-4">
                 <div>
-                  <span className="font-semibold text-black">Molho: </span>
-                  <span className="text-black">{menuRecipes.sauce.name}</span>
+                  <span className="text-xl font-black text-black">Molho: </span>
+                  <span className="text-xl font-bold text-black">{menuRecipes.sauce.name}</span>
                 </div>
-                <span className="text-2xl font-bold text-black">{quantities.sauce}g</span>
+                <span className="text-4xl font-black text-black">{quantities.sauce}g</span>
               </div>
             )}
           </div>
         </div>
 
         {/* Macronutrients Section */}
-        <div className="border-2 border-black rounded-lg p-4 mb-4">
-          <h2 className="text-xl font-bold text-black mb-3 text-center">Macronutrientes</h2>
+        <div className="border-3 border-black rounded-lg p-5 mb-5">
+          <h2 className="text-3xl font-black text-black mb-4 text-center">Macronutrientes</h2>
 
-          <div className="grid grid-cols-3 gap-3 font-semibold text-black border-b-2 border-black pb-2 mb-2">
+          <div className="grid grid-cols-3 gap-4 font-black text-black text-xl border-b-3 border-black pb-3 mb-3">
             <div></div>
             <div className="text-center">Meta</div>
             <div className="text-center">Entregue</div>
           </div>
 
-          <div className="space-y-2">
-            <div className="grid grid-cols-3 gap-3 items-center py-2 border-b border-black">
-              <div className="font-semibold">Kcal</div>
-              <div className="text-center text-lg font-bold">{Math.round(targetMacros.kcal)}</div>
-              <div className="text-center text-lg font-bold">{Math.round(actualMacros.kcal)}</div>
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-4 items-center py-3 border-b-2 border-black">
+              <div className="text-xl font-black">Kcal</div>
+              <div className="text-center text-2xl font-black">{Math.round(targetMacros.kcal)}</div>
+              <div className="text-center text-2xl font-black">{Math.round(actualMacros.kcal)}</div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 items-center py-2 border-b border-black">
-              <div className="font-semibold">Proteína (g)</div>
-              <div className="text-center text-lg font-bold">{Math.round(targetMacros.protein)}</div>
-              <div className="text-center text-lg font-bold">{actualMacros.protein.toFixed(1)}</div>
+            <div className="grid grid-cols-3 gap-4 items-center py-3 border-b-2 border-black">
+              <div className="text-xl font-black">Proteína (g)</div>
+              <div className="text-center text-2xl font-black">{Math.round(targetMacros.protein)}</div>
+              <div className="text-center text-2xl font-black">{actualMacros.protein.toFixed(1)}</div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 items-center py-2 border-b border-black">
-              <div className="font-semibold">Carboidrato (g)</div>
-              <div className="text-center text-lg font-bold">{Math.round(targetMacros.carbs)}</div>
-              <div className="text-center text-lg font-bold">{actualMacros.carbs.toFixed(1)}</div>
+            <div className="grid grid-cols-3 gap-4 items-center py-3 border-b-2 border-black">
+              <div className="text-xl font-black">Carboidrato (g)</div>
+              <div className="text-center text-2xl font-black">{Math.round(targetMacros.carbs)}</div>
+              <div className="text-center text-2xl font-black">{actualMacros.carbs.toFixed(1)}</div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 items-center py-2">
-              <div className="font-semibold">Gordura (g)</div>
-              <div className="text-center text-lg font-bold">{Math.round(targetMacros.fat)}</div>
-              <div className="text-center text-lg font-bold">{actualMacros.fat.toFixed(1)}</div>
+            <div className="grid grid-cols-3 gap-4 items-center py-3">
+              <div className="text-xl font-black">Gordura (g)</div>
+              <div className="text-center text-2xl font-black">{Math.round(targetMacros.fat)}</div>
+              <div className="text-center text-2xl font-black">{actualMacros.fat.toFixed(1)}</div>
             </div>
           </div>
         </div>
 
         {/* Disclaimer */}
-        <div className="border-2 border-black rounded-lg p-3 text-center">
-          <p className="text-sm font-semibold text-black">
+        <div className="border-3 border-black rounded-lg p-4 text-center">
+          <p className="text-lg font-black text-black">
             * As informações nutricionais do molho da salada não estão sendo consideradas nos macronutrientes acima
           </p>
         </div>
