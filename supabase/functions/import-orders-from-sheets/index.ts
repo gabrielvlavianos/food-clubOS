@@ -177,12 +177,13 @@ Deno.serve(async (req: Request) => {
       const newCarb = row[14];
 
       console.log(`\n--- Row ${i + 2} ---`);
-      console.log(`Name: ${name}`);
-      console.log(`Phone: ${phone}`);
-      console.log(`New Address: ${newAddress}`);
-      console.log(`New Time: ${newTime}`);
-      console.log(`New Protein: ${newProtein}`);
-      console.log(`New Carb: ${newCarb}`);
+      console.log(`Full row data (${row.length} columns):`, JSON.stringify(row));
+      console.log(`Name (col A/0): ${name}`);
+      console.log(`Phone (col B/1): ${phone}`);
+      console.log(`New Address (col L/11): "${newAddress}"`);
+      console.log(`New Time (col M/12): "${newTime}"`);
+      console.log(`New Protein (col N/13): "${newProtein}"`);
+      console.log(`New Carb (col O/14): "${newCarb}"`);
 
       if (!phone || !name) {
         console.log(`Skipping row - missing phone or name`);
