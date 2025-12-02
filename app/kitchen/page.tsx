@@ -303,7 +303,14 @@ export default function KitchenDashboardPage() {
 
           const customMenuRecipes: any = { ...menuRecipes };
 
-          if (modifiedOrder.modified_protein_name) {
+          if (modifiedOrder.protein_recipe_id) {
+            const { data: customProtein } = await supabase
+              .from('recipes')
+              .select('*')
+              .eq('id', modifiedOrder.protein_recipe_id)
+              .maybeSingle();
+            if (customProtein) customMenuRecipes.protein = customProtein;
+          } else if (modifiedOrder.modified_protein_name) {
             const { data: customProtein } = await supabase
               .from('recipes')
               .select('*')
@@ -312,7 +319,14 @@ export default function KitchenDashboardPage() {
             if (customProtein) customMenuRecipes.protein = customProtein;
           }
 
-          if (modifiedOrder.modified_carb_name) {
+          if (modifiedOrder.carb_recipe_id) {
+            const { data: customCarb } = await supabase
+              .from('recipes')
+              .select('*')
+              .eq('id', modifiedOrder.carb_recipe_id)
+              .maybeSingle();
+            if (customCarb) customMenuRecipes.carb = customCarb;
+          } else if (modifiedOrder.modified_carb_name) {
             const { data: customCarb } = await supabase
               .from('recipes')
               .select('*')
@@ -338,7 +352,7 @@ export default function KitchenDashboardPage() {
             menuRecipes: customMenuRecipes,
             quantities,
             status: orderStatus?.kitchen_status || 'pending',
-            isCancelled: modifiedOrder.is_cancelled || false,
+            isCancelled: modifiedOrder.is_cancelled || modifiedOrder.status === 'cancelled',
           });
         } else {
           const deliverySchedule = customerData.delivery_schedules?.find(

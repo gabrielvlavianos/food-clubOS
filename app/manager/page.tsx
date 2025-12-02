@@ -227,7 +227,7 @@ export default function ManagerPage() {
             deliverySchedule,
             orderStatus,
             pickupTime,
-            isCancelled: modifiedOrder?.is_cancelled || false,
+            isCancelled: modifiedOrder?.is_cancelled || modifiedOrder?.status === 'cancelled',
           });
         }
       }

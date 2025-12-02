@@ -352,7 +352,7 @@ export default function ExpeditionPage() {
             kitchenStatus: orderStatus?.kitchen_status || 'pending',
             deliveryStatus: orderStatus?.delivery_status || 'not_started',
             pickupTime,
-            isCancelled: modifiedOrder?.is_cancelled || false,
+            isCancelled: modifiedOrder?.is_cancelled || modifiedOrder?.status === 'cancelled',
           });
         }
       }
