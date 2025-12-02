@@ -436,6 +436,32 @@ export default function ExpeditionPage() {
     }
   }
 
+  async function updateKitchenStatus(
+    index: number,
+    newStatus: 'pending' | 'preparing' | 'ready'
+  ) {
+    const order = orders[index];
+
+    const { error } = await (supabase as any)
+      .from('order_status')
+      .upsert({
+        customer_id: order.customer.id,
+        order_date: selectedDate,
+        meal_type: selectedMealType,
+        kitchen_status: newStatus,
+      }, {
+        onConflict: 'customer_id,order_date,meal_type'
+      });
+
+    if (!error) {
+      setOrders(prev => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], kitchenStatus: newStatus };
+        return updated;
+      });
+    }
+  }
+
   const kitchenStatusColors = {
     pending: 'bg-gray-100 text-gray-800 border-gray-300',
     preparing: 'bg-blue-100 text-blue-800 border-blue-300',
@@ -583,9 +609,21 @@ export default function ExpeditionPage() {
                     <div className="space-y-3">
                       <div>
                         <Label className="text-xs text-gray-600 mb-1 block">Status Cozinha</Label>
-                        <Badge className={`${kitchenStatusColors[order.kitchenStatus]} text-xs px-3 py-1 border-2`}>
-                          {kitchenStatusLabels[order.kitchenStatus]}
-                        </Badge>
+                        <Select
+                          value={order.kitchenStatus}
+                          onValueChange={(value: 'pending' | 'preparing' | 'ready') =>
+                            updateKitchenStatus(index, value)
+                          }
+                        >
+                          <SelectTrigger className={`w-[180px] border-2 ${kitchenStatusColors[order.kitchenStatus]}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">{kitchenStatusLabels.pending}</SelectItem>
+                            <SelectItem value="preparing">{kitchenStatusLabels.preparing}</SelectItem>
+                            <SelectItem value="ready">{kitchenStatusLabels.ready}</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       <div>
