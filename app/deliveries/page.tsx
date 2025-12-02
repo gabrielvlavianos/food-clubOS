@@ -70,19 +70,21 @@ export default function ExpeditionPage() {
   const [driverPrepTime, setDriverPrepTime] = useState(10);
 
   useEffect(() => {
-    const loadData = async () => {
-      await loadGlobalSettings();
-      await loadOrders();
-    };
     loadData();
   }, [selectedDate, selectedMealType]);
+
+  async function loadData() {
+    const currentDriverPrepTime = await loadGlobalSettings();
+    console.log('[DEBUG] useEffect - currentDriverPrepTime:', currentDriverPrepTime);
+    await loadOrders(currentDriverPrepTime);
+  }
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `Etiqueta-${printOrder?.customer.name}-${selectedDate}`,
   });
 
-  async function loadGlobalSettings() {
+  async function loadGlobalSettings(): Promise<number> {
     try {
       const { data } = await supabase
         .from('global_settings')
@@ -106,16 +108,22 @@ export default function ExpeditionPage() {
 
       if (driverTimeData) {
         const value = (driverTimeData as any).value;
+        console.log('[DEBUG] Driver prep time from DB:', value);
         if (value) {
           const parsedValue = parseInt(value);
           if (!isNaN(parsedValue)) {
+            console.log('[DEBUG] Setting driverPrepTime to:', parsedValue);
             setDriverPrepTime(parsedValue);
+            return parsedValue;
           }
         }
+      } else {
+        console.log('[DEBUG] No driverTimeData found, using default 10');
       }
     } catch (error) {
       console.error('Error loading global settings:', error);
     }
+    return 10; // fallback
   }
 
   function roundToMultipleOf10(value: number): number {
@@ -274,18 +282,23 @@ export default function ExpeditionPage() {
     }
   }
 
-  async function calculatePickupTime(deliveryTime: string, deliverySchedule: any): Promise<string> {
+  async function calculatePickupTime(deliveryTime: string, deliverySchedule: any, currentDriverPrepTime: number): Promise<string> {
     let travelTimeMinutes = deliverySchedule.travel_time_minutes || 20;
 
+    console.log('[DEBUG] calculatePickupTime - deliveryTime:', deliveryTime, 'travelTime:', travelTimeMinutes, 'driverPrepTime:', currentDriverPrepTime);
+
     const [hours, minutes] = deliveryTime.split(':').map(Number);
-    const totalMinutes = hours * 60 + minutes - (travelTimeMinutes + driverPrepTime);
+    const totalMinutes = hours * 60 + minutes - (travelTimeMinutes + currentDriverPrepTime);
     const pickupHours = Math.floor(totalMinutes / 60);
     const pickupMinutes = totalMinutes % 60;
-    return `${String(pickupHours).padStart(2, '0')}:${String(pickupMinutes).padStart(2, '0')}`;
+    const result = `${String(pickupHours).padStart(2, '0')}:${String(pickupMinutes).padStart(2, '0')}`;
+    console.log('[DEBUG] Calculated pickupTime:', result);
+    return result;
   }
 
-  async function loadOrders() {
+  async function loadOrders(currentDriverPrepTime: number) {
     setLoading(true);
+    console.log('[DEBUG] loadOrders called with driverPrepTime:', currentDriverPrepTime);
     try {
       const dateObj = new Date(selectedDate + 'T12:00:00');
       const dayOfWeek = getDay(dateObj);
@@ -354,7 +367,7 @@ export default function ExpeditionPage() {
         }
 
         if (deliverySchedule && deliverySchedule.delivery_time && deliverySchedule.delivery_address) {
-          const pickupTime = await calculatePickupTime(deliverySchedule.delivery_time, deliverySchedule);
+          const pickupTime = await calculatePickupTime(deliverySchedule.delivery_time, deliverySchedule, currentDriverPrepTime);
           const orderStatus = statusMap.get(customerData.id);
 
           deliveryOrders.push({
@@ -478,7 +491,7 @@ export default function ExpeditionPage() {
                 </Select>
               </div>
               <div className="flex items-end">
-                <Button onClick={loadOrders} disabled={loading} className="w-full">
+                <Button onClick={loadData} disabled={loading} className="w-full">
                   <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                   Atualizar
                 </Button>
