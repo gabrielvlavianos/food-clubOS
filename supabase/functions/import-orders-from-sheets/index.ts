@@ -151,13 +151,24 @@ Deno.serve(async (req: Request) => {
     const data = await response.json();
     const rows = data.values || [];
 
-    console.log(`Found ${rows.length} rows in sheet ${sheetName}`);
+    console.log(`=== IMPORT DEBUG ===`);
+    console.log(`Sheet name: ${sheetName}`);
+    console.log(`Found ${rows.length} rows in sheet`);
+    console.log(`Date: ${date}, Meal Type: ${mealType}`);
+
+    if (rows.length > 0) {
+      console.log(`First row (headers?):`, JSON.stringify(rows[0]));
+      if (rows.length > 1) {
+        console.log(`Second row (sample data):`, JSON.stringify(rows[1]));
+      }
+    }
 
     let updatedCount = 0;
     let cancelledCount = 0;
     const debugLog: any[] = [];
 
-    for (const row of rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
       const name = row[0];
       const phone = row[1];
       const newAddress = row[11];
@@ -165,7 +176,13 @@ Deno.serve(async (req: Request) => {
       const newProtein = row[13];
       const newCarb = row[14];
 
-      console.log(`Processing row: ${name}, ${phone}, newAddress: ${newAddress}, newTime: ${newTime}, newProtein: ${newProtein}, newCarb: ${newCarb}`);
+      console.log(`\n--- Row ${i + 2} ---`);
+      console.log(`Name: ${name}`);
+      console.log(`Phone: ${phone}`);
+      console.log(`New Address: ${newAddress}`);
+      console.log(`New Time: ${newTime}`);
+      console.log(`New Protein: ${newProtein}`);
+      console.log(`New Carb: ${newCarb}`);
 
       if (!phone || !name) {
         console.log(`Skipping row - missing phone or name`);
@@ -264,7 +281,6 @@ Deno.serve(async (req: Request) => {
       if (newAddress) modifications.modified_delivery_address = newAddress;
       if (newTime) modifications.modified_delivery_time = newTime;
 
-      // Convert recipe names to IDs using the database function
       if (newProtein) {
         const { data: proteinId } = await supabase.rpc('find_recipe_by_name', { recipe_name: newProtein });
         if (proteinId) {
@@ -317,7 +333,6 @@ Deno.serve(async (req: Request) => {
           modified_carb_name: modifications.modified_carb_name || null,
         };
 
-        // Add recipe IDs if found
         if (modifications.protein_recipe_id) {
           orderData.protein_recipe_id = modifications.protein_recipe_id;
         }
