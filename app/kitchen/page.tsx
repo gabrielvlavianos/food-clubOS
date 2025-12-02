@@ -224,6 +224,11 @@ export default function KitchenDashboardPage() {
         .eq('order_date', selectedDate)
         .eq('meal_type', selectedMealType);
 
+      console.log('=== KITCHEN ORDERS DEBUG ===');
+      console.log('Date:', selectedDate);
+      console.log('Meal Type:', selectedMealType);
+      console.log('Modified Orders:', modifiedOrdersData);
+
       const modifiedOrdersMap = new Map(
         modifiedOrdersData?.map((o: any) => [o.customer_id, o]) || []
       );
@@ -346,13 +351,23 @@ export default function KitchenDashboardPage() {
 
           const orderStatus = statusMap.get(customerData.id);
 
+          const isCancelled = modifiedOrder.is_cancelled || modifiedOrder.status === 'cancelled';
+
+          console.log(`Order for ${customerData.name}:`, {
+            orderId: modifiedOrder.id,
+            mealType: modifiedOrder.meal_type,
+            status: modifiedOrder.status,
+            is_cancelled: modifiedOrder.is_cancelled,
+            computed_isCancelled: isCancelled
+          });
+
           kitchenOrders.push({
             customer,
             deliverySchedule,
             menuRecipes: customMenuRecipes,
             quantities,
             status: orderStatus?.kitchen_status || 'pending',
-            isCancelled: modifiedOrder.is_cancelled || modifiedOrder.status === 'cancelled',
+            isCancelled,
           });
         } else {
           const deliverySchedule = customerData.delivery_schedules?.find(
