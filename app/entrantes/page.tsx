@@ -229,7 +229,10 @@ export default function EntrantesPage() {
     setLoading(true);
 
     try {
-      const { error } = await (supabase as any)
+      console.log('Approving customer:', selectedCustomer.id, selectedCustomer.name);
+      console.log('Macros:', { lunchCarbs, lunchProtein, lunchFat, dinnerCarbs, dinnerProtein, dinnerFat });
+
+      const { data, error } = await (supabase as any)
         .from('customers')
         .update({
           status: 'active',
@@ -240,7 +243,10 @@ export default function EntrantesPage() {
           dinner_protein: parseFloat(dinnerProtein),
           dinner_fat: parseFloat(dinnerFat),
         })
-        .eq('id', selectedCustomer.id);
+        .eq('id', selectedCustomer.id)
+        .select();
+
+      console.log('Update result:', { data, error });
 
       if (error) throw error;
 
@@ -251,7 +257,11 @@ export default function EntrantesPage() {
 
       setShowApprovalDialog(false);
       setSelectedCustomer(null);
-      loadPendingCustomers();
+
+      // Aguardar um pouco antes de recarregar para garantir que o banco processou
+      setTimeout(() => {
+        loadPendingCustomers();
+      }, 500);
     } catch (error) {
       console.error('Error approving customer:', error);
       toast({
