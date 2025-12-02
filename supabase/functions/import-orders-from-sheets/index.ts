@@ -6,6 +6,35 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
 
+function normalizeDate(dateString: string): string {
+  if (!dateString) return '';
+
+  dateString = dateString.trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return dateString;
+  }
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
+    const [day, month, year] = dateString.split('/');
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+
+  try {
+    const date = new Date(dateString);
+    if (!isNaN(date.getTime())) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  } catch (e) {
+    console.error('Error parsing date:', dateString, e);
+  }
+
+  return dateString;
+}
+
 async function getAccessToken(serviceAccount: any): Promise<string> {
   const header = {
     alg: 'RS256',
@@ -171,6 +200,7 @@ Deno.serve(async (req: Request) => {
       const row = rows[i];
       const name = row[0];
       const phone = row[1];
+      const rowDate = row[3];
       const newAddress = row[11];
       const newTime = row[12];
       const newProtein = row[13];
@@ -180,6 +210,8 @@ Deno.serve(async (req: Request) => {
       console.log(`Full row data (${row.length} columns):`, JSON.stringify(row));
       console.log(`Name (col A/0): ${name}`);
       console.log(`Phone (col B/1): ${phone}`);
+      console.log(`Row Date (col D/3): "${rowDate}"`);
+      console.log(`Target Date: "${date}"`);
       console.log(`New Address (col L/11): "${newAddress}"`);
       console.log(`New Time (col M/12): "${newTime}"`);
       console.log(`New Protein (col N/13): "${newProtein}"`);
@@ -189,6 +221,24 @@ Deno.serve(async (req: Request) => {
         console.log(`Skipping row - missing phone or name`);
         continue;
       }
+
+      if (!rowDate) {
+        console.log(`Skipping row - missing date`);
+        continue;
+      }
+
+      const normalizedRowDate = normalizeDate(rowDate);
+      const normalizedTargetDate = normalizeDate(date);
+
+      console.log(`Normalized Row Date: "${normalizedRowDate}"`);
+      console.log(`Normalized Target Date: "${normalizedTargetDate}"`);
+
+      if (normalizedRowDate !== normalizedTargetDate) {
+        console.log(`Skipping row - date mismatch (row: ${normalizedRowDate}, target: ${normalizedTargetDate})`);
+        continue;
+      }
+
+      console.log(`✓ Date matches! Processing row...`);
 
       const { data: customer, error: customerError } = await supabase
         .from('customers')
