@@ -15,29 +15,44 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        router.push('/login');
-      } else if (requireAdmin && userRole !== 'ADMIN') {
-        router.push('/customers');
-      }
+    if (!loading && !user) {
+      window.location.href = '/login';
+    } else if (!loading && requireAdmin && userRole !== 'ADMIN') {
+      router.push('/customers');
     }
   }, [user, userRole, loading, router, requireAdmin]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-stone-50 to-white">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-[#5F7469] mx-auto" />
+          <p className="text-slate-600">Carregando...</p>
+        </div>
       </div>
     );
   }
 
   if (!user) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-stone-50 to-white">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-[#5F7469] mx-auto" />
+          <p className="text-slate-600">Redirecionando para login...</p>
+        </div>
+      </div>
+    );
   }
 
   if (requireAdmin && userRole !== 'ADMIN') {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-stone-50 to-white">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-[#5F7469] mx-auto" />
+          <p className="text-slate-600">Redirecionando...</p>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;
