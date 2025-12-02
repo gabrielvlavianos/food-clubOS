@@ -75,7 +75,6 @@ export default function ExpeditionPage() {
 
   async function loadData() {
     const currentDriverPrepTime = await loadGlobalSettings();
-    console.log('[DEBUG] useEffect - currentDriverPrepTime:', currentDriverPrepTime);
     await loadOrders(currentDriverPrepTime);
   }
 
@@ -108,17 +107,13 @@ export default function ExpeditionPage() {
 
       if (driverTimeData) {
         const value = (driverTimeData as any).value;
-        console.log('[DEBUG] Driver prep time from DB:', value);
         if (value) {
           const parsedValue = parseInt(value);
           if (!isNaN(parsedValue)) {
-            console.log('[DEBUG] Setting driverPrepTime to:', parsedValue);
             setDriverPrepTime(parsedValue);
             return parsedValue;
           }
         }
-      } else {
-        console.log('[DEBUG] No driverTimeData found, using default 10');
       }
     } catch (error) {
       console.error('Error loading global settings:', error);
@@ -186,6 +181,16 @@ export default function ExpeditionPage() {
     try {
       const mealType = selectedMealType;
 
+      // Buscar pedido modificado (vindo do WhatsApp)
+      const { data: modifiedOrderData } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('customer_id', order.customer.id)
+        .eq('order_date', selectedDate)
+        .eq('meal_type', mealType)
+        .maybeSingle();
+
+
       const { data: menuData } = await supabase
         .from('monthly_menu')
         .select('protein_recipe_id, carb_recipe_id, vegetable_recipe_id, salad_recipe_id, sauce_recipe_id')
@@ -199,13 +204,21 @@ export default function ExpeditionPage() {
       }
 
       const menu = menuData as any;
+      const modifiedOrder = modifiedOrderData as any;
+
+      // Usar recipe_ids modificados se disponíveis, senão usar do menu padrão
+      const proteinRecipeId = modifiedOrder?.protein_recipe_id ?? menu.protein_recipe_id;
+      const carbRecipeId = modifiedOrder?.carb_recipe_id ?? menu.carb_recipe_id;
+      const vegetableRecipeId = modifiedOrder?.vegetable_recipe_id ?? menu.vegetable_recipe_id;
+      const saladRecipeId = modifiedOrder?.salad_recipe_id ?? menu.salad_recipe_id;
+      const sauceRecipeId = modifiedOrder?.sauce_recipe_id ?? menu.sauce_recipe_id;
 
       const recipeIds = [
-        menu.protein_recipe_id,
-        menu.carb_recipe_id,
-        menu.vegetable_recipe_id,
-        menu.salad_recipe_id,
-        menu.sauce_recipe_id,
+        proteinRecipeId,
+        carbRecipeId,
+        vegetableRecipeId,
+        saladRecipeId,
+        sauceRecipeId,
       ].filter(Boolean);
 
       const { data: recipesData } = await supabase
@@ -215,32 +228,38 @@ export default function ExpeditionPage() {
 
       const recipesMap = new Map((recipesData || []).map((r: any) => [r.id, r]));
 
-      const proteinRecipe = menu.protein_recipe_id ? recipesMap.get(menu.protein_recipe_id) : undefined;
-      const carbRecipe = menu.carb_recipe_id ? recipesMap.get(menu.carb_recipe_id) : undefined;
-      const vegetableRecipe = menu.vegetable_recipe_id ? recipesMap.get(menu.vegetable_recipe_id) : undefined;
-      const saladRecipe = menu.salad_recipe_id ? recipesMap.get(menu.salad_recipe_id) : undefined;
-      const sauceRecipe = menu.sauce_recipe_id ? recipesMap.get(menu.sauce_recipe_id) : undefined;
+      const proteinRecipe = proteinRecipeId ? recipesMap.get(proteinRecipeId) : undefined;
+      const carbRecipe = carbRecipeId ? recipesMap.get(carbRecipeId) : undefined;
+      const vegetableRecipe = vegetableRecipeId ? recipesMap.get(vegetableRecipeId) : undefined;
+      const saladRecipe = saladRecipeId ? recipesMap.get(saladRecipeId) : undefined;
+      const sauceRecipe = sauceRecipeId ? recipesMap.get(sauceRecipeId) : undefined;
 
       const targetProtein = mealType === 'lunch' ? Number(order.customer.lunch_protein) : Number(order.customer.dinner_protein);
       const targetCarbs = mealType === 'lunch' ? Number(order.customer.lunch_carbs) : Number(order.customer.dinner_carbs);
       const targetFat = mealType === 'lunch' ? Number(order.customer.lunch_fat) : Number(order.customer.dinner_fat);
 
+      // Usar quantidades modificadas se disponíveis, senão calcular baseado no perfil
       let proteinAmount = 0;
-      if (proteinRecipe && targetProtein > 0) {
+      let carbAmount = 0;
+
+      if (modifiedOrder?.protein_quantity !== null && modifiedOrder?.protein_quantity !== undefined) {
+        proteinAmount = modifiedOrder.protein_quantity;
+      } else if (proteinRecipe && targetProtein > 0) {
         proteinAmount = roundToMultipleOf10((targetProtein / proteinRecipe.protein_per_100g) * 100);
       }
 
-      let carbAmount = 0;
-      if (carbRecipe && targetCarbs > 0) {
+      if (modifiedOrder?.carb_quantity !== null && modifiedOrder?.carb_quantity !== undefined) {
+        carbAmount = modifiedOrder.carb_quantity;
+      } else if (carbRecipe && targetCarbs > 0) {
         carbAmount = roundToMultipleOf10((targetCarbs / carbRecipe.carb_per_100g) * 100);
       }
 
       const quantities = {
         protein: proteinAmount,
         carb: carbAmount,
-        vegetable: globalSettings.vegetables_amount,
-        salad: globalSettings.salad_amount,
-        sauce: globalSettings.salad_dressing_amount,
+        vegetable: modifiedOrder?.vegetable_quantity ?? globalSettings.vegetables_amount,
+        salad: modifiedOrder?.salad_quantity ?? globalSettings.salad_amount,
+        sauce: modifiedOrder?.sauce_quantity ?? globalSettings.salad_dressing_amount,
       };
 
       const actualMacros = calculateActualMacros(
@@ -285,20 +304,15 @@ export default function ExpeditionPage() {
   async function calculatePickupTime(deliveryTime: string, deliverySchedule: any, currentDriverPrepTime: number): Promise<string> {
     let travelTimeMinutes = deliverySchedule.travel_time_minutes || 20;
 
-    console.log('[DEBUG] calculatePickupTime - deliveryTime:', deliveryTime, 'travelTime:', travelTimeMinutes, 'driverPrepTime:', currentDriverPrepTime);
-
     const [hours, minutes] = deliveryTime.split(':').map(Number);
     const totalMinutes = hours * 60 + minutes - (travelTimeMinutes + currentDriverPrepTime);
     const pickupHours = Math.floor(totalMinutes / 60);
     const pickupMinutes = totalMinutes % 60;
-    const result = `${String(pickupHours).padStart(2, '0')}:${String(pickupMinutes).padStart(2, '0')}`;
-    console.log('[DEBUG] Calculated pickupTime:', result);
-    return result;
+    return `${String(pickupHours).padStart(2, '0')}:${String(pickupMinutes).padStart(2, '0')}`;
   }
 
   async function loadOrders(currentDriverPrepTime: number) {
     setLoading(true);
-    console.log('[DEBUG] loadOrders called with driverPrepTime:', currentDriverPrepTime);
     try {
       const dateObj = new Date(selectedDate + 'T12:00:00');
       const dayOfWeek = getDay(dateObj);
