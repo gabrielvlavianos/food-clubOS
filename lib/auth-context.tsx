@@ -44,13 +44,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function checkUser() {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error } = await supabase.auth.getUser();
+
+      if (error) {
+        console.error('Error getting user:', error);
+        setUser(null);
+        setUserRole(null);
+        return;
+      }
+
       setUser(user);
       if (user) {
         await fetchUserRole(user.id);
       }
     } catch (error) {
       console.error('Error checking user:', error);
+      setUser(null);
+      setUserRole(null);
     } finally {
       setLoading(false);
     }
@@ -64,8 +74,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', userId)
         .maybeSingle();
 
-      if (error) throw error;
-      setUserRole((data as { role: 'ADMIN' | 'OPS' } | null)?.role || null);
+      if (error) {
+        console.error('Error fetching user role:', error);
+        setUserRole(null);
+        return;
+      }
+
+      if (!data) {
+        console.warn('User not found in users table:', userId);
+        setUserRole(null);
+        return;
+      }
+
+      setUserRole((data as { role: 'ADMIN' | 'OPS' })?.role || null);
     } catch (error) {
       console.error('Error fetching user role:', error);
       setUserRole(null);

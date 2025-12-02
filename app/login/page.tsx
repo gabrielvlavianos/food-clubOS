@@ -23,14 +23,20 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
+    console.log('Tentando login...');
     const { error } = await signIn(email, password);
 
     if (error) {
+      console.error('Erro no login:', error);
       setError('Email ou senha incorretos. Por favor, tente novamente.');
       setLoading(false);
     } else {
-      router.push('/customers');
-      router.refresh();
+      console.log('Login bem-sucedido, aguardando sessão...');
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      console.log('Redirecionando para /customers');
+      window.location.href = '/customers';
     }
   }
 
