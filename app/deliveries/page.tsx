@@ -70,8 +70,11 @@ export default function ExpeditionPage() {
   const [driverPrepTime, setDriverPrepTime] = useState(10);
 
   useEffect(() => {
-    loadGlobalSettings();
-    loadOrders();
+    const loadData = async () => {
+      await loadGlobalSettings();
+      await loadOrders();
+    };
+    loadData();
   }, [selectedDate, selectedMealType]);
 
   const handlePrint = useReactToPrint({
@@ -102,7 +105,13 @@ export default function ExpeditionPage() {
         .maybeSingle();
 
       if (driverTimeData) {
-        setDriverPrepTime(parseInt((driverTimeData as any).value || '10'));
+        const value = (driverTimeData as any).value;
+        if (value) {
+          const parsedValue = parseInt(value);
+          if (!isNaN(parsedValue)) {
+            setDriverPrepTime(parsedValue);
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading global settings:', error);
