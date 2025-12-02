@@ -1,19 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { Users, BookOpen, ChefHat, CalendarDays, UtensilsCrossed, Truck, LayoutDashboard, Settings, UserPlus, LogOut, UserCog } from 'lucide-react';
-import { useAuth } from '@/lib/auth-context';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Users, BookOpen, ChefHat, CalendarDays, UtensilsCrossed, Truck, LayoutDashboard, Settings, UserPlus } from 'lucide-react';
 
 const navItems = [
   { href: '/manager', label: 'Gerencial', icon: LayoutDashboard },
@@ -29,20 +19,13 @@ const navItems = [
 
 export function Navigation() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, userRole, signOut } = useAuth();
-
-  async function handleSignOut() {
-    await signOut();
-    router.push('/login');
-  }
 
   return (
     <nav className="sticky top-0 z-50 border-b bg-white shadow-sm">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-8">
-            <Link href="/cadastro" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <Link href="/customers" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
               <svg width="32" height="32" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="100" cy="100" r="80" stroke="#5F7469" strokeWidth="6" fill="none" opacity="0.3"/>
                 <path d="M100 50 L100 150 M100 50 L85 70 M100 50 L115 70" stroke="#5F7469" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
@@ -76,41 +59,6 @@ export function Navigation() {
               })}
             </div>
           </div>
-
-          {user && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2">
-                  <UserCog className="h-4 w-4" />
-                  <span className="text-sm">{user.email}</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium">{user.email}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {userRole === 'ADMIN' ? 'Administrador' : 'Operador'}
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {userRole === 'ADMIN' && (
-                  <>
-                    <DropdownMenuItem onClick={() => router.push('/admin/users')}>
-                      <UserCog className="mr-2 h-4 w-4" />
-                      Gerenciar Usuários
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-                <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sair
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
         </div>
       </div>
     </nav>
