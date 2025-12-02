@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Recipe } from '@/types';
-import { Navigation } from '@/components/navigation';
+import { ProtectedLayout } from '@/components/layouts/protected-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -259,8 +259,8 @@ export default function RecipesPage() {
   }
 
   return (
+    <ProtectedLayout>
     <div className="min-h-screen bg-gray-50">
-      <Navigation />
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Receitas</h1>
@@ -369,5 +369,6 @@ export default function RecipesPage() {
         </AlertDialog>
       </main>
     </div>
+    </ProtectedLayout>
   );
 }

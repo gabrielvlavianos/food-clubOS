@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Navigation } from '@/components/navigation';
+import { ProtectedLayout } from '@/components/layouts/protected-layout';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -441,8 +441,8 @@ export default function MenuPage() {
   const sauceRecipes = recipes.filter(r => r.category === 'Molho Salada');
 
   return (
+    <ProtectedLayout>
     <div className="min-h-screen bg-gray-50">
-      <Navigation />
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
@@ -778,5 +778,6 @@ export default function MenuPage() {
         </Card>
       </main>
     </div>
+    </ProtectedLayout>
   );
 }

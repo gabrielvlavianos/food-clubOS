@@ -8,7 +8,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 import type { Customer } from '@/types';
-import { Navigation } from '@/components/navigation';
+import { ProtectedLayout } from '@/components/layouts/protected-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -480,8 +480,8 @@ export default function EntrantesPage() {
   }
 
   return (
+    <ProtectedLayout>
     <>
-      <Navigation />
       <div className="container mx-auto p-6 max-w-7xl">
       <div className="mb-8 flex items-center justify-between">
         <div>
@@ -812,5 +812,6 @@ export default function EntrantesPage() {
       </Dialog>
       </div>
     </>
+    </ProtectedLayout>
   );
 }

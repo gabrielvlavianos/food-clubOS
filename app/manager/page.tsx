@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Navigation } from '@/components/navigation';
+import { ProtectedLayout } from '@/components/layouts/protected-layout';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -360,8 +360,8 @@ export default function ManagerPage() {
   }
 
   return (
+    <ProtectedLayout>
     <div className="min-h-screen bg-gray-50">
-      <Navigation />
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
@@ -470,5 +470,6 @@ export default function ManagerPage() {
         )}
       </main>
     </div>
+    </ProtectedLayout>
   );
 }
