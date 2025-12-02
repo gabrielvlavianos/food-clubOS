@@ -64,6 +64,43 @@ export function PendingRegistrations() {
   async function handleApprove(customerId: string, customerName: string) {
     setActionLoading(customerId);
     try {
+      // Buscar o telefone do cliente que está sendo aprovado
+      const { data: pendingCustomer, error: fetchError } = await supabase
+        .from('customers')
+        .select('phone')
+        .eq('id', customerId)
+        .maybeSingle() as { data: { phone: string } | null; error: any };
+
+      if (fetchError) throw fetchError;
+      if (!pendingCustomer) {
+        toast.error('Cliente não encontrado');
+        return;
+      }
+
+      // Verificar se já existe um cliente ATIVO com o mesmo telefone
+      const { data: existingCustomers, error: checkError } = await supabase
+        .from('customers')
+        .select('id, name, phone, status')
+        .eq('phone', pendingCustomer.phone)
+        .eq('status', 'active')
+        .eq('is_active', true) as { data: any[] | null; error: any };
+
+      if (checkError) throw checkError;
+
+      // Se encontrou algum cliente ativo com o mesmo telefone
+      if (existingCustomers && existingCustomers.length > 0) {
+        const existingCustomer = existingCustomers[0];
+        toast.error(
+          `Já existe um cliente com esse número de telefone: ${existingCustomer.name}`,
+          {
+            description: 'Por favor, exclua o cliente duplicado antes de aprovar este cadastro.',
+            duration: 6000,
+          }
+        );
+        return;
+      }
+
+      // Se não houver conflito, aprovar o cliente
       const { error } = await (supabase as any)
         .from('customers')
         .update({
