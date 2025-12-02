@@ -43,6 +43,7 @@ export default function ManagerPage() {
   }, []);
 
   useEffect(() => {
+    loadGoogleMapsApiKey();
     loadOrders();
   }, [selectedDate, selectedMealType]);
 

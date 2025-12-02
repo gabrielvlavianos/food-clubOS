@@ -74,6 +74,7 @@ export default function ExpeditionPage() {
   }, []);
 
   useEffect(() => {
+    loadGlobalSettings();
     loadOrders();
   }, [selectedDate, selectedMealType]);
 
