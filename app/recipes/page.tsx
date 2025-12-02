@@ -26,6 +26,8 @@ const RECIPE_COLUMNS: ExcelColumn[] = [
   { header: 'Ativo', key: 'is_active', example: 'Sim' }
 ];
 
+export const dynamic = 'force-dynamic';
+
 export default function RecipesPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [filteredRecipes, setFilteredRecipes] = useState<Recipe[]>([]);

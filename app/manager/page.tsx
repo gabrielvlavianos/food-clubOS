@@ -30,6 +30,8 @@ interface ManagerOrder {
 
 type KanbanStage = 'not_started' | 'kitchen' | 'expedition' | 'in_route' | 'delivered';
 
+export const dynamic = 'force-dynamic';
+
 export default function ManagerPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedMealType, setSelectedMealType] = useState<'lunch' | 'dinner'>('lunch');

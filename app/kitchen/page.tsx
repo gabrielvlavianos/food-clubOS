@@ -36,6 +36,8 @@ interface KitchenOrder {
   isCancelled?: boolean;
 }
 
+export const dynamic = 'force-dynamic';
+
 export default function KitchenDashboardPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedMealType, setSelectedMealType] = useState<'lunch' | 'dinner'>('lunch');

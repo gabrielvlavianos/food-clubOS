@@ -33,6 +33,8 @@ interface DeliverySettings {
   driver_prep_time_minutes: number;
 }
 
+export const dynamic = 'force-dynamic';
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<GlobalSettings>({
     vegetables_amount: 100,

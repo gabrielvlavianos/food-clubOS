@@ -29,6 +29,8 @@ import {
 
 type PendingCustomer = Customer;
 
+export const dynamic = 'force-dynamic';
+
 export default function EntrantesPage() {
   const [withNutritionist, setWithNutritionist] = useState<PendingCustomer[]>([]);
   const [withoutNutritionist, setWithoutNutritionist] = useState<PendingCustomer[]>([]);

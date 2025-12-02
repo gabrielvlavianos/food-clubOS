@@ -54,6 +54,8 @@ interface PrintData {
   };
 }
 
+export const dynamic = 'force-dynamic';
+
 export default function ExpeditionPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedMealType, setSelectedMealType] = useState<'lunch' | 'dinner'>('lunch');

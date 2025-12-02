@@ -36,6 +36,8 @@ interface MenuWithRecipes extends MonthlyMenu {
   sauce_recipe?: Recipe;
 }
 
+export const dynamic = 'force-dynamic';
+
 export default function MenuPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [menus, setMenus] = useState<MenuWithRecipes[]>([]);

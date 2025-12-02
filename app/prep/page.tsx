@@ -31,6 +31,8 @@ interface ProductionSummary {
   sauce?: ProductionItem;
 }
 
+export const dynamic = 'force-dynamic';
+
 export default function PrepPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedMealType, setSelectedMealType] = useState<'lunch' | 'dinner'>('lunch');
