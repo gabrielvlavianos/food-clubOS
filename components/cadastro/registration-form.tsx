@@ -441,11 +441,18 @@ export function RegistrationForm() {
       });
 
       window.location.href = '/cadastro/sucesso';
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating customer:', error);
+
+      // Verificar se o erro é relacionado ao telefone duplicado
+      const isDuplicatePhone = error?.message?.includes('unique_phone_for_active_customers') ||
+                               error?.code === '23505';
+
       toast({
         title: 'Erro no cadastro',
-        description: 'Não foi possível completar seu cadastro. Tente novamente.',
+        description: isDuplicatePhone
+          ? 'Já existe um cadastro com esse número de telefone. Por favor, verifique o número ou entre em contato conosco.'
+          : 'Não foi possível completar seu cadastro. Tente novamente.',
         variant: 'destructive',
       });
     } finally {

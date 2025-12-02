@@ -176,11 +176,18 @@ export function CreateCustomerDialog({
       resetForm();
       onOpenChange(false);
       onCreated();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating customer:', error);
+
+      // Verificar se o erro é relacionado ao telefone duplicado
+      const isDuplicatePhone = error?.message?.includes('unique_phone_for_active_customers') ||
+                               error?.code === '23505';
+
       toast({
-        title: 'Erro',
-        description: 'Não foi possível criar o cliente',
+        title: 'Erro ao criar cliente',
+        description: isDuplicatePhone
+          ? 'Já existe um cliente ativo com esse número de telefone. Por favor, verifique o número ou exclua o cliente duplicado.'
+          : 'Não foi possível criar o cliente. Tente novamente.',
         variant: 'destructive',
       });
     } finally {
