@@ -67,6 +67,7 @@ export default function ExpeditionPage() {
     salad_amount: 100,
     salad_dressing_amount: 30,
   });
+  const [driverPrepTime, setDriverPrepTime] = useState(10);
 
   useEffect(() => {
     loadGlobalSettings();
@@ -95,6 +96,16 @@ export default function ExpeditionPage() {
           salad_amount: (data as any).salad_amount,
           salad_dressing_amount: (data as any).salad_dressing_amount,
         });
+      }
+
+      const { data: driverTimeData } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'driver_prep_time_minutes')
+        .maybeSingle();
+
+      if (driverTimeData) {
+        setDriverPrepTime(parseInt((driverTimeData as any).value || '10'));
       }
     } catch (error) {
       console.error('Error loading global settings:', error);
@@ -258,11 +269,10 @@ export default function ExpeditionPage() {
   }
 
   async function calculatePickupTime(deliveryTime: string, deliverySchedule: any): Promise<string> {
-    const driverPrepTimeMinutes = 10;
     let travelTimeMinutes = deliverySchedule.travel_time_minutes || 20;
 
     const [hours, minutes] = deliveryTime.split(':').map(Number);
-    const totalMinutes = hours * 60 + minutes - (travelTimeMinutes + driverPrepTimeMinutes);
+    const totalMinutes = hours * 60 + minutes - (travelTimeMinutes + driverPrepTime);
     const pickupHours = Math.floor(totalMinutes / 60);
     const pickupMinutes = totalMinutes % 60;
     return `${String(pickupHours).padStart(2, '0')}:${String(pickupMinutes).padStart(2, '0')}`;

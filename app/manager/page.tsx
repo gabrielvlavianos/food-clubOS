@@ -36,6 +36,7 @@ export default function ManagerPage() {
   const [orders, setOrders] = useState<ManagerOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | null>(null);
+  const [driverPrepTime, setDriverPrepTime] = useState(10);
 
   useEffect(() => {
     loadGoogleMapsApiKey();
@@ -49,22 +50,26 @@ export default function ManagerPage() {
     try {
       const { data, error } = await supabase
         .from('settings')
-        .select('value')
-        .eq('key', 'google_maps_api_key')
-        .maybeSingle();
+        .select('key, value')
+        .in('key', ['google_maps_api_key', 'driver_prep_time_minutes']);
 
       if (error) throw error;
 
       if (data) {
-        setGoogleMapsApiKey((data as any).value);
+        const settingsMap = Object.fromEntries(
+          data.map((s: any) => [s.key, s.value])
+        );
+        setGoogleMapsApiKey(settingsMap.google_maps_api_key || null);
+        setDriverPrepTime(parseInt(settingsMap.driver_prep_time_minutes || '10'));
       }
     } catch (error) {
-      console.error('Error loading Google Maps API key:', error);
+      console.error('Error loading settings:', error);
     }
   }
 
   function calculatePickupTime(deliveryTime: string, travelTimeMinutes?: number | null): string {
-    const minutesToSubtract = travelTimeMinutes || 30;
+    const defaultTravelTime = 20;
+    const minutesToSubtract = (travelTimeMinutes || defaultTravelTime) + driverPrepTime;
     const [hours, minutes] = deliveryTime.split(':').map(Number);
     const totalMinutes = hours * 60 + minutes - minutesToSubtract;
     const pickupHours = Math.floor(totalMinutes / 60);
