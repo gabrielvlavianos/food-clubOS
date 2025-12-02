@@ -224,13 +224,10 @@ export default function KitchenDashboardPage() {
         .eq('order_date', selectedDate)
         .eq('meal_type', selectedMealType);
 
-      console.log('=== KITCHEN ORDERS DEBUG ===');
-      console.log('Date:', selectedDate);
-      console.log('Meal Type:', selectedMealType);
-      console.log('Modified Orders:', modifiedOrdersData);
-
+      // Criar Map usando chave composta: customer_id + meal_type + date
+      // Isso garante que não haja confusão entre almoço e jantar
       const modifiedOrdersMap = new Map(
-        modifiedOrdersData?.map((o: any) => [o.customer_id, o]) || []
+        modifiedOrdersData?.map((o: any) => [`${o.customer_id}_${o.meal_type}_${o.order_date}`, o]) || []
       );
 
       const { data: statusData } = await supabase
@@ -290,7 +287,8 @@ export default function KitchenDashboardPage() {
 
       for (const customer of customersData || []) {
         const customerData = customer as any;
-        const modifiedOrder = modifiedOrdersMap.get(customerData.id);
+        // Buscar usando a chave composta
+        const modifiedOrder = modifiedOrdersMap.get(`${customerData.id}_${selectedMealType}_${selectedDate}`);
 
         if (modifiedOrder) {
           const defaultSchedule = customerData.delivery_schedules?.find(
@@ -352,14 +350,6 @@ export default function KitchenDashboardPage() {
           const orderStatus = statusMap.get(customerData.id);
 
           const isCancelled = modifiedOrder.is_cancelled || modifiedOrder.status === 'cancelled';
-
-          console.log(`Order for ${customerData.name}:`, {
-            orderId: modifiedOrder.id,
-            mealType: modifiedOrder.meal_type,
-            status: modifiedOrder.status,
-            is_cancelled: modifiedOrder.is_cancelled,
-            computed_isCancelled: isCancelled
-          });
 
           kitchenOrders.push({
             customer,

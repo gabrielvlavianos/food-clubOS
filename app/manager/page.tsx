@@ -156,8 +156,9 @@ export default function ManagerPage() {
         .eq('order_date', selectedDate)
         .eq('meal_type', selectedMealType);
 
+      // Criar Map usando chave composta: customer_id + meal_type + date
       const modifiedOrdersMap = new Map(
-        modifiedOrdersData?.map((o: any) => [o.customer_id, o]) || []
+        modifiedOrdersData?.map((o: any) => [`${o.customer_id}_${o.meal_type}_${o.order_date}`, o]) || []
       );
 
       const { data: statusData } = await supabase
@@ -174,7 +175,8 @@ export default function ManagerPage() {
 
       for (const customer of customersData || []) {
         const customerData = customer as any;
-        const modifiedOrder = modifiedOrdersMap.get(customerData.id);
+        // Buscar usando a chave composta
+        const modifiedOrder = modifiedOrdersMap.get(`${customerData.id}_${selectedMealType}_${selectedDate}`);
 
         let deliverySchedule;
 
