@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Recipe } from '@/types';
-import { ProtectedLayout } from '@/components/layouts/protected-layout';
+import { Navigation } from '@/components/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,8 +25,6 @@ const RECIPE_COLUMNS: ExcelColumn[] = [
   { header: 'Custo (100g)', key: 'cost', example: '8.50' },
   { header: 'Ativo', key: 'is_active', example: 'Sim' }
 ];
-
-export const dynamic = 'force-dynamic';
 
 export default function RecipesPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -261,8 +259,8 @@ export default function RecipesPage() {
   }
 
   return (
-    <ProtectedLayout>
     <div className="min-h-screen bg-gray-50">
+      <Navigation />
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Receitas</h1>
@@ -371,6 +369,5 @@ export default function RecipesPage() {
         </AlertDialog>
       </main>
     </div>
-    </ProtectedLayout>
   );
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CustomerWithAddresses, Customer, Address } from '@/types';
-import { ProtectedLayout } from '@/components/layouts/protected-layout';
+import { Navigation } from '@/components/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Search, Download, Upload } from 'lucide-react';
@@ -489,8 +489,8 @@ export default function CustomersPage() {
   }
 
   return (
-    <ProtectedLayout>
-      <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
+      <Navigation />
         <main className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
@@ -546,7 +546,6 @@ export default function CustomersPage() {
           onCreated={loadCustomers}
         />
         </main>
-      </div>
-    </ProtectedLayout>
+    </div>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ProtectedLayout } from '@/components/layouts/protected-layout';
+import { Navigation } from '@/components/navigation';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,8 +32,6 @@ interface DeliverySettings {
   kitchen_address: string;
   driver_prep_time_minutes: number;
 }
-
-export const dynamic = 'force-dynamic';
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<GlobalSettings>({
@@ -487,8 +485,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <ProtectedLayout>
     <div className="min-h-screen bg-gray-50">
+      <Navigation />
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
@@ -1028,6 +1026,5 @@ export default function SettingsPage() {
         </Tabs>
       </main>
     </div>
-    </ProtectedLayout>
   );
 }

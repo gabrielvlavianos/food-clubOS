@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ProtectedLayout } from '@/components/layouts/protected-layout';
+import { Navigation } from '@/components/navigation';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,8 +29,6 @@ interface ManagerOrder {
 }
 
 type KanbanStage = 'not_started' | 'kitchen' | 'expedition' | 'in_route' | 'delivered';
-
-export const dynamic = 'force-dynamic';
 
 export default function ManagerPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -362,8 +360,8 @@ export default function ManagerPage() {
   }
 
   return (
-    <ProtectedLayout>
     <div className="min-h-screen bg-gray-50">
+      <Navigation />
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
@@ -472,6 +470,5 @@ export default function ManagerPage() {
         )}
       </main>
     </div>
-    </ProtectedLayout>
   );
 }
