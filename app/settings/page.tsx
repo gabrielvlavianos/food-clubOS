@@ -270,12 +270,23 @@ export default function SettingsPage() {
       console.log('Result:', JSON.stringify(result, null, 2));
 
       if (result.success) {
-        toast.success(`Almoço: ${result.updatedCount} pedidos atualizados, ${result.cancelledCount} cancelados`);
-        if (result.debug) {
+        console.log('=== SHEETS INFO ===');
+        console.log(`Sheet Name: ${result.sheetName}`);
+        console.log(`Total Rows Read: ${result.totalRowsRead}`);
+        console.log(`First Row:`, result.sampleFirstRow);
+        console.log(`Second Row:`, result.sampleSecondRow);
+
+        toast.success(`Almoço: ${result.updatedCount} pedidos atualizados, ${result.cancelledCount} cancelados (${result.totalRowsRead} linhas lidas)`);
+
+        if (result.debug && result.debug.length > 0) {
           console.log('=== DEBUG INFO ===');
           result.debug.forEach((item: any, index: number) => {
             console.log(`${index + 1}.`, item);
           });
+        }
+
+        if (result.totalRowsRead === 0) {
+          toast.error('AVISO: A aba está vazia ou não foi encontrada!');
         }
       } else {
         toast.error(`Erro ao importar almoço: ${result.error}`);
@@ -310,7 +321,24 @@ export default function SettingsPage() {
       const result = await response.json();
 
       if (result.success) {
-        toast.success(`Jantar: ${result.updatedCount} pedidos atualizados, ${result.cancelledCount} cancelados`);
+        console.log('=== SHEETS INFO (JANTAR) ===');
+        console.log(`Sheet Name: ${result.sheetName}`);
+        console.log(`Total Rows Read: ${result.totalRowsRead}`);
+        console.log(`First Row:`, result.sampleFirstRow);
+        console.log(`Second Row:`, result.sampleSecondRow);
+
+        toast.success(`Jantar: ${result.updatedCount} pedidos atualizados, ${result.cancelledCount} cancelados (${result.totalRowsRead} linhas lidas)`);
+
+        if (result.debug && result.debug.length > 0) {
+          console.log('=== DEBUG INFO ===');
+          result.debug.forEach((item: any, index: number) => {
+            console.log(`${index + 1}.`, item);
+          });
+        }
+
+        if (result.totalRowsRead === 0) {
+          toast.error('AVISO: A aba está vazia ou não foi encontrada!');
+        }
       } else {
         toast.error(`Erro ao importar jantar: ${result.error}`);
       }

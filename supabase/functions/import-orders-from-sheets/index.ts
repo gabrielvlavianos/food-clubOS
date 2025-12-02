@@ -363,6 +363,10 @@ Deno.serve(async (req: Request) => {
         mealType,
         updatedCount,
         cancelledCount,
+        totalRowsRead: rows.length,
+        sheetName,
+        sampleFirstRow: rows.length > 0 ? rows[0] : null,
+        sampleSecondRow: rows.length > 1 ? rows[1] : null,
         debug: debugLog,
       }),
       {
