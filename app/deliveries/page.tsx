@@ -15,6 +15,7 @@ import { format, getDay } from 'date-fns';
 import type { Customer, DeliverySchedule, Recipe } from '@/types';
 import { formatPhoneNumber, formatTime } from '@/lib/format-utils';
 import { DeliveryLabel } from '@/components/deliveries/delivery-label';
+import { calculateOrderQuantities } from '@/lib/calculations';
 
 interface DeliveryOrder {
   customer: Customer;
@@ -240,29 +241,31 @@ export default function ExpeditionPage() {
       const targetCarbs = mealType === 'lunch' ? Number(order.customer.lunch_carbs) : Number(order.customer.dinner_carbs);
       const targetFat = mealType === 'lunch' ? Number(order.customer.lunch_fat) : Number(order.customer.dinner_fat);
 
-      // Usar quantidades modificadas se disponíveis, senão calcular baseado no perfil
-      let proteinAmount = 0;
-      let carbAmount = 0;
+      // Usar quantidades modificadas se disponíveis, senão calcular usando a função unificada
+      let quantities;
 
-      if (modifiedOrder?.protein_quantity !== null && modifiedOrder?.protein_quantity !== undefined) {
-        proteinAmount = modifiedOrder.protein_quantity;
-      } else if (proteinRecipe && targetProtein > 0) {
-        proteinAmount = roundToMultipleOf10((targetProtein / proteinRecipe.protein_per_100g) * 100);
+      if (modifiedOrder?.protein_quantity !== null && modifiedOrder?.protein_quantity !== undefined &&
+          modifiedOrder?.carb_quantity !== null && modifiedOrder?.carb_quantity !== undefined) {
+        // Usar quantidades modificadas do WhatsApp
+        quantities = {
+          protein: modifiedOrder.protein_quantity,
+          carb: modifiedOrder.carb_quantity,
+          vegetable: modifiedOrder?.vegetable_quantity ?? globalSettings.vegetables_amount,
+          salad: modifiedOrder?.salad_quantity ?? globalSettings.salad_amount,
+          sauce: modifiedOrder?.sauce_quantity ?? globalSettings.salad_dressing_amount,
+        };
+      } else {
+        // Calcular usando a função unificada (mesma lógica da cozinha)
+        quantities = calculateOrderQuantities(
+          order.customer,
+          mealType,
+          globalSettings,
+          proteinRecipe,
+          carbRecipe,
+          vegetableRecipe,
+          saladRecipe
+        );
       }
-
-      if (modifiedOrder?.carb_quantity !== null && modifiedOrder?.carb_quantity !== undefined) {
-        carbAmount = modifiedOrder.carb_quantity;
-      } else if (carbRecipe && targetCarbs > 0) {
-        carbAmount = roundToMultipleOf10((targetCarbs / carbRecipe.carb_per_100g) * 100);
-      }
-
-      const quantities = {
-        protein: proteinAmount,
-        carb: carbAmount,
-        vegetable: modifiedOrder?.vegetable_quantity ?? globalSettings.vegetables_amount,
-        salad: modifiedOrder?.salad_quantity ?? globalSettings.salad_amount,
-        sauce: modifiedOrder?.sauce_quantity ?? globalSettings.salad_dressing_amount,
-      };
 
       // Calcular macros totais (SEM incluir o molho)
       const actualMacros = calculateActualMacros(

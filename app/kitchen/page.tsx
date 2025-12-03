@@ -13,6 +13,7 @@ import { ChefHat, Calendar, Clock, MapPin, Package, RefreshCw } from 'lucide-rea
 import { format, getDay } from 'date-fns';
 import type { Recipe, Customer, DeliverySchedule } from '@/types';
 import { formatTime } from '@/lib/format-utils';
+import { calculateOrderQuantities } from '@/lib/calculations';
 
 interface KitchenOrder {
   id?: string;
@@ -75,10 +76,8 @@ export default function KitchenDashboardPage() {
     }
   }
 
-  function roundToMultipleOf10(value: number): number {
-    return Math.round(value / 10) * 10;
-  }
-
+  // IMPORTANTE: Esta função NÃO inclui o molho (sauce) no cálculo dos macros
+  // Apenas: Proteína + Carboidrato + Legumes + Salada
   function calculateActualMacros(
     quantities: any,
     proteinRecipe?: Recipe,
@@ -129,74 +128,6 @@ export default function KitchenDashboardPage() {
       protein: Math.round(totalProtein * 10) / 10,
       carbs: Math.round(totalCarbs * 10) / 10,
       fat: Math.round(totalFat * 10) / 10,
-    };
-  }
-
-  function calculateQuantities(
-    customer: any,
-    mealType: 'lunch' | 'dinner',
-    proteinRecipe?: Recipe,
-    carbRecipe?: Recipe,
-    vegetableRecipe?: Recipe,
-    saladRecipe?: Recipe
-  ) {
-    if (!proteinRecipe || !carbRecipe) {
-      return {
-        protein: 0,
-        carb: 0,
-        vegetable: globalSettings.vegetables_amount,
-        salad: globalSettings.salad_amount,
-        sauce: globalSettings.salad_dressing_amount,
-      };
-    }
-
-    const targetProtein = mealType === 'lunch' ? Number(customer.lunch_protein) : Number(customer.dinner_protein);
-    const targetCarbs = mealType === 'lunch' ? Number(customer.lunch_carbs) : Number(customer.dinner_carbs);
-    const targetFat = mealType === 'lunch' ? Number(customer.lunch_fat) : Number(customer.dinner_fat);
-
-    if (!targetProtein || !targetCarbs || !targetFat) {
-      return {
-        protein: 0,
-        carb: 0,
-        vegetable: globalSettings.vegetables_amount,
-        salad: globalSettings.salad_amount,
-        sauce: globalSettings.salad_dressing_amount,
-      };
-    }
-
-    let proteinAmount = (targetProtein / proteinRecipe.protein_per_100g) * 100;
-
-    const carbsFromProteinRecipe = (proteinAmount / 100) * proteinRecipe.carb_per_100g;
-    const fatFromProteinRecipe = (proteinAmount / 100) * proteinRecipe.fat_per_100g;
-    const caloriesFromProteinRecipe = (proteinAmount / 100) * proteinRecipe.kcal_per_100g;
-
-    const remainingCarbs = targetCarbs - carbsFromProteinRecipe;
-    let carbAmount = (remainingCarbs / carbRecipe.carb_per_100g) * 100;
-
-    const fatFromCarbRecipe = (carbAmount / 100) * carbRecipe.fat_per_100g;
-    const caloriesFromCarbRecipe = (carbAmount / 100) * carbRecipe.kcal_per_100g;
-
-    const vegetableAmount = vegetableRecipe ? globalSettings.vegetables_amount : 0;
-    const saladAmount = saladRecipe ? globalSettings.salad_amount : 0;
-
-    const caloriesFromVegetable = vegetableRecipe ? (vegetableAmount / 100) * vegetableRecipe.kcal_per_100g : 0;
-    const caloriesFromSalad = saladRecipe ? (saladAmount / 100) * saladRecipe.kcal_per_100g : 0;
-
-    let totalCalories = caloriesFromProteinRecipe + caloriesFromCarbRecipe + caloriesFromVegetable + caloriesFromSalad;
-
-    const targetCalories = (targetProtein * 4) + (targetCarbs * 4) + (targetFat * 9);
-
-    const adjustmentFactor = targetCalories / totalCalories;
-
-    proteinAmount = proteinAmount * adjustmentFactor;
-    carbAmount = carbAmount * adjustmentFactor;
-
-    return {
-      protein: roundToMultipleOf10(proteinAmount),
-      carb: roundToMultipleOf10(carbAmount),
-      vegetable: vegetableAmount,
-      salad: saladAmount,
-      sauce: globalSettings.salad_dressing_amount,
     };
   }
 
@@ -338,9 +269,10 @@ export default function KitchenDashboardPage() {
             if (customCarb) customMenuRecipes.carb = customCarb;
           }
 
-          const quantities = calculateQuantities(
+          const quantities = calculateOrderQuantities(
             customerData,
             selectedMealType,
+            globalSettings,
             customMenuRecipes.protein,
             customMenuRecipes.carb,
             customMenuRecipes.vegetable,
@@ -368,9 +300,10 @@ export default function KitchenDashboardPage() {
           );
 
           if (deliverySchedule && deliverySchedule.delivery_time && deliverySchedule.delivery_address) {
-            const quantities = calculateQuantities(
+            const quantities = calculateOrderQuantities(
               customerData,
               selectedMealType,
+              globalSettings,
               menuRecipes.protein,
               menuRecipes.carb,
               menuRecipes.vegetable,

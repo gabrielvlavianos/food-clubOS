@@ -398,3 +398,80 @@ export async function calculateMacroRecommendation(customer: CustomerData): Prom
     }
   };
 }
+
+export interface OrderQuantities {
+  protein: number;
+  carb: number;
+  vegetable: number;
+  salad: number;
+  sauce: number;
+}
+
+export function calculateOrderQuantities(
+  customer: any,
+  mealType: 'lunch' | 'dinner',
+  globalSettings: { vegetables_amount: number; salad_amount: number; salad_dressing_amount: number },
+  proteinRecipe?: Recipe,
+  carbRecipe?: Recipe,
+  vegetableRecipe?: Recipe,
+  saladRecipe?: Recipe
+): OrderQuantities {
+  if (!proteinRecipe || !carbRecipe) {
+    return {
+      protein: 0,
+      carb: 0,
+      vegetable: globalSettings.vegetables_amount,
+      salad: globalSettings.salad_amount,
+      sauce: globalSettings.salad_dressing_amount,
+    };
+  }
+
+  const targetProtein = mealType === 'lunch' ? Number(customer.lunch_protein) : Number(customer.dinner_protein);
+  const targetCarbs = mealType === 'lunch' ? Number(customer.lunch_carbs) : Number(customer.dinner_carbs);
+  const targetFat = mealType === 'lunch' ? Number(customer.lunch_fat) : Number(customer.dinner_fat);
+
+  if (!targetProtein || !targetCarbs || !targetFat) {
+    return {
+      protein: 0,
+      carb: 0,
+      vegetable: globalSettings.vegetables_amount,
+      salad: globalSettings.salad_amount,
+      sauce: globalSettings.salad_dressing_amount,
+    };
+  }
+
+  let proteinAmount = (targetProtein / proteinRecipe.protein_per_100g) * 100;
+
+  const carbsFromProteinRecipe = (proteinAmount / 100) * proteinRecipe.carb_per_100g;
+  const fatFromProteinRecipe = (proteinAmount / 100) * proteinRecipe.fat_per_100g;
+  const caloriesFromProteinRecipe = (proteinAmount / 100) * proteinRecipe.kcal_per_100g;
+
+  const remainingCarbs = targetCarbs - carbsFromProteinRecipe;
+  let carbAmount = (remainingCarbs / carbRecipe.carb_per_100g) * 100;
+
+  const fatFromCarbRecipe = (carbAmount / 100) * carbRecipe.fat_per_100g;
+  const caloriesFromCarbRecipe = (carbAmount / 100) * carbRecipe.kcal_per_100g;
+
+  const vegetableAmount = vegetableRecipe ? globalSettings.vegetables_amount : 0;
+  const saladAmount = saladRecipe ? globalSettings.salad_amount : 0;
+
+  const caloriesFromVegetable = vegetableRecipe ? (vegetableAmount / 100) * vegetableRecipe.kcal_per_100g : 0;
+  const caloriesFromSalad = saladRecipe ? (saladAmount / 100) * saladRecipe.kcal_per_100g : 0;
+
+  let totalCalories = caloriesFromProteinRecipe + caloriesFromCarbRecipe + caloriesFromVegetable + caloriesFromSalad;
+
+  const targetCalories = (targetProtein * 4) + (targetCarbs * 4) + (targetFat * 9);
+
+  const adjustmentFactor = targetCalories / totalCalories;
+
+  proteinAmount = proteinAmount * adjustmentFactor;
+  carbAmount = carbAmount * adjustmentFactor;
+
+  return {
+    protein: roundToMultipleOf10(proteinAmount),
+    carb: roundToMultipleOf10(carbAmount),
+    vegetable: vegetableAmount,
+    salad: saladAmount,
+    sauce: globalSettings.salad_dressing_amount,
+  };
+}
