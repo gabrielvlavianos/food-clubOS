@@ -125,6 +125,8 @@ export default function ExpeditionPage() {
     return Math.round(value / 10) * 10;
   }
 
+  // IMPORTANTE: Esta função NÃO inclui o molho (sauce) no cálculo dos macros
+  // Apenas: Proteína + Carboidrato + Legumes + Salada
   function calculateActualMacros(
     quantities: any,
     proteinRecipe?: Recipe,
@@ -262,6 +264,7 @@ export default function ExpeditionPage() {
         sauce: modifiedOrder?.sauce_quantity ?? globalSettings.salad_dressing_amount,
       };
 
+      // Calcular macros totais (SEM incluir o molho)
       const actualMacros = calculateActualMacros(
         quantities,
         proteinRecipe,
