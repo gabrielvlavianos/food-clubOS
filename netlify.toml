@@ -3,9 +3,10 @@
   publish = ".next"
 
 [build.environment]
-  # Force fresh builds
+  # Force fresh builds - skip Netlify Next.js plugin cache
   NETLIFY_NEXT_PLUGIN_SKIP_CACHE = "true"
-  NODE_ENV = "production"
+  # Inject unique Deploy ID into each build
+  NEXT_BUILD_ID = "${DEPLOY_ID}"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
