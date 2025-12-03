@@ -11,7 +11,6 @@ import { CustomersTable } from '@/components/customers/customers-table';
 import { CreateCustomerDialog } from '@/components/customers/create-customer-dialog';
 import { downloadExcelTemplate, parseExcelFile, exportToExcel, ExcelColumn } from '@/lib/excel-utils';
 import { useToast } from '@/hooks/use-toast';
-import { ProtectedRoute } from '@/components/auth/protected-route';
 
 const CUSTOMER_COLUMNS: ExcelColumn[] = [
   { header: 'Nome', key: 'name', example: 'João Silva' },
@@ -490,14 +489,13 @@ export default function CustomersPage() {
   }
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50">
-        <Navigation />
-        <main className="container mx-auto px-4 py-8">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
-            <p className="text-gray-600 mt-1">Gerencie clientes e endereços</p>
-          </div>
+    <div className="min-h-screen bg-gray-50">
+      <Navigation />
+      <main className="container mx-auto px-4 py-8">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
+          <p className="text-gray-600 mt-1">Gerencie clientes e endereços</p>
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
@@ -542,13 +540,12 @@ export default function CustomersPage() {
           <CustomersTable customers={filteredCustomers} onUpdate={loadCustomers} />
         )}
 
-          <CreateCustomerDialog
-            open={showCreateDialog}
-            onOpenChange={setShowCreateDialog}
-            onCreated={loadCustomers}
-          />
-        </main>
-      </div>
-    </ProtectedRoute>
+        <CreateCustomerDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          onCreated={loadCustomers}
+        />
+      </main>
+    </div>
   );
 }

@@ -11,7 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Settings, Save, RefreshCw, Upload, Download, Sheet, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { MacroCalculationSettings } from '@/components/settings/macro-calculation-settings';
-import { PendingRegistrations } from '@/components/settings/pending-registrations';
 
 interface GlobalSettings {
   vegetables_amount: number;
@@ -526,12 +525,11 @@ export default function SettingsPage() {
         </div>
 
         <Tabs defaultValue="amounts" className="max-w-4xl">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="amounts">Quantidades Padrão</TabsTrigger>
             <TabsTrigger value="macros">Cálculo de Macros</TabsTrigger>
             <TabsTrigger value="delivery">Entrega</TabsTrigger>
             <TabsTrigger value="maps">Google Maps</TabsTrigger>
-            <TabsTrigger value="approvals">Aprovações</TabsTrigger>
             <TabsTrigger value="export">
               <Sheet className="h-4 w-4 mr-2" />
               Sheets
@@ -895,10 +893,6 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
             )}
-          </TabsContent>
-
-          <TabsContent value="approvals">
-            <PendingRegistrations />
           </TabsContent>
 
           <TabsContent value="export">
