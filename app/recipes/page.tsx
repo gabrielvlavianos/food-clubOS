@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Recipe } from '@/types';
+import type { Database } from '@/types/database';
 import { Navigation } from '@/components/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -117,33 +118,64 @@ export default function RecipesPage() {
     try {
       const data = await parseExcelFile<any>(file, RECIPE_COLUMNS);
 
-      let successCount = 0;
+      let insertedCount = 0;
+      let updatedCount = 0;
       let errorCount = 0;
 
       for (const row of data) {
         try {
-          const recipeData: any = {
-            name: row.name,
-            category: row.category,
+          const { data: existingRecipe, error: searchError } = await supabase
+            .from('recipes')
+            .select('id, name')
+            .ilike('name', row.name)
+            .maybeSingle();
+
+          if (searchError) {
+            console.error('Error searching recipe:', searchError);
+            errorCount++;
+            continue;
+          }
+
+          const recipeValues = {
+            category: row.category as 'Proteína' | 'Carboidrato' | 'Legumes' | 'Salada' | 'Marinada' | 'Molho Salada',
             kcal_per_100g: row.calories ? parseFloat(row.calories) : 0,
             protein_per_100g: row.protein ? parseFloat(row.protein) : 0,
             carb_per_100g: row.carbs ? parseFloat(row.carbs) : 0,
             fat_per_100g: row.fat ? parseFloat(row.fat) : 0,
             cost_per_100g: row.cost ? parseFloat(row.cost) : 0,
-            allergens: [],
-            notes: null,
+            allergens: [] as string[],
+            notes: null as string | null,
             is_active: row.is_active === 'Sim' || row.is_active === true || row.is_active === 'TRUE'
           };
 
-          const { error } = await supabase
-            .from('recipes')
-            .insert(recipeData);
+          if (existingRecipe) {
+            const { error: updateError } = await supabase
+              .from('recipes')
+              .update(recipeValues as any)
+              .eq('id', existingRecipe.id);
 
-          if (error) {
-            console.error('Error importing recipe:', error);
-            errorCount++;
+            if (updateError) {
+              console.error('Error updating recipe:', updateError);
+              errorCount++;
+            } else {
+              updatedCount++;
+            }
           } else {
-            successCount++;
+            const insertData = {
+              name: row.name,
+              ...recipeValues
+            };
+
+            const { error: insertError } = await supabase
+              .from('recipes')
+              .insert(insertData as any);
+
+            if (insertError) {
+              console.error('Error inserting recipe:', insertError);
+              errorCount++;
+            } else {
+              insertedCount++;
+            }
           }
         } catch (error) {
           console.error('Error processing row:', error);
@@ -151,9 +183,10 @@ export default function RecipesPage() {
         }
       }
 
+      const totalSuccess = insertedCount + updatedCount;
       toast({
         title: 'Importação concluída',
-        description: `${successCount} receitas importadas com sucesso. ${errorCount > 0 ? `${errorCount} erros encontrados.` : ''}`
+        description: `${insertedCount} receitas adicionadas, ${updatedCount} atualizadas. ${errorCount > 0 ? `${errorCount} erros encontrados.` : ''}`
       });
 
       loadRecipes();

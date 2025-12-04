@@ -246,7 +246,7 @@ export interface Database {
         Update: {
           id?: string;
           name?: string;
-          category?: 'Proteína' | 'Carboidrato' | 'Legumes' | 'Salada' | 'Marinada' | 'Molho';
+          category?: 'Proteína' | 'Carboidrato' | 'Legumes' | 'Salada' | 'Marinada' | 'Molho Salada';
           allergens?: string[];
           notes?: string | null;
           kcal_per_100g?: number;
