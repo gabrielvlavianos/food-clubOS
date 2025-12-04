@@ -9,9 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ChefHat, Calendar, RefreshCw, Scale, TrendingUp } from 'lucide-react';
-import { getDay } from 'date-fns';
+import { ChefHat, Calendar, RefreshCw, Scale, TrendingUp, FileDown } from 'lucide-react';
+import { getDay, addDays, eachDayOfInterval, format } from 'date-fns';
 import type { Recipe, Customer, DeliverySchedule } from '@/types';
+import { exportToExcel, ExcelColumn } from '@/lib/excel-utils';
 
 interface ProductionItem {
   recipe: Recipe;
@@ -36,6 +37,9 @@ export default function PrepPage() {
   const [selectedMealType, setSelectedMealType] = useState<'lunch' | 'dinner'>('lunch');
   const [production, setProduction] = useState<ProductionSummary>({});
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStartDate, setExportStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [exportEndDate, setExportEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [globalSettings, setGlobalSettings] = useState({
     vegetables_amount: 100,
     salad_amount: 100,
@@ -110,6 +114,190 @@ export default function PrepPage() {
       }
     } catch (error) {
       console.error('Error loading global settings:', error);
+    }
+  }
+
+  async function exportProductionToExcel() {
+    setExporting(true);
+    try {
+      const startDate = new Date(exportStartDate + 'T00:00:00');
+      const endDate = new Date(exportEndDate + 'T23:59:59');
+
+      if (startDate > endDate) {
+        alert('Data inicial deve ser anterior à data final');
+        return;
+      }
+
+      const datesInRange = eachDayOfInterval({ start: startDate, end: endDate });
+
+      const exportData: Array<{
+        date: string;
+        recipe: string;
+        category: string;
+        baseQuantity: number;
+        productionQuantity: number;
+      }> = [];
+
+      for (const dateObj of datesInRange) {
+        const dateStr = format(dateObj, 'yyyy-MM-dd');
+        const dayOfWeek = getDay(dateObj);
+        const adjustedDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
+
+        for (const mealType of ['lunch', 'dinner'] as const) {
+          const { data: customersData } = await supabase
+            .from('customers')
+            .select(`
+              *,
+              delivery_schedules!delivery_schedules_customer_id_fkey(*)
+            `)
+            .eq('status', 'active')
+            .eq('is_active', true);
+
+          const { data: modifiedOrdersData } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('order_date', dateStr)
+            .eq('meal_type', mealType);
+
+          const modifiedOrdersMap = new Map(
+            modifiedOrdersData?.map((o: any) => [o.customer_id, o]) || []
+          );
+
+          const { data: menuData } = await supabase
+            .from('monthly_menu')
+            .select('*')
+            .eq('menu_date', dateStr)
+            .eq('meal_type', mealType)
+            .maybeSingle();
+
+          if (!menuData) continue;
+
+          const menu = menuData as any;
+          const recipeIds = [
+            menu.protein_recipe_id,
+            menu.carb_recipe_id,
+            menu.vegetable_recipe_id,
+            menu.salad_recipe_id,
+            menu.sauce_recipe_id,
+          ].filter(Boolean);
+
+          const { data: recipesData } = await supabase
+            .from('recipes')
+            .select('*')
+            .in('id', recipeIds);
+
+          const recipesMap = new Map(
+            (recipesData || []).map((r: Recipe) => [r.id, r])
+          );
+
+          const proteinRecipe = menu.protein_recipe_id ? recipesMap.get(menu.protein_recipe_id) : undefined;
+          const carbRecipe = menu.carb_recipe_id ? recipesMap.get(menu.carb_recipe_id) : undefined;
+          const vegetableRecipe = menu.vegetable_recipe_id ? recipesMap.get(menu.vegetable_recipe_id) : undefined;
+          const saladRecipe = menu.salad_recipe_id ? recipesMap.get(menu.salad_recipe_id) : undefined;
+          const sauceRecipe = menu.sauce_recipe_id ? recipesMap.get(menu.sauce_recipe_id) : undefined;
+
+          const quantities: Record<string, { recipe: Recipe; total: number; category: string }> = {};
+
+          for (const customer of customersData || []) {
+            const customerData = customer as any;
+            const modifiedOrder = modifiedOrdersMap.get(customerData.id);
+
+            if (modifiedOrder?.is_cancelled) continue;
+
+            const deliverySchedule = customerData.delivery_schedules?.find(
+              (ds: any) =>
+                ds.day_of_week === adjustedDayOfWeek &&
+                ds.meal_type === mealType &&
+                ds.is_active
+            );
+
+            if (!deliverySchedule) continue;
+
+            let calculatedQty = calculateQuantities(
+              customerData,
+              mealType,
+              proteinRecipe,
+              carbRecipe
+            );
+
+            if (modifiedOrder?.modified_protein_grams) {
+              calculatedQty.protein = modifiedOrder.modified_protein_grams;
+            }
+            if (modifiedOrder?.modified_carb_grams) {
+              calculatedQty.carb = modifiedOrder.modified_carb_grams;
+            }
+
+            if (proteinRecipe && calculatedQty.protein > 0) {
+              if (!quantities['protein']) {
+                quantities['protein'] = { recipe: proteinRecipe, total: 0, category: 'Proteína' };
+              }
+              quantities['protein'].total += calculatedQty.protein;
+            }
+
+            if (carbRecipe && calculatedQty.carb > 0) {
+              if (!quantities['carb']) {
+                quantities['carb'] = { recipe: carbRecipe, total: 0, category: 'Carboidrato' };
+              }
+              quantities['carb'].total += calculatedQty.carb;
+            }
+
+            if (vegetableRecipe) {
+              if (!quantities['vegetable']) {
+                quantities['vegetable'] = { recipe: vegetableRecipe, total: 0, category: 'Legumes' };
+              }
+              quantities['vegetable'].total += globalSettings.vegetables_amount;
+            }
+
+            if (saladRecipe) {
+              if (!quantities['salad']) {
+                quantities['salad'] = { recipe: saladRecipe, total: 0, category: 'Salada' };
+              }
+              quantities['salad'].total += globalSettings.salad_amount;
+            }
+
+            if (sauceRecipe) {
+              if (!quantities['sauce']) {
+                quantities['sauce'] = { recipe: sauceRecipe, total: 0, category: 'Molho' };
+              }
+              quantities['sauce'].total += globalSettings.salad_dressing_amount;
+            }
+          }
+
+          Object.values(quantities).forEach(({ recipe, total, category }) => {
+            const withMargin = total * (1 + MARGIN_PERCENTAGE);
+            const rounded = roundToMultipleOf100(withMargin);
+
+            exportData.push({
+              date: format(dateObj, 'dd/MM/yyyy') + ` - ${mealType === 'lunch' ? 'Almoço' : 'Jantar'}`,
+              recipe: recipe.name,
+              category: category,
+              baseQuantity: total,
+              productionQuantity: rounded,
+            });
+          });
+        }
+      }
+
+      if (exportData.length === 0) {
+        alert('Nenhum dado de produção encontrado para o período selecionado');
+        return;
+      }
+
+      const columns: ExcelColumn[] = [
+        { header: 'Data', key: 'date' },
+        { header: 'Receita', key: 'recipe' },
+        { header: 'Categoria', key: 'category' },
+        { header: 'Quantidade Base (g)', key: 'baseQuantity' },
+        { header: 'Quantidade Produzir (g)', key: 'productionQuantity' },
+      ];
+
+      const filename = `producao_${format(startDate, 'dd-MM-yyyy')}_a_${format(endDate, 'dd-MM-yyyy')}.xlsx`;
+      exportToExcel(filename, exportData, columns);
+    } catch (error) {
+      console.error('Error exporting production:', error);
+      alert('Erro ao exportar dados de produção');
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -464,6 +652,52 @@ export default function PrepPage() {
                 </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6 border-emerald-200 bg-emerald-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-emerald-900">
+              <FileDown className="h-5 w-5" />
+              Exportar Produção para Excel
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <Label htmlFor="exportStartDate" className="text-emerald-900">Data Inicial</Label>
+                <Input
+                  id="exportStartDate"
+                  type="date"
+                  value={exportStartDate}
+                  onChange={(e) => setExportStartDate(e.target.value)}
+                  className="bg-white"
+                />
+              </div>
+              <div>
+                <Label htmlFor="exportEndDate" className="text-emerald-900">Data Final</Label>
+                <Input
+                  id="exportEndDate"
+                  type="date"
+                  value={exportEndDate}
+                  onChange={(e) => setExportEndDate(e.target.value)}
+                  className="bg-white"
+                />
+              </div>
+              <div className="md:col-span-2 flex items-end">
+                <Button
+                  onClick={exportProductionToExcel}
+                  disabled={exporting}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  <FileDown className={`h-4 w-4 mr-2 ${exporting ? 'animate-bounce' : ''}`} />
+                  {exporting ? 'Exportando...' : 'Exportar para Excel'}
+                </Button>
+              </div>
+            </div>
+            <p className="text-sm text-emerald-700 mt-3">
+              Exporta todas as receitas do período selecionado com quantidades base e quantidades a produzir (com margem de 15%)
+            </p>
           </CardContent>
         </Card>
 
