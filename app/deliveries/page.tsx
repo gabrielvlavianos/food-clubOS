@@ -209,33 +209,111 @@ export default function ExpeditionPage() {
       const menu = menuData as any;
       const modifiedOrder = modifiedOrderData as any;
 
-      // Usar recipe_ids modificados se disponíveis, senão usar do menu padrão
-      const proteinRecipeId = modifiedOrder?.protein_recipe_id ?? menu.protein_recipe_id;
-      const carbRecipeId = modifiedOrder?.carb_recipe_id ?? menu.carb_recipe_id;
-      const vegetableRecipeId = modifiedOrder?.vegetable_recipe_id ?? menu.vegetable_recipe_id;
-      const saladRecipeId = modifiedOrder?.salad_recipe_id ?? menu.salad_recipe_id;
-      const sauceRecipeId = modifiedOrder?.sauce_recipe_id ?? menu.sauce_recipe_id;
+      // Buscar receitas - prioridade: modified_name > recipe_id modificado > recipe_id do menu
+      let proteinRecipe: Recipe | undefined;
+      let carbRecipe: Recipe | undefined;
+      let vegetableRecipe: Recipe | undefined;
+      let saladRecipe: Recipe | undefined;
+      let sauceRecipe: Recipe | undefined;
 
-      const recipeIds = [
-        proteinRecipeId,
-        carbRecipeId,
-        vegetableRecipeId,
-        saladRecipeId,
-        sauceRecipeId,
-      ].filter(Boolean);
+      // Proteína
+      if (modifiedOrder?.protein_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', modifiedOrder.protein_recipe_id)
+          .maybeSingle();
+        proteinRecipe = data as Recipe | undefined;
+      } else if (modifiedOrder?.modified_protein_name) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('name', modifiedOrder.modified_protein_name)
+          .maybeSingle();
+        proteinRecipe = data as Recipe | undefined;
+      } else if (menu.protein_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', menu.protein_recipe_id)
+          .maybeSingle();
+        proteinRecipe = data as Recipe | undefined;
+      }
 
-      const { data: recipesData } = await supabase
-        .from('recipes')
-        .select('*')
-        .in('id', recipeIds);
+      // Carboidrato
+      if (modifiedOrder?.carb_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', modifiedOrder.carb_recipe_id)
+          .maybeSingle();
+        carbRecipe = data as Recipe | undefined;
+      } else if (modifiedOrder?.modified_carb_name) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('name', modifiedOrder.modified_carb_name)
+          .maybeSingle();
+        carbRecipe = data as Recipe | undefined;
+      } else if (menu.carb_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', menu.carb_recipe_id)
+          .maybeSingle();
+        carbRecipe = data as Recipe | undefined;
+      }
 
-      const recipesMap = new Map((recipesData || []).map((r: any) => [r.id, r]));
+      // Legumes
+      if (modifiedOrder?.vegetable_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', modifiedOrder.vegetable_recipe_id)
+          .maybeSingle();
+        vegetableRecipe = data as Recipe | undefined;
+      } else if (menu.vegetable_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', menu.vegetable_recipe_id)
+          .maybeSingle();
+        vegetableRecipe = data as Recipe | undefined;
+      }
 
-      const proteinRecipe = proteinRecipeId ? recipesMap.get(proteinRecipeId) : undefined;
-      const carbRecipe = carbRecipeId ? recipesMap.get(carbRecipeId) : undefined;
-      const vegetableRecipe = vegetableRecipeId ? recipesMap.get(vegetableRecipeId) : undefined;
-      const saladRecipe = saladRecipeId ? recipesMap.get(saladRecipeId) : undefined;
-      const sauceRecipe = sauceRecipeId ? recipesMap.get(sauceRecipeId) : undefined;
+      // Salada
+      if (modifiedOrder?.salad_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', modifiedOrder.salad_recipe_id)
+          .maybeSingle();
+        saladRecipe = data as Recipe | undefined;
+      } else if (menu.salad_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', menu.salad_recipe_id)
+          .maybeSingle();
+        saladRecipe = data as Recipe | undefined;
+      }
+
+      // Molho
+      if (modifiedOrder?.sauce_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', modifiedOrder.sauce_recipe_id)
+          .maybeSingle();
+        sauceRecipe = data as Recipe | undefined;
+      } else if (menu.sauce_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', menu.sauce_recipe_id)
+          .maybeSingle();
+        sauceRecipe = data as Recipe | undefined;
+      }
 
       const targetProtein = mealType === 'lunch' ? Number(order.customer.lunch_protein) : Number(order.customer.dinner_protein);
       const targetCarbs = mealType === 'lunch' ? Number(order.customer.lunch_carbs) : Number(order.customer.dinner_carbs);
