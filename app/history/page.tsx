@@ -10,9 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { History, Calendar, Search, RefreshCw, Clock, MapPin } from 'lucide-react';
+import { History, Calendar, Search, RefreshCw, Clock, MapPin, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatTime } from '@/lib/format-utils';
+import * as XLSX from 'xlsx';
 
 interface OrderHistoryRecord {
   id: string;
@@ -117,6 +118,80 @@ export default function OrderHistoryPage() {
     delivered: 'Entregue',
   };
 
+  function exportToExcel() {
+    if (historyRecords.length === 0) {
+      alert('Não há registros para exportar');
+      return;
+    }
+
+    const excelData = historyRecords.map((record) => ({
+      'Nome': record.customer_name,
+      'Horário': formatTime(record.delivery_time),
+      'Horário de Solicitação': formatTime(record.pickup_time),
+      'Endereço': record.delivery_address,
+      'Proteína': record.protein_name || '-',
+      'Quantidade Proteína (g)': record.protein_quantity,
+      'Carboidrato': record.carb_name || '-',
+      'Quantidade Carboidrato (g)': record.carb_quantity,
+      'Legumes': record.vegetable_name || '-',
+      'Quantidade Legumes (g)': record.vegetable_quantity,
+      'Salada': record.salad_name || '-',
+      'Quantidade Salada (g)': record.salad_quantity,
+      'Molho': record.sauce_name || '-',
+      'Quantidade Molho (g)': record.sauce_quantity,
+      'Meta Kcal': Math.round(record.target_kcal),
+      'Meta Proteínas (g)': Math.round(record.target_protein),
+      'Meta Carboidratos (g)': Math.round(record.target_carbs),
+      'Meta Gorduras (g)': Math.round(record.target_fat),
+      'Entregue Kcal': Math.round(record.delivered_kcal),
+      'Entregue Proteínas (g)': Number(record.delivered_protein.toFixed(1)),
+      'Entregue Carboidratos (g)': Number(record.delivered_carbs.toFixed(1)),
+      'Entregue Gorduras (g)': Number(record.delivered_fat.toFixed(1)),
+      'Status Cozinha': kitchenStatusLabels[record.kitchen_status] || record.kitchen_status,
+      'Status Expedição': deliveryStatusLabels[record.delivery_status] || record.delivery_status,
+      'Data do Pedido': format(new Date(record.order_date + 'T12:00:00'), 'dd/MM/yyyy'),
+      'Turno': record.meal_type === 'lunch' ? 'Almoço' : 'Jantar',
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+    const columnWidths = [
+      { wch: 20 },
+      { wch: 12 },
+      { wch: 20 },
+      { wch: 40 },
+      { wch: 25 },
+      { wch: 22 },
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 22 },
+      { wch: 25 },
+      { wch: 22 },
+      { wch: 25 },
+      { wch: 22 },
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 15 },
+      { wch: 22 },
+      { wch: 26 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 12 },
+    ];
+    worksheet['!cols'] = columnWidths;
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Histórico de Pedidos');
+
+    const fileName = `historico_pedidos_${format(new Date(startDate), 'dd-MM-yyyy')}_a_${format(new Date(endDate), 'dd-MM-yyyy')}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
@@ -137,52 +212,62 @@ export default function OrderHistoryPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div>
-                <Label htmlFor="startDate">Data Inicial</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <Label htmlFor="startDate">Data Inicial</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="endDate">Data Final</Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="mealType">Turno</Label>
+                  <Select value={selectedMealType} onValueChange={(value: 'all' | 'lunch' | 'dinner') => setSelectedMealType(value)}>
+                    <SelectTrigger id="mealType">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="lunch">Almoço</SelectItem>
+                      <SelectItem value="dinner">Jantar</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="customerSearch">Cliente</Label>
+                  <Input
+                    id="customerSearch"
+                    type="text"
+                    placeholder="Buscar por nome..."
+                    value={customerSearch}
+                    onChange={(e) => setCustomerSearch(e.target.value)}
+                  />
+                </div>
               </div>
-              <div>
-                <Label htmlFor="endDate">Data Final</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="mealType">Turno</Label>
-                <Select value={selectedMealType} onValueChange={(value: 'all' | 'lunch' | 'dinner') => setSelectedMealType(value)}>
-                  <SelectTrigger id="mealType">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="lunch">Almoço</SelectItem>
-                    <SelectItem value="dinner">Jantar</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="customerSearch">Cliente</Label>
-                <Input
-                  id="customerSearch"
-                  type="text"
-                  placeholder="Buscar por nome..."
-                  value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
-                />
-              </div>
-              <div className="flex items-end">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Button onClick={loadHistory} disabled={loading} className="w-full">
                   <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                   Buscar
+                </Button>
+                <Button
+                  onClick={exportToExcel}
+                  disabled={historyRecords.length === 0}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar para Excel
                 </Button>
               </div>
             </div>
