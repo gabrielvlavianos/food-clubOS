@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Truck, Calendar, Clock, MapPin, Package, RefreshCw, Phone, Printer } from 'lucide-react';
+import { Truck, Calendar, Clock, MapPin, Package, RefreshCw, Phone, Printer, Save } from 'lucide-react';
 import { format, getDay } from 'date-fns';
 import type { Customer, DeliverySchedule, Recipe } from '@/types';
 import { formatPhoneNumber, formatTime } from '@/lib/format-utils';
@@ -63,6 +63,7 @@ export default function ExpeditionPage() {
   const [printData, setPrintData] = useState<PrintData | null>(null);
   const [printOrder, setPrintOrder] = useState<DeliveryOrder | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
+  const [savingHistory, setSavingHistory] = useState<string | null>(null);
   const [globalSettings, setGlobalSettings] = useState({
     vegetables_amount: 100,
     salad_amount: 100,
@@ -178,6 +179,217 @@ export default function ExpeditionPage() {
       carbs: totalCarbs,
       fat: totalFat,
     };
+  }
+
+  async function saveOrderToHistory(order: DeliveryOrder) {
+    setSavingHistory(order.customer.id);
+    try {
+      const mealType = selectedMealType;
+
+      const { data: modifiedOrderData } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('customer_id', order.customer.id)
+        .eq('order_date', selectedDate)
+        .eq('meal_type', mealType)
+        .maybeSingle();
+
+      const { data: menuData } = await supabase
+        .from('monthly_menu')
+        .select('protein_recipe_id, carb_recipe_id, vegetable_recipe_id, salad_recipe_id, sauce_recipe_id')
+        .eq('menu_date', selectedDate)
+        .eq('meal_type', mealType)
+        .maybeSingle();
+
+      if (!menuData) {
+        alert('Menu não encontrado para esta data');
+        return;
+      }
+
+      const menu = menuData as any;
+      const modifiedOrder = modifiedOrderData as any;
+
+      let proteinRecipe: Recipe | undefined;
+      let carbRecipe: Recipe | undefined;
+      let vegetableRecipe: Recipe | undefined;
+      let saladRecipe: Recipe | undefined;
+      let sauceRecipe: Recipe | undefined;
+
+      if (modifiedOrder?.protein_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', modifiedOrder.protein_recipe_id)
+          .maybeSingle();
+        proteinRecipe = data as Recipe | undefined;
+      } else if (modifiedOrder?.modified_protein_name) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('name', modifiedOrder.modified_protein_name)
+          .maybeSingle();
+        proteinRecipe = data as Recipe | undefined;
+      } else if (menu.protein_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', menu.protein_recipe_id)
+          .maybeSingle();
+        proteinRecipe = data as Recipe | undefined;
+      }
+
+      if (modifiedOrder?.carb_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', modifiedOrder.carb_recipe_id)
+          .maybeSingle();
+        carbRecipe = data as Recipe | undefined;
+      } else if (modifiedOrder?.modified_carb_name) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('name', modifiedOrder.modified_carb_name)
+          .maybeSingle();
+        carbRecipe = data as Recipe | undefined;
+      } else if (menu.carb_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', menu.carb_recipe_id)
+          .maybeSingle();
+        carbRecipe = data as Recipe | undefined;
+      }
+
+      if (modifiedOrder?.vegetable_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', modifiedOrder.vegetable_recipe_id)
+          .maybeSingle();
+        vegetableRecipe = data as Recipe | undefined;
+      } else if (menu.vegetable_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', menu.vegetable_recipe_id)
+          .maybeSingle();
+        vegetableRecipe = data as Recipe | undefined;
+      }
+
+      if (modifiedOrder?.salad_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', modifiedOrder.salad_recipe_id)
+          .maybeSingle();
+        saladRecipe = data as Recipe | undefined;
+      } else if (menu.salad_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', menu.salad_recipe_id)
+          .maybeSingle();
+        saladRecipe = data as Recipe | undefined;
+      }
+
+      if (modifiedOrder?.sauce_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', modifiedOrder.sauce_recipe_id)
+          .maybeSingle();
+        sauceRecipe = data as Recipe | undefined;
+      } else if (menu.sauce_recipe_id) {
+        const { data } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', menu.sauce_recipe_id)
+          .maybeSingle();
+        sauceRecipe = data as Recipe | undefined;
+      }
+
+      const targetProtein = mealType === 'lunch' ? Number(order.customer.lunch_protein) : Number(order.customer.dinner_protein);
+      const targetCarbs = mealType === 'lunch' ? Number(order.customer.lunch_carbs) : Number(order.customer.dinner_carbs);
+      const targetFat = mealType === 'lunch' ? Number(order.customer.lunch_fat) : Number(order.customer.dinner_fat);
+
+      let quantities;
+
+      if (modifiedOrder?.protein_quantity !== null && modifiedOrder?.protein_quantity !== undefined &&
+          modifiedOrder?.carb_quantity !== null && modifiedOrder?.carb_quantity !== undefined) {
+        quantities = {
+          protein: modifiedOrder.protein_quantity,
+          carb: modifiedOrder.carb_quantity,
+          vegetable: modifiedOrder?.vegetable_quantity ?? globalSettings.vegetables_amount,
+          salad: modifiedOrder?.salad_quantity ?? globalSettings.salad_amount,
+          sauce: modifiedOrder?.sauce_quantity ?? globalSettings.salad_dressing_amount,
+        };
+      } else {
+        quantities = calculateOrderQuantities(
+          order.customer,
+          mealType,
+          globalSettings,
+          proteinRecipe,
+          carbRecipe,
+          vegetableRecipe,
+          saladRecipe
+        );
+      }
+
+      const actualMacros = calculateActualMacros(
+        quantities,
+        proteinRecipe,
+        carbRecipe,
+        vegetableRecipe,
+        saladRecipe
+      );
+
+      const targetKcal = (targetProtein * 4) + (targetCarbs * 4) + (targetFat * 9);
+
+      const { error } = await supabase
+        .from('order_history')
+        .insert({
+          customer_id: order.customer.id,
+          customer_name: order.customer.name,
+          order_date: selectedDate,
+          meal_type: mealType,
+          delivery_time: order.deliverySchedule.delivery_time,
+          pickup_time: order.pickupTime,
+          delivery_address: order.deliverySchedule.delivery_address,
+          protein_name: proteinRecipe?.name || null,
+          protein_quantity: quantities.protein,
+          carb_name: carbRecipe?.name || null,
+          carb_quantity: quantities.carb,
+          vegetable_name: vegetableRecipe?.name || null,
+          vegetable_quantity: quantities.vegetable,
+          salad_name: saladRecipe?.name || null,
+          salad_quantity: quantities.salad,
+          sauce_name: sauceRecipe?.name || null,
+          sauce_quantity: quantities.sauce,
+          target_kcal: targetKcal,
+          target_protein: targetProtein,
+          target_carbs: targetCarbs,
+          target_fat: targetFat,
+          delivered_kcal: actualMacros.kcal,
+          delivered_protein: actualMacros.protein,
+          delivered_carbs: actualMacros.carbs,
+          delivered_fat: actualMacros.fat,
+          kitchen_status: order.kitchenStatus,
+          delivery_status: order.deliveryStatus,
+        });
+
+      if (error) {
+        console.error('Error saving to history:', error);
+        alert('Erro ao salvar no histórico');
+      } else {
+        alert('Pedido salvo no histórico com sucesso!');
+      }
+    } catch (error) {
+      console.error('Error saving to history:', error);
+      alert('Erro ao salvar no histórico');
+    } finally {
+      setSavingHistory(null);
+    }
   }
 
   async function prepareOrderForPrint(order: DeliveryOrder) {
@@ -747,7 +959,15 @@ export default function ExpeditionPage() {
                         )}
                       </div>
 
-                      <div>
+                      <div className="space-y-2">
+                        <Button
+                          onClick={() => saveOrderToHistory(order)}
+                          className="w-full bg-green-600 hover:bg-green-700"
+                          disabled={order.isCancelled || savingHistory === order.customer.id}
+                        >
+                          <Save className="h-4 w-4 mr-2" />
+                          {savingHistory === order.customer.id ? 'Salvando...' : 'Salvar no Histórico'}
+                        </Button>
                         <Button
                           onClick={() => prepareOrderForPrint(order)}
                           className="w-full bg-orange-500 hover:bg-orange-600"
