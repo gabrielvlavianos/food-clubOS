@@ -118,13 +118,15 @@ export default function OrderHistoryPage() {
     delivered: 'Entregue',
   };
 
-  function exportToExcel() {
-    if (historyRecords.length === 0) {
-      alert('Não há registros para exportar');
+  function exportToExcel(mealType: 'lunch' | 'dinner') {
+    const filteredRecords = historyRecords.filter(record => record.meal_type === mealType);
+
+    if (filteredRecords.length === 0) {
+      alert(`Não há registros de ${mealType === 'lunch' ? 'Almoço' : 'Jantar'} para exportar`);
       return;
     }
 
-    const excelData = historyRecords.map((record) => ({
+    const excelData = filteredRecords.map((record) => ({
       'Nome': record.customer_name,
       'Horário': formatTime(record.delivery_time),
       'Horário de Solicitação': formatTime(record.pickup_time),
@@ -151,6 +153,7 @@ export default function OrderHistoryPage() {
       'Status Expedição': deliveryStatusLabels[record.delivery_status] || record.delivery_status,
       'Data do Pedido': format(new Date(record.order_date + 'T12:00:00'), 'dd/MM/yyyy'),
       'Turno': record.meal_type === 'lunch' ? 'Almoço' : 'Jantar',
+      'Data de Atualização': format(new Date(record.created_at), 'dd/MM/yyyy HH:mm'),
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(excelData);
@@ -182,13 +185,15 @@ export default function OrderHistoryPage() {
       { wch: 18 },
       { wch: 16 },
       { wch: 12 },
+      { wch: 20 },
     ];
     worksheet['!cols'] = columnWidths;
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Histórico de Pedidos');
 
-    const fileName = `historico_pedidos_${format(new Date(startDate), 'dd-MM-yyyy')}_a_${format(new Date(endDate), 'dd-MM-yyyy')}.xlsx`;
+    const turnoLabel = mealType === 'lunch' ? 'Almoco' : 'Jantar';
+    const fileName = `historico_${turnoLabel}_${format(new Date(startDate), 'dd-MM-yyyy')}_a_${format(new Date(endDate), 'dd-MM-yyyy')}.xlsx`;
     XLSX.writeFile(workbook, fileName);
   }
 
@@ -256,18 +261,26 @@ export default function OrderHistoryPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Button onClick={loadHistory} disabled={loading} className="w-full">
                   <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                   Buscar
                 </Button>
                 <Button
-                  onClick={exportToExcel}
-                  disabled={historyRecords.length === 0}
+                  onClick={() => exportToExcel('lunch')}
+                  disabled={historyRecords.length === 0 || !historyRecords.some(r => r.meal_type === 'lunch')}
                   className="w-full bg-green-600 hover:bg-green-700"
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  Exportar para Excel
+                  Exportar Almoço
+                </Button>
+                <Button
+                  onClick={() => exportToExcel('dinner')}
+                  disabled={historyRecords.length === 0 || !historyRecords.some(r => r.meal_type === 'dinner')}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar Jantar
                 </Button>
               </div>
             </div>
