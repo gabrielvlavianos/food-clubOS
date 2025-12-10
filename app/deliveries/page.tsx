@@ -188,11 +188,11 @@ export default function ExpeditionPage() {
     setShowSaveAllDialog(false);
 
     try {
-      const activeOrders = orders.filter(order => !order.isCancelled);
+      // Salvar TODOS os pedidos, incluindo os cancelados
       let successCount = 0;
       let errorCount = 0;
 
-      for (const order of activeOrders) {
+      for (const order of orders) {
         try {
           await saveOrderToHistoryInternal(order);
           successCount++;
@@ -203,7 +203,7 @@ export default function ExpeditionPage() {
       }
 
       if (errorCount === 0) {
-        alert(`Sucesso! ${successCount} ${successCount === 1 ? 'pedido salvo' : 'pedidos salvos'} no histórico.`);
+        alert(`Sucesso! ${successCount} ${successCount === 1 ? 'pedido salvo' : 'pedidos salvos'} no histórico (incluindo cancelados).`);
       } else {
         alert(`Concluído com ${successCount} sucesso(s) e ${errorCount} erro(s). Verifique o console para detalhes.`);
       }
@@ -893,7 +893,7 @@ export default function ExpeditionPage() {
               <Button
                 onClick={() => setShowSaveAllDialog(true)}
                 className="bg-green-600 hover:bg-green-700"
-                disabled={savingAllHistory || orders.filter(o => !o.isCancelled).length === 0}
+                disabled={savingAllHistory || orders.length === 0}
               >
                 <Save className="h-4 w-4 mr-2" />
                 {savingAllHistory ? 'Salvando...' : 'Salvar Todos no Histórico'}
@@ -1020,7 +1020,7 @@ export default function ExpeditionPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar operação</AlertDialogTitle>
               <AlertDialogDescription>
-                Você tem certeza que deseja salvar todos os {orders.filter(o => !o.isCancelled).length} pedidos ativos deste turno no histórico?
+                Você tem certeza que deseja salvar todos os {orders.length} pedidos deste turno no histórico (incluindo cancelados)?
                 <br /><br />
                 <strong>Data:</strong> {format(new Date(selectedDate), 'dd/MM/yyyy')}
                 <br />
