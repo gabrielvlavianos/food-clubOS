@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Truck, Calendar, Clock, MapPin, Package, RefreshCw, Phone, Printer, Save } from 'lucide-react';
 import { format, getDay } from 'date-fns';
 import type { Customer, DeliverySchedule, Recipe } from '@/types';
@@ -63,7 +64,8 @@ export default function ExpeditionPage() {
   const [printData, setPrintData] = useState<PrintData | null>(null);
   const [printOrder, setPrintOrder] = useState<DeliveryOrder | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
-  const [savingHistory, setSavingHistory] = useState<string | null>(null);
+  const [savingAllHistory, setSavingAllHistory] = useState(false);
+  const [showSaveAllDialog, setShowSaveAllDialog] = useState(false);
   const [globalSettings, setGlobalSettings] = useState({
     vegetables_amount: 100,
     salad_amount: 100,
@@ -181,8 +183,39 @@ export default function ExpeditionPage() {
     };
   }
 
-  async function saveOrderToHistory(order: DeliveryOrder) {
-    setSavingHistory(order.customer.id);
+  async function saveAllOrdersToHistory() {
+    setSavingAllHistory(true);
+    setShowSaveAllDialog(false);
+
+    try {
+      const activeOrders = orders.filter(order => !order.isCancelled);
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const order of activeOrders) {
+        try {
+          await saveOrderToHistoryInternal(order);
+          successCount++;
+        } catch (error) {
+          console.error(`Error saving order for ${order.customer.name}:`, error);
+          errorCount++;
+        }
+      }
+
+      if (errorCount === 0) {
+        alert(`Sucesso! ${successCount} ${successCount === 1 ? 'pedido salvo' : 'pedidos salvos'} no histórico.`);
+      } else {
+        alert(`Concluído com ${successCount} sucesso(s) e ${errorCount} erro(s). Verifique o console para detalhes.`);
+      }
+    } catch (error) {
+      console.error('Error in bulk save:', error);
+      alert('Erro ao salvar pedidos no histórico');
+    } finally {
+      setSavingAllHistory(false);
+    }
+  }
+
+  async function saveOrderToHistoryInternal(order: DeliveryOrder) {
     try {
       const mealType = selectedMealType;
 
@@ -379,16 +412,10 @@ export default function ExpeditionPage() {
         });
 
       if (error) {
-        console.error('Error saving to history:', error);
-        alert('Erro ao salvar no histórico');
-      } else {
-        alert('Pedido salvo no histórico com sucesso!');
+        throw error;
       }
     } catch (error) {
-      console.error('Error saving to history:', error);
-      alert('Erro ao salvar no histórico');
-    } finally {
-      setSavingHistory(null);
+      throw error;
     }
   }
 
@@ -853,14 +880,24 @@ export default function ExpeditionPage() {
           </Card>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">
-                {orders.length} {orders.length === 1 ? 'Entrega' : 'Entregas'}
-              </h2>
-              <Badge variant="outline" className="text-sm">
-                <Clock className="h-3 w-3 mr-1" />
-                {format(new Date(selectedDate), 'dd/MM/yyyy')} - {selectedMealType === 'lunch' ? 'Almoço' : 'Jantar'}
-              </Badge>
+            <div className="flex items-center justify-between mb-4 gap-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {orders.length} {orders.length === 1 ? 'Entrega' : 'Entregas'}
+                </h2>
+                <Badge variant="outline" className="text-sm">
+                  <Clock className="h-3 w-3 mr-1" />
+                  {format(new Date(selectedDate), 'dd/MM/yyyy')} - {selectedMealType === 'lunch' ? 'Almoço' : 'Jantar'}
+                </Badge>
+              </div>
+              <Button
+                onClick={() => setShowSaveAllDialog(true)}
+                className="bg-green-600 hover:bg-green-700"
+                disabled={savingAllHistory || orders.filter(o => !o.isCancelled).length === 0}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {savingAllHistory ? 'Salvando...' : 'Salvar Todos no Histórico'}
+              </Button>
             </div>
 
             {orders.map((order, index) => (
@@ -961,14 +998,6 @@ export default function ExpeditionPage() {
 
                       <div className="space-y-2">
                         <Button
-                          onClick={() => saveOrderToHistory(order)}
-                          className="w-full bg-green-600 hover:bg-green-700"
-                          disabled={order.isCancelled || savingHistory === order.customer.id}
-                        >
-                          <Save className="h-4 w-4 mr-2" />
-                          {savingHistory === order.customer.id ? 'Salvando...' : 'Salvar no Histórico'}
-                        </Button>
-                        <Button
                           onClick={() => prepareOrderForPrint(order)}
                           className="w-full bg-orange-500 hover:bg-orange-600"
                           disabled={order.isCancelled}
@@ -984,6 +1013,28 @@ export default function ExpeditionPage() {
             ))}
           </div>
         )}
+
+        {/* Confirmation Dialog */}
+        <AlertDialog open={showSaveAllDialog} onOpenChange={setShowSaveAllDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar operação</AlertDialogTitle>
+              <AlertDialogDescription>
+                Você tem certeza que deseja salvar todos os {orders.filter(o => !o.isCancelled).length} pedidos ativos deste turno no histórico?
+                <br /><br />
+                <strong>Data:</strong> {format(new Date(selectedDate), 'dd/MM/yyyy')}
+                <br />
+                <strong>Turno:</strong> {selectedMealType === 'lunch' ? 'Almoço' : 'Jantar'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={saveAllOrdersToHistory} className="bg-green-600 hover:bg-green-700">
+                Confirmar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Hidden print component */}
         {printData && printOrder && (

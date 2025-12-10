@@ -118,15 +118,13 @@ export default function OrderHistoryPage() {
     delivered: 'Entregue',
   };
 
-  function exportToExcel(mealType: 'lunch' | 'dinner') {
-    const filteredRecords = historyRecords.filter(record => record.meal_type === mealType);
-
-    if (filteredRecords.length === 0) {
-      alert(`Não há registros de ${mealType === 'lunch' ? 'Almoço' : 'Jantar'} para exportar`);
+  function exportAllToExcel() {
+    if (historyRecords.length === 0) {
+      alert('Não há registros para exportar');
       return;
     }
 
-    const excelData = filteredRecords.map((record) => ({
+    const excelData = historyRecords.map((record) => ({
       'Nome': record.customer_name,
       'Horário': formatTime(record.delivery_time),
       'Horário de Solicitação': formatTime(record.pickup_time),
@@ -192,8 +190,7 @@ export default function OrderHistoryPage() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Histórico de Pedidos');
 
-    const turnoLabel = mealType === 'lunch' ? 'Almoco' : 'Jantar';
-    const fileName = `historico_${turnoLabel}_${format(new Date(startDate), 'dd-MM-yyyy')}_a_${format(new Date(endDate), 'dd-MM-yyyy')}.xlsx`;
+    const fileName = `historico_pedidos_${format(new Date(startDate), 'dd-MM-yyyy')}_a_${format(new Date(endDate), 'dd-MM-yyyy')}.xlsx`;
     XLSX.writeFile(workbook, fileName);
   }
 
@@ -261,26 +258,18 @@ export default function OrderHistoryPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Button onClick={loadHistory} disabled={loading} className="w-full">
                   <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                   Buscar
                 </Button>
                 <Button
-                  onClick={() => exportToExcel('lunch')}
-                  disabled={historyRecords.length === 0 || !historyRecords.some(r => r.meal_type === 'lunch')}
+                  onClick={() => exportAllToExcel()}
+                  disabled={historyRecords.length === 0}
                   className="w-full bg-green-600 hover:bg-green-700"
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  Exportar Almoço
-                </Button>
-                <Button
-                  onClick={() => exportToExcel('dinner')}
-                  disabled={historyRecords.length === 0 || !historyRecords.some(r => r.meal_type === 'dinner')}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Exportar Jantar
+                  Exportar para Excel
                 </Button>
               </div>
             </div>
