@@ -10,7 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { History, Calendar, Search, RefreshCw, Clock, MapPin, Download } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { History, Calendar, Search, RefreshCw, Clock, MapPin, Download, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatTime } from '@/lib/format-utils';
 import * as XLSX from 'xlsx';
@@ -55,6 +57,9 @@ export default function OrderHistoryPage() {
   const [selectedMealType, setSelectedMealType] = useState<'all' | 'lunch' | 'dinner'>('all');
   const [customerSearch, setCustomerSearch] = useState('');
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set());
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const thirtyDaysAgo = new Date();
@@ -117,6 +122,50 @@ export default function OrderHistoryPage() {
     in_route: 'Em rota',
     delivered: 'Entregue',
   };
+
+  function toggleSelectAll() {
+    if (selectedRecords.size === historyRecords.length) {
+      setSelectedRecords(new Set());
+    } else {
+      setSelectedRecords(new Set(historyRecords.map(r => r.id)));
+    }
+  }
+
+  function toggleSelectRecord(recordId: string) {
+    const newSelected = new Set(selectedRecords);
+    if (newSelected.has(recordId)) {
+      newSelected.delete(recordId);
+    } else {
+      newSelected.add(recordId);
+    }
+    setSelectedRecords(newSelected);
+  }
+
+  async function deleteSelectedRecords() {
+    setDeleting(true);
+    setShowDeleteDialog(false);
+
+    try {
+      const idsToDelete = Array.from(selectedRecords);
+
+      const { error } = await supabase
+        .from('order_history')
+        .delete()
+        .in('id', idsToDelete);
+
+      if (error) throw error;
+
+      alert(`${idsToDelete.length} ${idsToDelete.length === 1 ? 'pedido excluído' : 'pedidos excluídos'} com sucesso!`);
+
+      setSelectedRecords(new Set());
+      await loadHistory();
+    } catch (error) {
+      console.error('Error deleting records:', error);
+      alert('Erro ao excluir pedidos do histórico');
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   function exportAllToExcel() {
     if (historyRecords.length === 0) {
@@ -258,7 +307,7 @@ export default function OrderHistoryPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Button onClick={loadHistory} disabled={loading} className="w-full">
                   <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                   Buscar
@@ -270,6 +319,14 @@ export default function OrderHistoryPage() {
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Exportar para Excel
+                </Button>
+                <Button
+                  onClick={() => setShowDeleteDialog(true)}
+                  disabled={selectedRecords.size === 0 || deleting}
+                  className="w-full bg-red-600 hover:bg-red-700"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {deleting ? 'Excluindo...' : `Excluir Selecionados (${selectedRecords.size})`}
                 </Button>
               </div>
             </div>
@@ -309,6 +366,12 @@ export default function OrderHistoryPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[50px]">
+                        <Checkbox
+                          checked={selectedRecords.size === historyRecords.length && historyRecords.length > 0}
+                          onCheckedChange={toggleSelectAll}
+                        />
+                      </TableHead>
                       <TableHead>Data</TableHead>
                       <TableHead>Cliente</TableHead>
                       <TableHead>Turno</TableHead>
@@ -324,6 +387,12 @@ export default function OrderHistoryPage() {
                     {historyRecords.map((record) => (
                       <>
                         <TableRow key={record.id} className="hover:bg-gray-50">
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedRecords.has(record.id)}
+                              onCheckedChange={() => toggleSelectRecord(record.id)}
+                            />
+                          </TableCell>
                           <TableCell className="font-medium">
                             {format(new Date(record.order_date + 'T12:00:00'), 'dd/MM/yyyy')}
                           </TableCell>
@@ -368,7 +437,7 @@ export default function OrderHistoryPage() {
                         </TableRow>
                         {expandedRow === record.id && (
                           <TableRow>
-                            <TableCell colSpan={9} className="bg-gray-50">
+                            <TableCell colSpan={10} className="bg-gray-50">
                               <div className="p-4 space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div>
@@ -441,6 +510,26 @@ export default function OrderHistoryPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Você tem certeza que deseja excluir {selectedRecords.size} {selectedRecords.size === 1 ? 'pedido' : 'pedidos'} do histórico?
+                <br /><br />
+                <strong className="text-red-600">Esta ação não pode ser desfeita!</strong>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={deleteSelectedRecords} className="bg-red-600 hover:bg-red-700">
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );
