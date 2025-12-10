@@ -891,7 +891,7 @@ export default function ExpeditionPage() {
                 </h2>
                 <Badge variant="outline" className="text-sm">
                   <Clock className="h-3 w-3 mr-1" />
-                  {format(new Date(selectedDate), 'dd/MM/yyyy')} - {selectedMealType === 'lunch' ? 'Almoço' : 'Jantar'}
+                  {format(new Date(selectedDate + 'T12:00:00'), 'dd/MM/yyyy')} - {selectedMealType === 'lunch' ? 'Almoço' : 'Jantar'}
                 </Badge>
               </div>
               <Button
@@ -1026,7 +1026,7 @@ export default function ExpeditionPage() {
               <AlertDialogDescription>
                 Você tem certeza que deseja salvar todos os {orders.length} pedidos deste turno no histórico (incluindo cancelados)?
                 <br /><br />
-                <strong>Data:</strong> {format(new Date(selectedDate), 'dd/MM/yyyy')}
+                <strong>Data:</strong> {format(new Date(selectedDate + 'T12:00:00'), 'dd/MM/yyyy')}
                 <br />
                 <strong>Turno:</strong> {selectedMealType === 'lunch' ? 'Almoço' : 'Jantar'}
               </AlertDialogDescription>
