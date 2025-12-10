@@ -379,6 +379,10 @@ export default function ExpeditionPage() {
 
       const targetKcal = (targetProtein * 4) + (targetCarbs * 4) + (targetFat * 9);
 
+      // Se o pedido está cancelado, salvar com status 'cancelled'
+      const finalKitchenStatus = order.isCancelled ? 'cancelled' : order.kitchenStatus;
+      const finalDeliveryStatus = order.isCancelled ? 'cancelled' : order.deliveryStatus;
+
       const { error } = await supabase
         .from('order_history')
         .insert({
@@ -407,8 +411,8 @@ export default function ExpeditionPage() {
           delivered_protein: actualMacros.protein,
           delivered_carbs: actualMacros.carbs,
           delivered_fat: actualMacros.fat,
-          kitchen_status: order.kitchenStatus,
-          delivery_status: order.deliveryStatus,
+          kitchen_status: finalKitchenStatus,
+          delivery_status: finalDeliveryStatus,
         });
 
       if (error) {

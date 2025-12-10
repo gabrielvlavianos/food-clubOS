@@ -114,6 +114,7 @@ export default function OrderHistoryPage() {
     pending: 'Não iniciado',
     preparing: 'Em preparo',
     ready: 'Finalizado',
+    cancelled: 'Cancelado',
   };
 
   const deliveryStatusLabels: Record<string, string> = {
@@ -121,6 +122,7 @@ export default function OrderHistoryPage() {
     driver_requested: 'Motoboy solicitado',
     in_route: 'Em rota',
     delivered: 'Entregue',
+    cancelled: 'Cancelado',
   };
 
   function toggleSelectAll() {
@@ -384,9 +386,11 @@ export default function OrderHistoryPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {historyRecords.map((record) => (
+                    {historyRecords.map((record) => {
+                      const isCancelled = record.kitchen_status === 'cancelled' || record.delivery_status === 'cancelled';
+                      return (
                       <>
-                        <TableRow key={record.id} className="hover:bg-gray-50">
+                        <TableRow key={record.id} className={`hover:bg-gray-50 ${isCancelled ? 'bg-red-50/50' : ''}`}>
                           <TableCell>
                             <Checkbox
                               checked={selectedRecords.has(record.id)}
@@ -396,7 +400,12 @@ export default function OrderHistoryPage() {
                           <TableCell className="font-medium">
                             {format(new Date(record.order_date + 'T12:00:00'), 'dd/MM/yyyy')}
                           </TableCell>
-                          <TableCell className="font-semibold">{record.customer_name}</TableCell>
+                          <TableCell className="font-semibold">
+                            {record.customer_name}
+                            {isCancelled && (
+                              <Badge variant="destructive" className="ml-2 bg-red-500 text-xs">CANCELADO</Badge>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <Badge variant={record.meal_type === 'lunch' ? 'default' : 'secondary'}>
                               {record.meal_type === 'lunch' ? 'Almoço' : 'Jantar'}
@@ -416,12 +425,18 @@ export default function OrderHistoryPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="text-xs">
+                            <Badge
+                              variant="outline"
+                              className={`text-xs ${isCancelled ? 'bg-red-100 text-red-800 border-red-300' : ''}`}
+                            >
                               {kitchenStatusLabels[record.kitchen_status] || record.kitchen_status}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="text-xs">
+                            <Badge
+                              variant="outline"
+                              className={`text-xs ${isCancelled ? 'bg-red-100 text-red-800 border-red-300' : ''}`}
+                            >
                               {deliveryStatusLabels[record.delivery_status] || record.delivery_status}
                             </Badge>
                           </TableCell>
@@ -503,7 +518,8 @@ export default function OrderHistoryPage() {
                           </TableRow>
                         )}
                       </>
-                    ))}
+                    );
+                    })}
                   </TableBody>
                 </Table>
               </div>
