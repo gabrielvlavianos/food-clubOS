@@ -164,7 +164,8 @@ export function EditCustomerDialog({
         const { data: schedules } = await supabase
           .from('delivery_schedules')
           .select('*')
-          .eq('customer_id', customer.id);
+          .eq('customer_id', customer.id)
+          .eq('is_active', true);
 
         if (schedules) {
           const dayNumberToKey: Record<number, string> = {
@@ -378,6 +379,14 @@ export function EditCustomerDialog({
         const hasData = schedule.time && schedule.address;
 
         if (hasData) {
+          await (supabase as any)
+            .from('delivery_schedules')
+            .update({ is_active: false })
+            .eq('customer_id', customer.id)
+            .eq('day_of_week', dayOfWeek)
+            .eq('meal_type', meal)
+            .eq('is_active', true);
+
           const scheduleData = {
             customer_id: customer.id,
             day_of_week: dayOfWeek,
