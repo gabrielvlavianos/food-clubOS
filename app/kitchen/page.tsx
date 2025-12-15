@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ChefHat, Calendar, Clock, MapPin, Package, RefreshCw } from 'lucide-react';
+import { ChefHat, Calendar, Clock, MapPin, Package, RefreshCw, AlertTriangle } from 'lucide-react';
 import { format, getDay } from 'date-fns';
 import type { Recipe, Customer, DeliverySchedule } from '@/types';
 import { formatTime } from '@/lib/format-utils';
@@ -35,6 +35,8 @@ interface KitchenOrder {
   };
   status: 'pending' | 'preparing' | 'ready';
   isCancelled?: boolean;
+  hasModifiedProtein?: boolean;
+  hasModifiedCarb?: boolean;
 }
 
 export default function KitchenDashboardPage() {
@@ -236,6 +238,8 @@ export default function KitchenDashboardPage() {
           };
 
           const customMenuRecipes: any = { ...menuRecipes };
+          let hasModifiedProtein = false;
+          let hasModifiedCarb = false;
 
           if (modifiedOrder.protein_recipe_id) {
             const { data: customProtein } = await supabase
@@ -243,14 +247,20 @@ export default function KitchenDashboardPage() {
               .select('*')
               .eq('id', modifiedOrder.protein_recipe_id)
               .maybeSingle();
-            if (customProtein) customMenuRecipes.protein = customProtein;
+            if (customProtein) {
+              customMenuRecipes.protein = customProtein;
+              hasModifiedProtein = menuRecipes.protein?.id !== customProtein.id;
+            }
           } else if (modifiedOrder.modified_protein_name) {
             const { data: customProtein } = await supabase
               .from('recipes')
               .select('*')
               .eq('name', modifiedOrder.modified_protein_name)
               .maybeSingle();
-            if (customProtein) customMenuRecipes.protein = customProtein;
+            if (customProtein) {
+              customMenuRecipes.protein = customProtein;
+              hasModifiedProtein = menuRecipes.protein?.id !== customProtein.id;
+            }
           }
 
           if (modifiedOrder.carb_recipe_id) {
@@ -259,14 +269,20 @@ export default function KitchenDashboardPage() {
               .select('*')
               .eq('id', modifiedOrder.carb_recipe_id)
               .maybeSingle();
-            if (customCarb) customMenuRecipes.carb = customCarb;
+            if (customCarb) {
+              customMenuRecipes.carb = customCarb;
+              hasModifiedCarb = menuRecipes.carb?.id !== customCarb.id;
+            }
           } else if (modifiedOrder.modified_carb_name) {
             const { data: customCarb } = await supabase
               .from('recipes')
               .select('*')
               .eq('name', modifiedOrder.modified_carb_name)
               .maybeSingle();
-            if (customCarb) customMenuRecipes.carb = customCarb;
+            if (customCarb) {
+              customMenuRecipes.carb = customCarb;
+              hasModifiedCarb = menuRecipes.carb?.id !== customCarb.id;
+            }
           }
 
           const quantities = calculateOrderQuantities(
@@ -290,6 +306,8 @@ export default function KitchenDashboardPage() {
             quantities,
             status: orderStatus?.kitchen_status || 'pending',
             isCancelled,
+            hasModifiedProtein,
+            hasModifiedCarb,
           });
         } else {
           const deliverySchedule = customerData.delivery_schedules?.find(
@@ -542,23 +560,71 @@ export default function KitchenDashboardPage() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <h3 className="font-semibold text-sm text-gray-700 mb-2">Quantidades</h3>
-                      {order.menuRecipes.protein && order.quantities.protein > 0 ? (
-                        <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-md p-2">
+
+                      {/* Alerta de modificação */}
+                      {(order.hasModifiedProtein || order.hasModifiedCarb) && (
+                        <div className="flex items-center gap-2 bg-red-600 text-white border-4 border-red-700 rounded-lg p-3 mb-3 animate-pulse">
+                          <AlertTriangle className="h-6 w-6 flex-shrink-0" />
                           <div className="flex-1">
-                            <span className="text-xs font-semibold text-red-900">Proteína: </span>
-                            <span className="text-xs text-red-700">{order.menuRecipes.protein.name}</span>
+                            <p className="font-bold text-base">⚠️ ATENÇÃO: PEDIDO MODIFICADO!</p>
+                            <p className="text-xs mt-1">
+                              {order.hasModifiedProtein && order.hasModifiedCarb
+                                ? 'Proteína e Carboidrato foram alterados'
+                                : order.hasModifiedProtein
+                                ? 'Proteína foi alterada pelo cliente'
+                                : 'Carboidrato foi alterado pelo cliente'}
+                            </p>
                           </div>
-                          <span className="text-base font-bold text-red-900 ml-2">{order.quantities.protein}g</span>
+                        </div>
+                      )}
+
+                      {order.menuRecipes.protein && order.quantities.protein > 0 ? (
+                        <div className={`flex items-center justify-between rounded-md p-2 ${
+                          order.hasModifiedProtein
+                            ? 'bg-red-200 border-4 border-red-600 shadow-lg'
+                            : 'bg-red-50 border border-red-200'
+                        }`}>
+                          <div className="flex items-center gap-2 flex-1">
+                            {order.hasModifiedProtein && (
+                              <AlertTriangle className="h-5 w-5 text-red-700 flex-shrink-0" />
+                            )}
+                            <div>
+                              <span className={`text-xs font-semibold ${order.hasModifiedProtein ? 'text-red-900' : 'text-red-900'}`}>
+                                Proteína:
+                              </span>
+                              <span className={`text-xs ml-1 ${order.hasModifiedProtein ? 'font-bold text-red-900' : 'text-red-700'}`}>
+                                {order.menuRecipes.protein.name}
+                              </span>
+                            </div>
+                          </div>
+                          <span className={`text-base font-bold ml-2 ${order.hasModifiedProtein ? 'text-red-900' : 'text-red-900'}`}>
+                            {order.quantities.protein}g
+                          </span>
                         </div>
                       ) : null}
 
                       {order.menuRecipes.carb && order.quantities.carb > 0 ? (
-                        <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-md p-2">
-                          <div className="flex-1">
-                            <span className="text-xs font-semibold text-amber-900">Carboidrato: </span>
-                            <span className="text-xs text-amber-700">{order.menuRecipes.carb.name}</span>
+                        <div className={`flex items-center justify-between rounded-md p-2 ${
+                          order.hasModifiedCarb
+                            ? 'bg-amber-200 border-4 border-amber-600 shadow-lg'
+                            : 'bg-amber-50 border border-amber-200'
+                        }`}>
+                          <div className="flex items-center gap-2 flex-1">
+                            {order.hasModifiedCarb && (
+                              <AlertTriangle className="h-5 w-5 text-amber-700 flex-shrink-0" />
+                            )}
+                            <div>
+                              <span className={`text-xs font-semibold ${order.hasModifiedCarb ? 'text-amber-900' : 'text-amber-900'}`}>
+                                Carboidrato:
+                              </span>
+                              <span className={`text-xs ml-1 ${order.hasModifiedCarb ? 'font-bold text-amber-900' : 'text-amber-700'}`}>
+                                {order.menuRecipes.carb.name}
+                              </span>
+                            </div>
                           </div>
-                          <span className="text-base font-bold text-amber-900 ml-2">{order.quantities.carb}g</span>
+                          <span className={`text-base font-bold ml-2 ${order.hasModifiedCarb ? 'text-amber-900' : 'text-amber-900'}`}>
+                            {order.quantities.carb}g
+                          </span>
                         </div>
                       ) : null}
 
