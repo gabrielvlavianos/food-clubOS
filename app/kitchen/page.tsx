@@ -561,23 +561,6 @@ export default function KitchenDashboardPage() {
                     <div className="space-y-2">
                       <h3 className="font-semibold text-sm text-gray-700 mb-2">Quantidades</h3>
 
-                      {/* Alerta de modificação */}
-                      {(order.hasModifiedProtein || order.hasModifiedCarb) && (
-                        <div className="flex items-center gap-2 bg-red-600 text-white border-4 border-red-700 rounded-lg p-3 mb-3 animate-pulse">
-                          <AlertTriangle className="h-6 w-6 flex-shrink-0" />
-                          <div className="flex-1">
-                            <p className="font-bold text-base">⚠️ ATENÇÃO: PEDIDO MODIFICADO!</p>
-                            <p className="text-xs mt-1">
-                              {order.hasModifiedProtein && order.hasModifiedCarb
-                                ? 'Proteína e Carboidrato foram alterados'
-                                : order.hasModifiedProtein
-                                ? 'Proteína foi alterada pelo cliente'
-                                : 'Carboidrato foi alterado pelo cliente'}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
                       {order.menuRecipes.protein && order.quantities.protein > 0 ? (
                         <div className={`flex items-center justify-between rounded-md p-2 ${
                           order.hasModifiedProtein
