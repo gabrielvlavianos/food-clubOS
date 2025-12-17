@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Edit, Copy, Trash2, ArrowUpDown } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Edit, Copy, Trash2, ArrowUpDown, CheckCircle2, AlertCircle } from 'lucide-react';
 import { formatMacro, formatCost } from '@/lib/calculations';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +26,8 @@ interface RecipesTableProps {
 
 export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete }: RecipesTableProps) {
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [updatingSischef, setUpdatingSischef] = useState<string | null>(null);
+  const [sischefIds, setSischefIds] = useState<Record<string, string>>({});
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const { toast } = useToast();
@@ -85,6 +88,39 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
     }
   }
 
+  async function handleUpdateSischefId(recipeId: string, sischefId: string) {
+    setUpdatingSischef(recipeId);
+    try {
+      const trimmedId = sischefId.trim();
+
+      const { error } = await supabase
+        .from('recipes')
+        // @ts-expect-error - TypeScript has issues with Supabase update typing
+        .update({ sischef_external_id: trimmedId || null })
+        .eq('id', recipeId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'ID Sischef atualizado',
+        description: trimmedId
+          ? 'Receita sincronizada com Sischef'
+          : 'Sincronização removida',
+      });
+
+      onUpdate();
+    } catch (error) {
+      console.error('Error updating sischef_external_id:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível atualizar o ID Sischef',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingSischef(null);
+    }
+  }
+
   function getCategoryColor(category: string) {
     const colors: Record<string, string> = {
       'Proteína': 'bg-red-100 text-red-800',
@@ -127,6 +163,7 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
           <TableRow>
             <SortableHeader field="name">Nome</SortableHeader>
             <SortableHeader field="category">Categoria</SortableHeader>
+            <TableHead className="min-w-[140px]">ID Sischef</TableHead>
             <SortableHeader field="kcal_per_100g" className="text-right">Kcal/100g</SortableHeader>
             <SortableHeader field="protein_per_100g" className="text-right">Prot/100g</SortableHeader>
             <SortableHeader field="carb_per_100g" className="text-right">Carb/100g</SortableHeader>
@@ -157,6 +194,35 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
                 <Badge className={getCategoryColor(recipe.category)} variant="secondary">
                   {recipe.category}
                 </Badge>
+              </TableCell>
+              <TableCell className="min-w-[140px]">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="text"
+                    placeholder="ID do ERP"
+                    defaultValue={(recipe as any).sischef_external_id || ''}
+                    onChange={(e) => {
+                      setSischefIds(prev => ({
+                        ...prev,
+                        [recipe.id]: e.target.value
+                      }));
+                    }}
+                    onBlur={(e) => {
+                      const newValue = e.target.value.trim();
+                      const currentValue = (recipe as any).sischef_external_id || '';
+                      if (newValue !== currentValue) {
+                        handleUpdateSischefId(recipe.id, newValue);
+                      }
+                    }}
+                    disabled={updatingSischef === recipe.id}
+                    className="h-8 text-xs"
+                  />
+                  {(recipe as any).sischef_external_id ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" title="Sincronizado" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0" title="Não sincronizado" />
+                  )}
+                </div>
               </TableCell>
               <TableCell className="text-right">{formatMacro(recipe.kcal_per_100g)}</TableCell>
               <TableCell className="text-right">{formatMacro(recipe.protein_per_100g)}g</TableCell>

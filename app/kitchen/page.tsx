@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ChefHat, Calendar, Clock, MapPin, Package, RefreshCw, AlertTriangle } from 'lucide-react';
+import { ChefHat, Calendar, Clock, MapPin, Package, RefreshCw, AlertTriangle, Send } from 'lucide-react';
 import { format, getDay } from 'date-fns';
 import type { Recipe, Customer, DeliverySchedule } from '@/types';
 import { formatTime } from '@/lib/format-utils';
@@ -44,6 +44,7 @@ export default function KitchenDashboardPage() {
   const [selectedMealType, setSelectedMealType] = useState<'lunch' | 'dinner'>('lunch');
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const [loading, setLoading] = useState(false);
+  const [sendingToSischef, setSendingToSischef] = useState<string | null>(null);
   const [globalSettings, setGlobalSettings] = useState({
     vegetables_amount: 100,
     salad_amount: 100,
@@ -379,6 +380,95 @@ export default function KitchenDashboardPage() {
     }
   }
 
+  async function sendToSischef(customerOrder: KitchenOrder) {
+    if (customerOrder.isCancelled) {
+      alert('Não é possível enviar pedidos cancelados para o Sischef');
+      return;
+    }
+
+    setSendingToSischef(customerOrder.customer.id);
+
+    try {
+      let orderId = customerOrder.id;
+
+      if (!orderId) {
+        const { data: existingOrder } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('customer_id', customerOrder.customer.id)
+          .eq('order_date', selectedDate)
+          .eq('meal_type', selectedMealType)
+          .maybeSingle();
+
+        if (existingOrder) {
+          orderId = (existingOrder as any).id;
+        } else {
+          const { data: newOrder, error: createError } = await supabase
+            .from('orders')
+            .insert({
+              customer_id: customerOrder.customer.id,
+              order_date: selectedDate,
+              meal_type: selectedMealType,
+              delivery_date: `${selectedDate}T${customerOrder.deliverySchedule.delivery_time || '12:00:00'}`,
+              carboidrato_id: customerOrder.menuRecipes.carb?.id || null,
+              carboidrato_qty: customerOrder.quantities.carb || 0,
+              proteina_id: customerOrder.menuRecipes.protein?.id || null,
+              proteina_qty: customerOrder.quantities.protein || 0,
+              legumes_id: customerOrder.menuRecipes.vegetable?.id || null,
+              legumes_qty: customerOrder.quantities.vegetable || 0,
+              salada_id: customerOrder.menuRecipes.salad?.id || null,
+              salada_qty: customerOrder.quantities.salad || 0,
+              molho_salada_id: customerOrder.menuRecipes.sauce?.id || null,
+              molho_salada_qty: customerOrder.quantities.sauce || 0,
+              status: 'confirmed',
+            })
+            .select()
+            .single();
+
+          if (createError || !newOrder) {
+            throw new Error('Falha ao criar pedido: ' + (createError?.message || 'Pedido não retornado'));
+          }
+
+          orderId = (newOrder as any).id;
+        }
+      }
+
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/send-order-to-sischef`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ order_id: orderId }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (result.missing_recipes) {
+          alert(
+            `Erro: Algumas receitas não estão sincronizadas com o Sischef:\n\n${result.missing_recipes.map((r: any) => `- ${r.name} (${r.category})`).join('\n')}\n\nPor favor, sincronize as receitas antes de enviar o pedido.`
+          );
+        } else {
+          alert(`Erro ao enviar para Sischef: ${result.error || 'Erro desconhecido'}`);
+        }
+        return;
+      }
+
+      alert(
+        result.sischef_response
+          ? `Pedido enviado com sucesso para o Sischef!\n\n${JSON.stringify(result.sischef_response, null, 2)}`
+          : `Pedido validado com sucesso!\n\n${result.message || ''}\n\nPayload:\n${JSON.stringify(result.payload, null, 2)}`
+      );
+    } catch (error) {
+      console.error('Error sending to Sischef:', error);
+      alert(`Erro ao enviar para Sischef: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    } finally {
+      setSendingToSischef(null);
+    }
+  }
+
   const statusColors = {
     pending: 'bg-gray-100 text-gray-800 border-gray-300',
     preparing: 'bg-blue-100 text-blue-800 border-blue-300',
@@ -539,7 +629,7 @@ export default function KitchenDashboardPage() {
                         );
                       })()}
                     </div>
-                    <div className="ml-4">
+                    <div className="ml-4 flex flex-col gap-2">
                       <Select
                         value={order.status}
                         onValueChange={(value: 'pending' | 'preparing' | 'ready') => updateOrderStatus(index, value)}
@@ -553,6 +643,18 @@ export default function KitchenDashboardPage() {
                           <SelectItem value="ready">{statusLabels.ready}</SelectItem>
                         </SelectContent>
                       </Select>
+                      {!order.isCancelled && (
+                        <Button
+                          onClick={() => sendToSischef(order)}
+                          disabled={sendingToSischef === order.customer.id}
+                          variant="outline"
+                          size="sm"
+                          className="w-[160px] border-2 border-orange-500 text-orange-700 hover:bg-orange-50"
+                        >
+                          <Send className="h-3 w-3 mr-1" />
+                          {sendingToSischef === order.customer.id ? 'Enviando...' : 'Enviar Sischef'}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
