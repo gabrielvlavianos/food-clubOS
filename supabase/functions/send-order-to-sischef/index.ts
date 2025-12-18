@@ -187,7 +187,7 @@ Deno.serve(async (req: Request) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'api-key': sischefApiKey,
+          'token-integracao': sischefApiKey,
         },
         body: JSON.stringify(payload),
       });
