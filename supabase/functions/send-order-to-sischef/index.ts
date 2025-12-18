@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Check if order is cancelled
-    if (order.status === 'cancelled') {
+    if (order.status === 'cancelled' || order.is_cancelled) {
       return new Response(
         JSON.stringify({ error: 'Cannot send cancelled orders to Sischef' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -86,29 +86,27 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 3. Fetch delivery schedule details
-    const { data: delivery, error: deliveryError } = await supabase
+    // 3. Get delivery schedule for departure time
+    const orderDate = new Date(order.order_date + 'T12:00:00');
+    const dayOfWeek = orderDate.getDay() === 0 ? 7 : orderDate.getDay();
+
+    const { data: delivery } = await supabase
       .from('delivery_schedules')
       .select('*')
       .eq('customer_id', order.customer_id)
-      .eq('delivery_date', order.delivery_date)
+      .eq('day_of_week', dayOfWeek)
+      .eq('meal_type', order.meal_type)
+      .eq('is_active', true)
       .maybeSingle();
-
-    if (deliveryError || !delivery) {
-      return new Response(
-        JSON.stringify({ error: 'Delivery schedule not found', details: deliveryError }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     // 4. Fetch recipe details for all items
     const items: OrderItem[] = [];
     const recipeFields = [
-      { field: 'carboidrato_id', qty: 'carboidrato_qty', cat: 'carboidrato' },
-      { field: 'proteina_id', qty: 'proteina_qty', cat: 'proteina' },
-      { field: 'legumes_id', qty: 'legumes_qty', cat: 'legumes' },
-      { field: 'salada_id', qty: 'salada_qty', cat: 'salada' },
-      { field: 'molho_salada_id', qty: 'molho_salada_qty', cat: 'molho_salada' },
+      { field: 'carb_recipe_id', qty: 'carb_amount_gr', cat: 'carboidrato' },
+      { field: 'protein_recipe_id', qty: 'protein_amount_gr', cat: 'proteina' },
+      { field: 'vegetable_recipe_id', qty: 'vegetable_amount_gr', cat: 'legumes' },
+      { field: 'salad_recipe_id', qty: 'salad_amount_gr', cat: 'salada' },
+      { field: 'sauce_recipe_id', qty: 'sauce_amount_gr', cat: 'molho_salada' },
     ];
 
     for (const { field, qty, cat } of recipeFields) {
@@ -130,13 +128,16 @@ Deno.serve(async (req: Request) => {
           );
         }
 
-        items.push({
-          recipe_id: recipe.id,
-          recipe_name: recipe.name,
-          sischef_external_id: recipe.sischef_external_id,
-          quantity: order[qty] || 0,
-          category: cat,
-        });
+        const quantity = order[qty] || 0;
+        if (quantity > 0) {
+          items.push({
+            recipe_id: recipe.id,
+            recipe_name: recipe.name,
+            sischef_external_id: recipe.sischef_external_id,
+            quantity: quantity,
+            category: cat,
+          });
+        }
       }
     }
 
@@ -157,15 +158,18 @@ Deno.serve(async (req: Request) => {
     }
 
     // 6. Build Sischef payload
+    const deliveryTime = order.modified_delivery_time || order.delivery_time || delivery?.delivery_time || '12:00:00';
+    const deliveryAddress = order.modified_delivery_address || order.delivery_address || delivery?.delivery_address || customer.address || '';
+
     const payload: SischefPayload = {
       order_id: order.id,
       customer_id: customer.id,
       customer_name: customer.name,
       customer_phone: customer.phone || '',
-      delivery_address: delivery.address || customer.address || '',
-      delivery_date: order.delivery_date,
-      delivery_time: delivery.departure_time || order.delivery_date.split('T')[1] || '',
-      departure_time: delivery.departure_time,
+      delivery_address: deliveryAddress,
+      delivery_date: order.order_date,
+      delivery_time: deliveryTime,
+      departure_time: delivery?.departure_time || null,
       items: items.map(item => ({
         external_id: item.sischef_external_id!,
         name: item.recipe_name,
