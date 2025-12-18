@@ -10,6 +10,7 @@ interface OrderItem {
   recipe_id: string;
   recipe_name: string;
   sischef_external_id: string | null;
+  price_per_kg: number;
   quantity: number;
   category: string;
 }
@@ -141,7 +142,7 @@ Deno.serve(async (req: Request) => {
       if (recipeId) {
         const { data: recipe, error: recipeError } = await supabase
           .from('recipes')
-          .select('id, name, sischef_external_id')
+          .select('id, name, sischef_external_id, price_per_kg')
           .eq('id', recipeId)
           .maybeSingle();
 
@@ -161,6 +162,7 @@ Deno.serve(async (req: Request) => {
             recipe_id: recipe.id,
             recipe_name: recipe.name,
             sischef_external_id: recipe.sischef_external_id,
+            price_per_kg: recipe.price_per_kg || 0,
             quantity: quantity,
             category: cat,
           });
@@ -267,50 +269,26 @@ Deno.serve(async (req: Request) => {
 
     const addressParts = parseAddress(deliveryAddress);
 
-    // Fetch prices from Sischef for each item
-    const sischefApiKey = '0f035be6-e153-4331-aa5c-b8f191fff759';
+    // Calculate prices using local price_per_kg
     let totalValue = 0;
 
-    const itemsWithPrices = await Promise.all(
-      items.map(async (item) => {
-        const quantityKg = item.quantity / 1000;
-        let unitPrice = 0;
+    const itemsWithPrices = items.map((item) => {
+      const quantityKg = item.quantity / 1000;
+      const unitPrice = item.price_per_kg;
+      const itemTotal = parseFloat((unitPrice * quantityKg).toFixed(2));
+      totalValue += itemTotal;
 
-        // Try to get price from Sischef
-        try {
-          const productUrl = `https://sistema.sischef.com/api-v2/webhook/integracao/produtos/${item.sischef_external_id}`;
-          const productResponse = await fetch(productUrl, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'token-integracao': sischefApiKey,
-            },
-          });
-
-          if (productResponse.ok) {
-            const productData = await productResponse.json();
-            // Assuming price comes in productData.preco or productData.valorUnitario
-            unitPrice = productData.preco || productData.valorUnitario || productData.valor || 0;
-          }
-        } catch (error) {
-          console.error(`Failed to get price for ${item.recipe_name}:`, error);
-        }
-
-        const itemTotal = parseFloat((unitPrice * quantityKg).toFixed(2));
-        totalValue += itemTotal;
-
-        return {
-          nome: item.recipe_name,
-          id: item.recipe_id,
-          quantidade: quantityKg,
-          valorDesconto: 0,
-          valorUnitario: unitPrice,
-          valorTotal: itemTotal,
-          subItens: [],
-          codigoExterno: item.sischef_external_id!,
-        };
-      })
-    );
+      return {
+        nome: item.recipe_name,
+        id: item.recipe_id,
+        quantidade: quantityKg,
+        valorDesconto: 0,
+        valorUnitario: unitPrice,
+        valorTotal: itemTotal,
+        subItens: [],
+        codigoExterno: item.sischef_external_id!,
+      };
+    });
 
     const payload: SischefPayload = {
       id: order.id,
@@ -349,7 +327,7 @@ Deno.serve(async (req: Request) => {
 
     // 7. Send to Sischef API
     const sischefApiUrl = 'https://sistema.sischef.com/api-v2/webhook/integracao/OT';
-    const sischefApiKey2 = '0f035be6-e153-4331-aa5c-b8f191fff759';
+    const sischefApiKey = '0f035be6-e153-4331-aa5c-b8f191fff759';
 
     console.log('Sending payload to Sischef:', JSON.stringify(payload, null, 2));
 
@@ -358,7 +336,7 @@ Deno.serve(async (req: Request) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'token-integracao': sischefApiKey2,
+          'token-integracao': sischefApiKey,
         },
         body: JSON.stringify(payload),
       });
