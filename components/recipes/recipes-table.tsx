@@ -161,24 +161,24 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
         <Table>
         <TableHeader>
           <TableRow>
-            <SortableHeader field="name">Nome</SortableHeader>
+            <SortableHeader field="name" className="w-[180px]">Nome</SortableHeader>
             <SortableHeader field="category">Categoria</SortableHeader>
-            <TableHead className="min-w-[140px]">ID Sischef</TableHead>
+            <TableHead className="w-[110px]">ID Sischef</TableHead>
             <SortableHeader field="kcal_per_100g" className="text-right">Kcal/100g</SortableHeader>
             <SortableHeader field="protein_per_100g" className="text-right">Prot/100g</SortableHeader>
             <SortableHeader field="carb_per_100g" className="text-right">Carb/100g</SortableHeader>
             <SortableHeader field="fat_per_100g" className="text-right">Gord/100g</SortableHeader>
             <SortableHeader field="cost_per_100g" className="text-right">Custo/100g</SortableHeader>
-            <TableHead className="w-[150px]">Status</TableHead>
-            <TableHead className="text-right min-w-[140px]">Ações</TableHead>
+            <TableHead className="w-[130px]">Status</TableHead>
+            <TableHead className="text-right w-[140px]">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {sortedRecipes.map((recipe) => (
             <TableRow key={recipe.id} className={!recipe.is_active ? 'opacity-60' : ''}>
-              <TableCell>
+              <TableCell className="w-[180px] max-w-[180px]">
                 <div>
-                  <p className="font-medium">{recipe.name}</p>
+                  <p className="font-medium truncate" title={recipe.name}>{recipe.name}</p>
                   {recipe.allergens && recipe.allergens.length > 0 && recipe.allergens[0] !== 'nenhum' && (
                     <div className="flex flex-wrap gap-1 mt-1">
                       {recipe.allergens.map((allergen, idx) => (
@@ -195,11 +195,11 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
                   {recipe.category}
                 </Badge>
               </TableCell>
-              <TableCell className="min-w-[140px]">
-                <div className="flex items-center gap-2">
+              <TableCell className="w-[110px] max-w-[110px]">
+                <div className="flex items-center gap-1">
                   <Input
                     type="text"
-                    placeholder="ID do ERP"
+                    placeholder="ID ERP"
                     defaultValue={(recipe as any).sischef_external_id || ''}
                     onChange={(e) => {
                       setSischefIds(prev => ({
@@ -215,7 +215,7 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
                       }
                     }}
                     disabled={updatingSischef === recipe.id}
-                    className="h-8 text-xs"
+                    className="h-8 text-xs w-[70px]"
                   />
                   {(recipe as any).sischef_external_id ? (
                     <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" title="Sincronizado" />
@@ -229,7 +229,7 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
               <TableCell className="text-right">{formatMacro(recipe.carb_per_100g)}g</TableCell>
               <TableCell className="text-right">{formatMacro(recipe.fat_per_100g)}g</TableCell>
               <TableCell className="text-right font-medium">{formatCost(recipe.cost_per_100g)}</TableCell>
-              <TableCell className="w-[150px]">
+              <TableCell className="w-[130px]">
                 <div className="flex items-center gap-2">
                   <Switch
                     checked={recipe.is_active}
@@ -243,7 +243,7 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
                   </span>
                 </div>
               </TableCell>
-              <TableCell className="text-right min-w-[140px]">
+              <TableCell className="text-right w-[140px]">
                 <div className="flex justify-end gap-1 items-center">
                   {onEdit && (
                     <Button
