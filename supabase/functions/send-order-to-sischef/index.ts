@@ -27,6 +27,21 @@ interface SischefPayload {
     tipo: string;
   };
   identificadorSecundario?: string;
+  cliente?: {
+    nome: string;
+    telefone?: string;
+    cpf?: string;
+    email?: string;
+  };
+  enderecoEntrega?: {
+    logradouro: string;
+    numero?: string;
+    complemento?: string;
+    bairro?: string;
+    cidade?: string;
+    estado?: string;
+    cep?: string;
+  };
   itens: Array<{
     nome: string;
     id: string;
@@ -176,35 +191,78 @@ Deno.serve(async (req: Request) => {
     const now = new Date().toISOString();
     const orderDateTime = `${order.order_date}T${deliveryTime}`;
 
-    const descricao = `Pedido para ${customer.name} - ${deliveryAddress}`;
+    // Parse address to extract components
+    const parseAddress = (fullAddress: string) => {
+      // Try to parse format: "Street, Number, Extra - Neighborhood, City - State"
+      const parts = fullAddress.split(',');
+      const logradouro = parts[0]?.trim() || '';
+      const numero = parts[1]?.split('-')[0]?.trim() || '';
+      const complemento = parts[1]?.includes('-') ? parts[1].split('-')[0].replace(numero, '').trim() : '';
+      const remaining = fullAddress.includes('-') ? fullAddress.split('-').slice(-2) : [];
+      const bairro = remaining[0]?.split(',')[0]?.trim() || '';
+      const cidadeEstado = remaining[1]?.trim() || '';
+      const cidade = cidadeEstado.split('-')[0]?.trim() || '';
+      const estado = cidadeEstado.split('-')[1]?.trim() || '';
+
+      return { logradouro, numero, complemento, bairro, cidade, estado };
+    };
+
+    const addressParts = parseAddress(deliveryAddress);
+
+    // Calculate item prices (R$ 10/kg base price for all items)
+    const basePrice = 10.0; // R$ 10 per kg
+    let totalValue = 0;
+
+    const itemsWithPrices = items.map(item => {
+      const quantityKg = item.quantity / 1000;
+      const itemTotal = parseFloat((basePrice * quantityKg).toFixed(2));
+      totalValue += itemTotal;
+
+      return {
+        nome: item.recipe_name,
+        id: item.recipe_id,
+        quantidade: quantityKg,
+        valorDesconto: 0,
+        valorUnitario: basePrice,
+        valorTotal: itemTotal,
+        subItens: [],
+        codigoExterno: item.sischef_external_id!,
+      };
+    });
 
     const payload: SischefPayload = {
       id: order.id,
       idUnicoIntegracao: order.id,
       dataPedido: orderDateTime,
       createdAt: now,
-      descricao: descricao,
+      descricao: `Pedido ${order.meal_type} - ${customer.name}`,
       tipoPedido: 'DELIVERY',
       situacao: 'CONFIRMADO',
       identificador: {
-        numero: customer.name,
+        numero: String(customer.id),
         tipo: 'DELIVERY',
       },
       identificadorSecundario: customer.phone || '',
-      itens: items.map(item => ({
-        nome: item.recipe_name,
-        id: item.recipe_id,
-        quantidade: item.quantity / 1000,
-        valorDesconto: 0,
-        valorUnitario: 0,
-        valorTotal: 0,
-        subItens: [],
-        codigoExterno: item.sischef_external_id!,
-      })),
+      cliente: {
+        nome: customer.name,
+        telefone: customer.phone || '',
+        cpf: customer.cpf || '',
+        email: customer.email || '',
+      },
+      enderecoEntrega: {
+        logradouro: addressParts.logradouro,
+        numero: addressParts.numero,
+        complemento: addressParts.complemento,
+        bairro: addressParts.bairro,
+        cidade: addressParts.cidade,
+        estado: addressParts.estado,
+        cep: customer.postal_code || '',
+      },
+      itens: itemsWithPrices,
       troco: 0,
       valorDesconto: 0,
-      valorTotal: 0,
-      observacoes: `Entrega: ${deliveryAddress} - Horário: ${deliveryTime}`,
+      valorTotal: parseFloat(totalValue.toFixed(2)),
+      observacoes: `Horário de entrega: ${deliveryTime}`,
     };
 
     // 7. Send to Sischef API
