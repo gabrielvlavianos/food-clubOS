@@ -15,22 +15,32 @@ interface OrderItem {
 }
 
 interface SischefPayload {
-  order_id: string;
-  customer_id: number;
-  customer_name: string;
-  customer_phone: string;
-  delivery_address: string;
-  delivery_date: string;
-  delivery_time: string;
-  departure_time: string | null;
-  tipoPedido: 'DELIVERY' | 'COMANDA' | 'MESA';
+  id: string;
+  idUnicoIntegracao: string;
   dataPedido: string;
-  items: Array<{
-    external_id: string;
-    name: string;
-    quantity_grams: number;
-    category: string;
+  createdAt: string;
+  descricao: string;
+  tipoPedido: 'DELIVERY' | 'COMANDA' | 'MESA';
+  situacao: string;
+  identificador: {
+    numero: string;
+    tipo: string;
+  };
+  identificadorSecundario?: string;
+  itens: Array<{
+    nome: string;
+    id: string;
+    quantidade: number;
+    valorDesconto: number;
+    valorUnitario: number;
+    valorTotal: number;
+    subItens: Array<any>;
+    codigoExterno: string;
   }>;
+  troco: number;
+  valorDesconto: number;
+  valorTotal: number;
+  observacoes?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -163,23 +173,38 @@ Deno.serve(async (req: Request) => {
     const deliveryTime = order.modified_delivery_time || order.delivery_time || delivery?.delivery_time || '12:00:00';
     const deliveryAddress = order.modified_delivery_address || order.delivery_address || delivery?.delivery_address || customer.address || '';
 
+    const now = new Date().toISOString();
+    const orderDateTime = `${order.order_date}T${deliveryTime}`;
+
+    const descricao = `Pedido para ${customer.name} - ${deliveryAddress}`;
+
     const payload: SischefPayload = {
-      order_id: order.id,
-      customer_id: customer.id,
-      customer_name: customer.name,
-      customer_phone: customer.phone || '',
-      delivery_address: deliveryAddress,
-      delivery_date: order.order_date,
-      delivery_time: deliveryTime,
-      departure_time: delivery?.departure_time || null,
+      id: order.id,
+      idUnicoIntegracao: order.id,
+      dataPedido: orderDateTime,
+      createdAt: now,
+      descricao: descricao,
       tipoPedido: 'DELIVERY',
-      dataPedido: order.order_date,
-      items: items.map(item => ({
-        external_id: item.sischef_external_id!,
-        name: item.recipe_name,
-        quantity_grams: item.quantity,
-        category: item.category,
+      situacao: 'CONFIRMADO',
+      identificador: {
+        numero: customer.name,
+        tipo: 'DELIVERY',
+      },
+      identificadorSecundario: customer.phone || '',
+      itens: items.map(item => ({
+        nome: item.recipe_name,
+        id: item.recipe_id,
+        quantidade: item.quantity / 1000,
+        valorDesconto: 0,
+        valorUnitario: 0,
+        valorTotal: 0,
+        subItens: [],
+        codigoExterno: item.sischef_external_id!,
       })),
+      troco: 0,
+      valorDesconto: 0,
+      valorTotal: 0,
+      observacoes: `Entrega: ${deliveryAddress} - Horário: ${deliveryTime}`,
     };
 
     // 7. Send to Sischef API
