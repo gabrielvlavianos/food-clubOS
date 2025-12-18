@@ -193,42 +193,124 @@ Deno.serve(async (req: Request) => {
 
     // Parse address to extract components
     const parseAddress = (fullAddress: string) => {
-      // Try to parse format: "Street, Number, Extra - Neighborhood, City - State"
-      const parts = fullAddress.split(',');
-      const logradouro = parts[0]?.trim() || '';
-      const numero = parts[1]?.split('-')[0]?.trim() || '';
-      const complemento = parts[1]?.includes('-') ? parts[1].split('-')[0].replace(numero, '').trim() : '';
-      const remaining = fullAddress.includes('-') ? fullAddress.split('-').slice(-2) : [];
-      const bairro = remaining[0]?.split(',')[0]?.trim() || '';
-      const cidadeEstado = remaining[1]?.trim() || '';
-      const cidade = cidadeEstado.split('-')[0]?.trim() || '';
-      const estado = cidadeEstado.split('-')[1]?.trim() || '';
+      console.log('Parsing address:', fullAddress);
 
-      return { logradouro, numero, complemento, bairro, cidade, estado };
+      // Example: "Avenida Paulista, 2100, Ramal 3892 - 16 andar tesouraria, Bela Vista, S\u00e3o Paulo - SP"
+      // Split by comma first
+      const commaParts = fullAddress.split(',').map(p => p.trim());
+
+      let logradouro = '';
+      let numero = '';
+      let complemento = '';
+      let bairro = '';
+      let cidade = '';
+      let estado = '';
+
+      if (commaParts.length >= 1) {
+        logradouro = commaParts[0];
+      }
+
+      // Try to find number in second part
+      if (commaParts.length >= 2) {
+        const numberPart = commaParts[1];
+        // Extract just numbers for numero
+        const numberMatch = numberPart.match(/\d+/);
+        if (numberMatch) {
+          numero = numberMatch[0];
+          // Rest is complemento
+          complemento = numberPart.replace(numero, '').trim();
+        } else {
+          numero = numberPart;
+        }
+      }
+
+      // Additional complement might be in third part (before dash)
+      if (commaParts.length >= 3 && !commaParts[2].includes(' - ')) {
+        complemento = complemento ? `${complemento}, ${commaParts[2]}` : commaParts[2];
+      }
+
+      // Find the part with dash (neighborhood - city - state)
+      const dashIndex = fullAddress.indexOf(' - ');
+      if (dashIndex !== -1) {
+        const afterDash = fullAddress.substring(dashIndex + 3);
+        const dashParts = afterDash.split(',').map(p => p.trim());
+
+        if (dashParts.length >= 2) {
+          // First after dash is bairro
+          bairro = dashParts[0];
+          // Last part should be "City - State"
+          const lastPart = dashParts[dashParts.length - 1];
+          const cityStateParts = lastPart.split(' - ').map(p => p.trim());
+          if (cityStateParts.length === 2) {
+            cidade = cityStateParts[0];
+            estado = cityStateParts[1];
+          } else {
+            cidade = lastPart;
+          }
+        } else if (dashParts.length === 1) {
+          const lastPart = dashParts[0];
+          const cityStateParts = lastPart.split(' - ').map(p => p.trim());
+          if (cityStateParts.length === 2) {
+            bairro = cityStateParts[0];
+            cidade = cityStateParts[0];
+            estado = cityStateParts[1];
+          } else {
+            bairro = lastPart;
+          }
+        }
+      }
+
+      const result = { logradouro, numero, complemento, bairro, cidade, estado };
+      console.log('Parsed address:', result);
+      return result;
     };
 
     const addressParts = parseAddress(deliveryAddress);
 
-    // Calculate item prices (R$ 10/kg base price for all items)
-    const basePrice = 10.0; // R$ 10 per kg
+    // Fetch prices from Sischef for each item
+    const sischefApiKey = '0f035be6-e153-4331-aa5c-b8f191fff759';
     let totalValue = 0;
 
-    const itemsWithPrices = items.map(item => {
-      const quantityKg = item.quantity / 1000;
-      const itemTotal = parseFloat((basePrice * quantityKg).toFixed(2));
-      totalValue += itemTotal;
+    const itemsWithPrices = await Promise.all(
+      items.map(async (item) => {
+        const quantityKg = item.quantity / 1000;
+        let unitPrice = 0;
 
-      return {
-        nome: item.recipe_name,
-        id: item.recipe_id,
-        quantidade: quantityKg,
-        valorDesconto: 0,
-        valorUnitario: basePrice,
-        valorTotal: itemTotal,
-        subItens: [],
-        codigoExterno: item.sischef_external_id!,
-      };
-    });
+        // Try to get price from Sischef
+        try {
+          const productUrl = `https://sistema.sischef.com/api-v2/webhook/integracao/produtos/${item.sischef_external_id}`;
+          const productResponse = await fetch(productUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'token-integracao': sischefApiKey,
+            },
+          });
+
+          if (productResponse.ok) {
+            const productData = await productResponse.json();
+            // Assuming price comes in productData.preco or productData.valorUnitario
+            unitPrice = productData.preco || productData.valorUnitario || productData.valor || 0;
+          }
+        } catch (error) {
+          console.error(`Failed to get price for ${item.recipe_name}:`, error);
+        }
+
+        const itemTotal = parseFloat((unitPrice * quantityKg).toFixed(2));
+        totalValue += itemTotal;
+
+        return {
+          nome: item.recipe_name,
+          id: item.recipe_id,
+          quantidade: quantityKg,
+          valorDesconto: 0,
+          valorUnitario: unitPrice,
+          valorTotal: itemTotal,
+          subItens: [],
+          codigoExterno: item.sischef_external_id!,
+        };
+      })
+    );
 
     const payload: SischefPayload = {
       id: order.id,
@@ -262,19 +344,21 @@ Deno.serve(async (req: Request) => {
       troco: 0,
       valorDesconto: 0,
       valorTotal: parseFloat(totalValue.toFixed(2)),
-      observacoes: `Horário de entrega: ${deliveryTime}`,
+      observacoes: `Hor\u00e1rio de entrega: ${deliveryTime}`,
     };
 
     // 7. Send to Sischef API
     const sischefApiUrl = 'https://sistema.sischef.com/api-v2/webhook/integracao/OT';
-    const sischefApiKey = '0f035be6-e153-4331-aa5c-b8f191fff759';
+    const sischefApiKey2 = '0f035be6-e153-4331-aa5c-b8f191fff759';
+
+    console.log('Sending payload to Sischef:', JSON.stringify(payload, null, 2));
 
     try {
       const response = await fetch(sischefApiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'token-integracao': sischefApiKey,
+          'token-integracao': sischefApiKey2,
         },
         body: JSON.stringify(payload),
       });
