@@ -190,6 +190,28 @@ Deno.serve(async (req: Request) => {
     const deliveryTime = order.modified_delivery_time || order.delivery_time || delivery?.delivery_time || '12:00:00';
     const deliveryAddress = order.modified_delivery_address || order.delivery_address || delivery?.delivery_address || customer.address || '';
 
+    // Validate customer name
+    if (!customer.name || customer.name.trim() === '') {
+      return new Response(
+        JSON.stringify({
+          error: 'Nome do cliente não encontrado',
+          message: 'O cliente precisa ter um nome cadastrado para enviar ao Sischef'
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate delivery address
+    if (!deliveryAddress || deliveryAddress.trim() === '') {
+      return new Response(
+        JSON.stringify({
+          error: 'Endereço de entrega não encontrado',
+          message: 'O pedido precisa ter um endereço de entrega cadastrado'
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const now = new Date().toISOString();
     const orderDateTime = `${order.order_date}T${deliveryTime}`;
 
@@ -268,6 +290,17 @@ Deno.serve(async (req: Request) => {
     };
 
     const addressParts = parseAddress(deliveryAddress);
+
+    console.log('Customer data:', {
+      id: customer.id,
+      name: customer.name,
+      phone: customer.phone,
+      cpf: customer.cpf,
+      email: customer.email
+    });
+
+    console.log('Delivery address:', deliveryAddress);
+    console.log('Parsed address parts:', addressParts);
 
     // Calculate prices using local price_per_kg
     let totalValue = 0;
