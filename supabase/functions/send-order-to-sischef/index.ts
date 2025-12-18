@@ -178,67 +178,54 @@ Deno.serve(async (req: Request) => {
       })),
     };
 
-    // 7. Send to Sischef API (if URL is configured)
-    const sischefApiUrl = Deno.env.get('SISCHEF_API_URL');
-    const sischefApiKey = Deno.env.get('SISCHEF_API_KEY');
+    // 7. Send to Sischef API
+    const sischefApiUrl = 'https://sistema.sischef.com/api-v2/webhook/integracao/OT';
+    const sischefApiKey = '0f035be6-e153-4331-aa5c-b8f191fff759';
 
-    if (sischefApiUrl && sischefApiKey) {
-      try {
-        const response = await fetch(sischefApiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sischefApiKey}`,
-          },
-          body: JSON.stringify(payload),
-        });
+    try {
+      const response = await fetch(sischefApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sischefApiKey}`,
+        },
+        body: JSON.stringify(payload),
+      });
 
-        if (!response.ok) {
-          const errorData = await response.text();
-          return new Response(
-            JSON.stringify({
-              error: 'Failed to send order to Sischef',
-              status: response.status,
-              details: errorData,
-              payload,
-            }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        const sischefResponse = await response.json();
-
+      if (!response.ok) {
+        const errorData = await response.text();
         return new Response(
           JSON.stringify({
-            success: true,
-            message: 'Order sent to Sischef successfully',
-            payload,
-            sischef_response: sischefResponse,
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } catch (apiError) {
-        return new Response(
-          JSON.stringify({
-            error: 'Error communicating with Sischef API',
-            details: apiError instanceof Error ? apiError.message : String(apiError),
+            error: 'Failed to send order to Sischef',
+            status: response.status,
+            details: errorData,
             payload,
           }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-    }
 
-    // If no API configured, return payload for testing
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Order validated successfully (Sischef API not configured)',
-        payload,
-        note: 'Configure SISCHEF_API_URL and SISCHEF_API_KEY environment variables to enable actual sending',
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+      const sischefResponse = await response.json();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Order sent to Sischef successfully',
+          payload,
+          sischef_response: sischefResponse,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (apiError) {
+      return new Response(
+        JSON.stringify({
+          error: 'Error communicating with Sischef API',
+          details: apiError instanceof Error ? apiError.message : String(apiError),
+          payload,
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
   } catch (error) {
     return new Response(
       JSON.stringify({
