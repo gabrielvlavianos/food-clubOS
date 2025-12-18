@@ -23,6 +23,7 @@ interface SischefPayload {
   delivery_date: string;
   delivery_time: string;
   departure_time: string | null;
+  tipoPedido: 'DELIVERY' | 'COMANDA' | 'MESA';
   items: Array<{
     external_id: string;
     name: string;
@@ -170,6 +171,7 @@ Deno.serve(async (req: Request) => {
       delivery_date: order.order_date,
       delivery_time: deliveryTime,
       departure_time: delivery?.departure_time || null,
+      tipoPedido: 'DELIVERY',
       items: items.map(item => ({
         external_id: item.sischef_external_id!,
         name: item.recipe_name,
