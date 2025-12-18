@@ -31,7 +31,7 @@ export function CreateRecipeDialog({
   const [protein, setProtein] = useState('');
   const [carb, setCarb] = useState('');
   const [fat, setFat] = useState('');
-  const [cost, setCost] = useState('');
+  const [price, setPrice] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -54,7 +54,7 @@ export function CreateRecipeDialog({
         protein_per_100g: parseFloat(protein),
         carb_per_100g: parseFloat(carb),
         fat_per_100g: parseFloat(fat),
-        cost_per_100g: parseFloat(cost),
+        price_per_kg: parseFloat(price) || 0,
       }] as any);
 
       if (error) throw error;
@@ -95,7 +95,7 @@ export function CreateRecipeDialog({
     setProtein('');
     setCarb('');
     setFat('');
-    setCost('');
+    setPrice('');
   }
 
   return (
@@ -206,16 +206,15 @@ export function CreateRecipeDialog({
           </div>
 
           <div className="border-t pt-4">
-            <Label htmlFor="cost">Custo por 100g (R$) *</Label>
+            <Label htmlFor="price">Preço por kg (R$)</Label>
             <Input
-              id="cost"
+              id="price"
               type="number"
               step="0.01"
               min="0"
-              value={cost}
-              onChange={(e) => setCost(e.target.value)}
-              placeholder="2.50"
-              required
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="25.00"
             />
           </div>
 

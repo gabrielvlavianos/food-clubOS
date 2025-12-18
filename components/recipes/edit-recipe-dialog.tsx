@@ -43,7 +43,7 @@ export function EditRecipeDialog({ recipe, open, onOpenChange, onUpdated }: Edit
     protein_per_100g: '',
     carb_per_100g: '',
     fat_per_100g: '',
-    cost_per_100g: '',
+    price_per_kg: '',
     notes: '',
     is_active: true
   });
@@ -60,7 +60,7 @@ export function EditRecipeDialog({ recipe, open, onOpenChange, onUpdated }: Edit
         protein_per_100g: recipe.protein_per_100g.toString(),
         carb_per_100g: recipe.carb_per_100g.toString(),
         fat_per_100g: recipe.fat_per_100g.toString(),
-        cost_per_100g: recipe.cost_per_100g.toString(),
+        price_per_kg: ((recipe as any).price_per_kg || 0).toString(),
         notes: recipe.notes || '',
         is_active: recipe.is_active
       });
@@ -93,7 +93,7 @@ export function EditRecipeDialog({ recipe, open, onOpenChange, onUpdated }: Edit
         protein_per_100g: parseFloat(formData.protein_per_100g),
         carb_per_100g: parseFloat(formData.carb_per_100g),
         fat_per_100g: parseFloat(formData.fat_per_100g),
-        cost_per_100g: parseFloat(formData.cost_per_100g),
+        price_per_kg: parseFloat(formData.price_per_kg) || 0,
         allergens: allergens.length > 0 ? allergens : ['nenhum'],
         notes: formData.notes || null,
         is_active: formData.is_active
@@ -219,14 +219,13 @@ export function EditRecipeDialog({ recipe, open, onOpenChange, onUpdated }: Edit
             </div>
 
             <div>
-              <Label htmlFor="cost">Custo (R$/100g) *</Label>
+              <Label htmlFor="price">Preço (R$/kg)</Label>
               <Input
-                id="cost"
+                id="price"
                 type="number"
                 step="0.01"
-                value={formData.cost_per_100g}
-                onChange={(e) => handleChange('cost_per_100g', e.target.value)}
-                required
+                value={formData.price_per_kg}
+                onChange={(e) => handleChange('price_per_kg', e.target.value)}
               />
             </div>
 

@@ -13,7 +13,7 @@ import { formatMacro, formatCost } from '@/lib/calculations';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
-type SortField = 'name' | 'category' | 'kcal_per_100g' | 'protein_per_100g' | 'carb_per_100g' | 'fat_per_100g' | 'cost_per_100g';
+type SortField = 'name' | 'category' | 'kcal_per_100g' | 'protein_per_100g' | 'carb_per_100g' | 'fat_per_100g' | 'price_per_kg';
 type SortOrder = 'asc' | 'desc';
 
 interface RecipesTableProps {
@@ -27,6 +27,7 @@ interface RecipesTableProps {
 export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete }: RecipesTableProps) {
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [updatingSischef, setUpdatingSischef] = useState<string | null>(null);
+  const [updatingPrice, setUpdatingPrice] = useState<string | null>(null);
   const [sischefIds, setSischefIds] = useState<Record<string, string>>({});
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
@@ -121,6 +122,37 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
     }
   }
 
+  async function handleUpdatePrice(recipeId: string, priceValue: string) {
+    setUpdatingPrice(recipeId);
+    try {
+      const price = parseFloat(priceValue) || 0;
+
+      const { error } = await supabase
+        .from('recipes')
+        // @ts-expect-error - TypeScript has issues with Supabase update typing
+        .update({ price_per_kg: price })
+        .eq('id', recipeId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Preço atualizado',
+        description: 'Preço por kg atualizado com sucesso',
+      });
+
+      onUpdate();
+    } catch (error) {
+      console.error('Error updating price_per_kg:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível atualizar o preço',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingPrice(null);
+    }
+  }
+
   function getCategoryColor(category: string) {
     const colors: Record<string, string> = {
       'Proteína': 'bg-red-100 text-red-800',
@@ -168,7 +200,7 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
             <SortableHeader field="protein_per_100g" className="text-right">Prot/100g</SortableHeader>
             <SortableHeader field="carb_per_100g" className="text-right">Carb/100g</SortableHeader>
             <SortableHeader field="fat_per_100g" className="text-right">Gord/100g</SortableHeader>
-            <SortableHeader field="cost_per_100g" className="text-right">Custo/100g</SortableHeader>
+            <SortableHeader field="price_per_kg" className="text-right w-[120px]">Preço/kg</SortableHeader>
             <TableHead className="w-[130px]">Status</TableHead>
             <TableHead className="text-right w-[140px]">Ações</TableHead>
           </TableRow>
@@ -228,7 +260,23 @@ export function RecipesTable({ recipes, onUpdate, onEdit, onDuplicate, onDelete 
               <TableCell className="text-right">{formatMacro(recipe.protein_per_100g)}g</TableCell>
               <TableCell className="text-right">{formatMacro(recipe.carb_per_100g)}g</TableCell>
               <TableCell className="text-right">{formatMacro(recipe.fat_per_100g)}g</TableCell>
-              <TableCell className="text-right font-medium">{formatCost(recipe.cost_per_100g)}</TableCell>
+              <TableCell className="text-right w-[120px]">
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  defaultValue={(recipe as any).price_per_kg || ''}
+                  onBlur={(e) => {
+                    const newValue = e.target.value.trim();
+                    const currentValue = String((recipe as any).price_per_kg || '');
+                    if (newValue !== currentValue) {
+                      handleUpdatePrice(recipe.id, newValue);
+                    }
+                  }}
+                  disabled={updatingPrice === recipe.id}
+                  className="h-8 text-xs text-right"
+                />
+              </TableCell>
               <TableCell className="w-[130px]">
                 <div className="flex items-center gap-2">
                   <Switch
