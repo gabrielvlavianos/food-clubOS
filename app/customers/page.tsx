@@ -255,47 +255,130 @@ export default function CustomersPage() {
     });
   }
 
-  function handleExportData() {
-    const exportData = customers.map(customer => ({
-      name: customer.name,
-      whatsapp: customer.whatsapp,
-      email: customer.email,
-      phone: customer.phone,
-      birth_date: customer.birth_date,
-      gender: customer.gender,
-      nutritionist_name: customer.nutritionist_name,
-      nutritionist_phone: customer.nutritionist_phone,
-      main_goal: customer.main_goal,
-      allergies: customer.allergies?.join(', '),
-      food_restrictions: customer.food_restrictions,
-      clinical_conditions: customer.clinical_conditions,
-      medication_use: customer.medication_use,
-      height_cm: customer.height_cm,
-      current_weight_kg: customer.current_weight_kg,
-      goal_weight_kg: customer.goal_weight_kg,
-      body_fat_percentage: customer.body_fat_percentage,
-      skeletal_muscle_mass: customer.skeletal_muscle_mass,
-      work_routine: customer.work_routine,
-      aerobic_frequency: customer.aerobic_frequency,
-      aerobic_intensity: customer.aerobic_intensity,
-      strength_frequency: customer.strength_frequency,
-      strength_intensity: customer.strength_intensity,
-      meals_per_day: customer.meals_per_day,
-      dietary_notes: customer.dietary_notes,
-      lunch_carbs: customer.lunch_carbs,
-      lunch_protein: customer.lunch_protein,
-      lunch_fat: customer.lunch_fat,
-      dinner_carbs: customer.dinner_carbs,
-      dinner_protein: customer.dinner_protein,
-      dinner_fat: customer.dinner_fat,
-      is_active: customer.is_active
-    }));
+  async function handleExportData() {
+    try {
+      const exportData = await Promise.all(customers.map(async (customer) => {
+        const { data: schedules } = await (supabase as any)
+          .from('delivery_schedules')
+          .select('*')
+          .eq('customer_id', customer.id);
 
-    exportToExcel('clientes.xlsx', exportData, CUSTOMER_COLUMNS);
-    toast({
-      title: 'Dados exportados',
-      description: `${customers.length} clientes exportados com sucesso.`
-    });
+        const scheduleMap: { [key: string]: { time: string | null; address: string | null; active: boolean } } = {};
+
+        const dayNames: { [key: number]: string } = {
+          1: 'monday',
+          2: 'tuesday',
+          3: 'wednesday',
+          4: 'thursday',
+          5: 'friday',
+          6: 'saturday',
+          7: 'sunday'
+        };
+
+        if (schedules) {
+          schedules.forEach((schedule: any) => {
+            const dayName = dayNames[schedule.day_of_week];
+            const key = `${dayName}_${schedule.meal_type}`;
+            scheduleMap[key] = {
+              time: schedule.delivery_time,
+              address: schedule.delivery_address,
+              active: schedule.is_active
+            };
+          });
+        }
+
+        return {
+          name: customer.name,
+          whatsapp: customer.whatsapp,
+          email: customer.email,
+          phone: customer.phone,
+          birth_date: customer.birth_date,
+          gender: customer.gender,
+          nutritionist_name: customer.nutritionist_name,
+          nutritionist_phone: customer.nutritionist_phone,
+          main_goal: customer.main_goal,
+          allergies: customer.allergies?.join(', '),
+          other_allergies: customer.other_allergies,
+          food_restrictions: customer.food_restrictions,
+          clinical_conditions: customer.clinical_conditions,
+          medication_use: customer.medication_use,
+          height_cm: customer.height_cm,
+          current_weight_kg: customer.current_weight_kg,
+          goal_weight_kg: customer.goal_weight_kg,
+          body_fat_percentage: customer.body_fat_percentage,
+          skeletal_muscle_mass: customer.skeletal_muscle_mass,
+          work_routine: customer.work_routine,
+          aerobic_frequency: customer.aerobic_frequency,
+          aerobic_intensity: customer.aerobic_intensity,
+          strength_frequency: customer.strength_frequency,
+          strength_intensity: customer.strength_intensity,
+          meals_per_day: customer.meals_per_day,
+          dietary_notes: customer.dietary_notes,
+          lunch_carbs: customer.lunch_carbs,
+          lunch_protein: customer.lunch_protein,
+          lunch_fat: customer.lunch_fat,
+          dinner_carbs: customer.dinner_carbs,
+          dinner_protein: customer.dinner_protein,
+          dinner_fat: customer.dinner_fat,
+          is_active: customer.is_active ? 'Sim' : 'Não',
+          monday_lunch: scheduleMap['monday_lunch']?.active ? 'Sim' : 'Não',
+          monday_lunch_time: scheduleMap['monday_lunch']?.time || '',
+          monday_lunch_address: scheduleMap['monday_lunch']?.address || '',
+          monday_dinner: scheduleMap['monday_dinner']?.active ? 'Sim' : 'Não',
+          monday_dinner_time: scheduleMap['monday_dinner']?.time || '',
+          monday_dinner_address: scheduleMap['monday_dinner']?.address || '',
+          tuesday_lunch: scheduleMap['tuesday_lunch']?.active ? 'Sim' : 'Não',
+          tuesday_lunch_time: scheduleMap['tuesday_lunch']?.time || '',
+          tuesday_lunch_address: scheduleMap['tuesday_lunch']?.address || '',
+          tuesday_dinner: scheduleMap['tuesday_dinner']?.active ? 'Sim' : 'Não',
+          tuesday_dinner_time: scheduleMap['tuesday_dinner']?.time || '',
+          tuesday_dinner_address: scheduleMap['tuesday_dinner']?.address || '',
+          wednesday_lunch: scheduleMap['wednesday_lunch']?.active ? 'Sim' : 'Não',
+          wednesday_lunch_time: scheduleMap['wednesday_lunch']?.time || '',
+          wednesday_lunch_address: scheduleMap['wednesday_lunch']?.address || '',
+          wednesday_dinner: scheduleMap['wednesday_dinner']?.active ? 'Sim' : 'Não',
+          wednesday_dinner_time: scheduleMap['wednesday_dinner']?.time || '',
+          wednesday_dinner_address: scheduleMap['wednesday_dinner']?.address || '',
+          thursday_lunch: scheduleMap['thursday_lunch']?.active ? 'Sim' : 'Não',
+          thursday_lunch_time: scheduleMap['thursday_lunch']?.time || '',
+          thursday_lunch_address: scheduleMap['thursday_lunch']?.address || '',
+          thursday_dinner: scheduleMap['thursday_dinner']?.active ? 'Sim' : 'Não',
+          thursday_dinner_time: scheduleMap['thursday_dinner']?.time || '',
+          thursday_dinner_address: scheduleMap['thursday_dinner']?.address || '',
+          friday_lunch: scheduleMap['friday_lunch']?.active ? 'Sim' : 'Não',
+          friday_lunch_time: scheduleMap['friday_lunch']?.time || '',
+          friday_lunch_address: scheduleMap['friday_lunch']?.address || '',
+          friday_dinner: scheduleMap['friday_dinner']?.active ? 'Sim' : 'Não',
+          friday_dinner_time: scheduleMap['friday_dinner']?.time || '',
+          friday_dinner_address: scheduleMap['friday_dinner']?.address || '',
+          saturday_lunch: scheduleMap['saturday_lunch']?.active ? 'Sim' : 'Não',
+          saturday_lunch_time: scheduleMap['saturday_lunch']?.time || '',
+          saturday_lunch_address: scheduleMap['saturday_lunch']?.address || '',
+          saturday_dinner: scheduleMap['saturday_dinner']?.active ? 'Sim' : 'Não',
+          saturday_dinner_time: scheduleMap['saturday_dinner']?.time || '',
+          saturday_dinner_address: scheduleMap['saturday_dinner']?.address || '',
+          sunday_lunch: scheduleMap['sunday_lunch']?.active ? 'Sim' : 'Não',
+          sunday_lunch_time: scheduleMap['sunday_lunch']?.time || '',
+          sunday_lunch_address: scheduleMap['sunday_lunch']?.address || '',
+          sunday_dinner: scheduleMap['sunday_dinner']?.active ? 'Sim' : 'Não',
+          sunday_dinner_time: scheduleMap['sunday_dinner']?.time || '',
+          sunday_dinner_address: scheduleMap['sunday_dinner']?.address || ''
+        };
+      }));
+
+      exportToExcel('clientes.xlsx', exportData, CUSTOMER_COLUMNS);
+      toast({
+        title: 'Dados exportados',
+        description: `${customers.length} clientes exportados com sucesso.`
+      });
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      toast({
+        title: 'Erro ao exportar',
+        description: 'Não foi possível exportar os dados.',
+        variant: 'destructive'
+      });
+    }
   }
 
   async function handleImport(event: React.ChangeEvent<HTMLInputElement>) {
