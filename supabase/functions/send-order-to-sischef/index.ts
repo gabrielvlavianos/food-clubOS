@@ -215,11 +215,18 @@ Deno.serve(async (req: Request) => {
     const now = new Date().toISOString();
     const orderDateTime = `${order.order_date}T${deliveryTime}`;
 
-    // Parse address to extract components
-    const parseAddress = (fullAddress: string) => {
-      console.log('Parsing address:', fullAddress);
+    // Extract CEP from address string
+    const extractCep = (address: string): string => {
+      const cepMatch = address.match(/CEP\s*[:.]?\s*(\d{5}[-.]?\d{3})/i);
+      if (cepMatch) {
+        return cepMatch[1].replace(/\D/g, '');
+      }
+      return '';
+    };
 
-      // Example: "Rua Clodomiro Amazonas, 506, Apto 184, Vila Nova Conceição, São Paulo - SP"
+    // Parse address to extract components
+    const parseAddress = async (fullAddress: string) => {
+      console.log('Parsing address:', fullAddress);
 
       let logradouro = '';
       let numero = '';
@@ -227,23 +234,70 @@ Deno.serve(async (req: Request) => {
       let bairro = '';
       let cidade = '';
       let estado = '';
+      let cep = extractCep(fullAddress);
+
+      // Remove CEP from address for parsing
+      let addressWithoutCep = fullAddress.replace(/,?\s*CEP\s*[:.]?\s*\d{5}[-.]?\d{3}/gi, '').trim();
 
       // Find the last dash which separates the state
-      const lastDashIndex = fullAddress.lastIndexOf(' - ');
+      const lastDashIndex = addressWithoutCep.lastIndexOf(' - ');
 
       if (lastDashIndex === -1) {
-        // No dash found, treat entire address as street
-        logradouro = fullAddress;
-        const result = { logradouro, numero, complemento, bairro, cidade, estado };
-        console.log('Parsed address:', result);
+        // No dash found, address might be incomplete
+        // Try to parse comma-separated parts
+        const parts = addressWithoutCep.split(',').map(p => p.trim()).filter(p => p);
+
+        if (parts.length >= 3) {
+          // Format: Street, Number, Complement [, more...]
+          logradouro = parts[0];
+
+          // Extract number from second part (might be "N 306" or just "306")
+          const numberPart = parts[1].replace(/^N\s*/i, '').trim();
+          const numberMatch = numberPart.match(/^\d+/);
+          if (numberMatch) {
+            numero = numberMatch[0];
+          } else {
+            numero = numberPart;
+          }
+
+          // Rest is complement
+          complemento = parts.slice(2).join(', ');
+        } else if (parts.length === 2) {
+          logradouro = parts[0];
+          numero = parts[1].replace(/^N\s*/i, '').trim();
+        } else if (parts.length === 1) {
+          logradouro = parts[0];
+        }
+
+        // Try to get address info from CEP
+        if (cep && cep.length === 8) {
+          try {
+            console.log('Fetching address info from CEP:', cep);
+            const cepResponse = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+            if (cepResponse.ok) {
+              const cepData = await cepResponse.json();
+              if (!cepData.erro) {
+                bairro = cepData.bairro || bairro;
+                cidade = cepData.localidade || cidade;
+                estado = cepData.uf || estado;
+                console.log('CEP data:', cepData);
+              }
+            }
+          } catch (error) {
+            console.log('Error fetching CEP:', error);
+          }
+        }
+
+        const result = { logradouro, numero, complemento, bairro, cidade, estado, cep };
+        console.log('Parsed address (incomplete format):', result);
         return result;
       }
 
       // Extract state (everything after last dash)
-      estado = fullAddress.substring(lastDashIndex + 3).trim();
+      estado = addressWithoutCep.substring(lastDashIndex + 3).trim();
 
       // Everything before the last dash
-      const beforeState = fullAddress.substring(0, lastDashIndex);
+      const beforeState = addressWithoutCep.substring(0, lastDashIndex);
 
       // Split by comma to get all parts
       const parts = beforeState.split(',').map(p => p.trim());
@@ -302,12 +356,12 @@ Deno.serve(async (req: Request) => {
         logradouro = parts[0];
       }
 
-      const result = { logradouro, numero, complemento, bairro, cidade, estado };
+      const result = { logradouro, numero, complemento, bairro, cidade, estado, cep };
       console.log('Parsed address:', result);
       return result;
     };
 
-    const addressParts = parseAddress(deliveryAddress);
+    const addressParts = await parseAddress(deliveryAddress);
 
     console.log('Customer data:', {
       id: customer.id,
@@ -370,7 +424,7 @@ Deno.serve(async (req: Request) => {
         bairro: addressParts.bairro || '',
         cidade: addressParts.cidade || '',
         estado: addressParts.estado || '',
-        cep: '',
+        cep: addressParts.cep || '',
       },
       itens: itemsWithPrices,
       troco: 0,
