@@ -219,9 +219,7 @@ Deno.serve(async (req: Request) => {
     const parseAddress = (fullAddress: string) => {
       console.log('Parsing address:', fullAddress);
 
-      // Examples:
-      // "R. DR AFONSO VERGUEIRO, 761 - VL. MARIA, Francisco Beltrão - SP"
-      // "Avenida Paulista, 2100, Apto 301 - Bela Vista, São Paulo - SP"
+      // Example: "Rua Clodomiro Amazonas, 506, Apto 184, Vila Nova Conceição, São Paulo - SP"
 
       let logradouro = '';
       let numero = '';
@@ -230,77 +228,78 @@ Deno.serve(async (req: Request) => {
       let cidade = '';
       let estado = '';
 
-      // First, split by the main dash separator to separate address from location
-      const mainParts = fullAddress.split(' - ');
+      // Find the last dash which separates the state
+      const lastDashIndex = fullAddress.lastIndexOf(' - ');
 
-      if (mainParts.length >= 2) {
-        // First part contains: street, number, maybe complement
-        const addressPart = mainParts[0];
-        const commaParts = addressPart.split(',').map(p => p.trim());
-
-        // Street is always the first part
-        if (commaParts.length >= 1) {
-          logradouro = commaParts[0];
-        }
-
-        // Number is the second part (may contain additional text)
-        if (commaParts.length >= 2) {
-          const numberPart = commaParts[1];
-          // Try to extract just the number
-          const numberMatch = numberPart.match(/^\d+/);
-          if (numberMatch) {
-            numero = numberMatch[0];
-            // Everything after the number is complement
-            const afterNumber = numberPart.substring(numero.length).trim();
-            if (afterNumber) {
-              complemento = afterNumber;
-            }
-          } else {
-            // If no number found, treat whole part as number
-            numero = numberPart;
-          }
-        }
-
-        // Any additional parts before the dash are complement
-        if (commaParts.length >= 3) {
-          const additionalComplements = commaParts.slice(2).join(', ');
-          complemento = complemento
-            ? `${complemento}, ${additionalComplements}`
-            : additionalComplements;
-        }
-
-        // Process location part (everything after first dash)
-        // Can be: "VL. MARIA, Francisco Beltrão - SP" or "Bela Vista, São Paulo - SP"
-        const locationPart = mainParts.slice(1).join(' - ');
-        const locationParts = locationPart.split(',').map(p => p.trim());
-
-        if (locationParts.length >= 1) {
-          // First part is neighborhood
-          bairro = locationParts[0];
-        }
-
-        if (locationParts.length >= 2) {
-          // Second part contains "City - State"
-          const cityStatePart = locationParts[locationParts.length - 1];
-          const cityStateMatch = cityStatePart.match(/^(.+?)\s*-\s*([A-Z]{2})$/);
-          if (cityStateMatch) {
-            cidade = cityStateMatch[1].trim();
-            estado = cityStateMatch[2].trim();
-          } else {
-            cidade = cityStatePart;
-          }
-        } else if (locationParts.length === 1) {
-          // Only one part, try to extract "Neighborhood - State" or just neighborhood
-          const singlePart = locationParts[0];
-          const stateMatch = singlePart.match(/^(.+?)\s*-\s*([A-Z]{2})$/);
-          if (stateMatch) {
-            bairro = stateMatch[1].trim();
-            estado = stateMatch[2].trim();
-          }
-        }
-      } else {
-        // No dash separator, treat entire address as street
+      if (lastDashIndex === -1) {
+        // No dash found, treat entire address as street
         logradouro = fullAddress;
+        const result = { logradouro, numero, complemento, bairro, cidade, estado };
+        console.log('Parsed address:', result);
+        return result;
+      }
+
+      // Extract state (everything after last dash)
+      estado = fullAddress.substring(lastDashIndex + 3).trim();
+
+      // Everything before the last dash
+      const beforeState = fullAddress.substring(0, lastDashIndex);
+
+      // Split by comma to get all parts
+      const parts = beforeState.split(',').map(p => p.trim());
+
+      if (parts.length >= 5) {
+        // Format: Street, Number, Complement, Neighborhood, City - State
+        logradouro = parts[0];
+        numero = parts[1];
+        complemento = parts[2];
+        bairro = parts[3];
+        cidade = parts[4];
+      } else if (parts.length === 4) {
+        // Format: Street, Number, Neighborhood, City - State (no complement)
+        // OR: Street, Number, Complement, "Neighborhood, City" - State
+        logradouro = parts[0];
+        numero = parts[1];
+
+        // Check if last part looks like a city (has multiple words)
+        const lastPart = parts[3];
+        if (lastPart.includes(' ')) {
+          // Likely: Street, Number, Neighborhood, City
+          complemento = '';
+          bairro = parts[2];
+          cidade = lastPart;
+        } else {
+          // Likely: Street, Number, Complement, Neighborhood
+          complemento = parts[2];
+          bairro = parts[3];
+          cidade = '';
+        }
+      } else if (parts.length === 3) {
+        // Format: Street, Number, "Neighborhood, City" - State
+        logradouro = parts[0];
+        numero = parts[1];
+
+        // Last part could be either "Neighborhood" or "City"
+        // Check if it looks like a well-known city
+        const lastPart = parts[2];
+        if (lastPart.toLowerCase().includes('são paulo') ||
+            lastPart.toLowerCase().includes('rio de janeiro') ||
+            lastPart.length > 15) {
+          // Probably city
+          cidade = lastPart;
+          bairro = '';
+        } else {
+          // Probably neighborhood
+          bairro = lastPart;
+          cidade = '';
+        }
+      } else if (parts.length === 2) {
+        // Format: Street, Number - State
+        logradouro = parts[0];
+        numero = parts[1];
+      } else if (parts.length === 1) {
+        // Only street name
+        logradouro = parts[0];
       }
 
       const result = { logradouro, numero, complemento, bairro, cidade, estado };
