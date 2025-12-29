@@ -351,16 +351,15 @@ Deno.serve(async (req: Request) => {
       idUnicoIntegracao: order.id,
       dataPedido: orderDateTime,
       createdAt: now,
-      descricao: `Pedido ${order.meal_type}`,
+      descricao: '',
       tipoPedido: 'DELIVERY',
       situacao: 'CONFIRMADO',
       identificador: {
         numero: referenceNumber,
         tipo: 'DELIVERY',
       },
-      identificadorSecundario: customer.phone || '',
       cliente: {
-        nome: customer.name.toUpperCase(),
+        nome: customer.name,
         telefone: customer.phone || '',
         cpf: '',
         email: customer.email || '',
@@ -378,7 +377,7 @@ Deno.serve(async (req: Request) => {
       troco: 0,
       valorDesconto: 0,
       valorTotal: parseFloat(totalValue.toFixed(2)),
-      observacoes: `Horário de entrega: ${deliveryTime}\nCliente: ${customer.name}`,
+      observacoes: `Horário de entrega: ${deliveryTime}`,
     };
 
     // 7. Send to Sischef API
