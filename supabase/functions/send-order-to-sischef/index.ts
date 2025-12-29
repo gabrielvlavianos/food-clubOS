@@ -219,9 +219,9 @@ Deno.serve(async (req: Request) => {
     const parseAddress = (fullAddress: string) => {
       console.log('Parsing address:', fullAddress);
 
-      // Example: "Avenida Paulista, 2100, Ramal 3892 - 16 andar tesouraria, Bela Vista, S\u00e3o Paulo - SP"
-      // Split by comma first
-      const commaParts = fullAddress.split(',').map(p => p.trim());
+      // Examples:
+      // "R. DR AFONSO VERGUEIRO, 761 - VL. MARIA, Francisco Beltrão - SP"
+      // "Avenida Paulista, 2100, Apto 301 - Bela Vista, São Paulo - SP"
 
       let logradouro = '';
       let numero = '';
@@ -230,58 +230,77 @@ Deno.serve(async (req: Request) => {
       let cidade = '';
       let estado = '';
 
-      if (commaParts.length >= 1) {
-        logradouro = commaParts[0];
-      }
+      // First, split by the main dash separator to separate address from location
+      const mainParts = fullAddress.split(' - ');
 
-      // Try to find number in second part
-      if (commaParts.length >= 2) {
-        const numberPart = commaParts[1];
-        // Extract just numbers for numero
-        const numberMatch = numberPart.match(/\d+/);
-        if (numberMatch) {
-          numero = numberMatch[0];
-          // Rest is complemento
-          complemento = numberPart.replace(numero, '').trim();
-        } else {
-          numero = numberPart;
+      if (mainParts.length >= 2) {
+        // First part contains: street, number, maybe complement
+        const addressPart = mainParts[0];
+        const commaParts = addressPart.split(',').map(p => p.trim());
+
+        // Street is always the first part
+        if (commaParts.length >= 1) {
+          logradouro = commaParts[0];
         }
-      }
 
-      // Additional complement might be in third part (before dash)
-      if (commaParts.length >= 3 && !commaParts[2].includes(' - ')) {
-        complemento = complemento ? `${complemento}, ${commaParts[2]}` : commaParts[2];
-      }
-
-      // Find the part with dash (neighborhood - city - state)
-      const dashIndex = fullAddress.indexOf(' - ');
-      if (dashIndex !== -1) {
-        const afterDash = fullAddress.substring(dashIndex + 3);
-        const dashParts = afterDash.split(',').map(p => p.trim());
-
-        if (dashParts.length >= 2) {
-          // First after dash is bairro
-          bairro = dashParts[0];
-          // Last part should be "City - State"
-          const lastPart = dashParts[dashParts.length - 1];
-          const cityStateParts = lastPart.split(' - ').map(p => p.trim());
-          if (cityStateParts.length === 2) {
-            cidade = cityStateParts[0];
-            estado = cityStateParts[1];
+        // Number is the second part (may contain additional text)
+        if (commaParts.length >= 2) {
+          const numberPart = commaParts[1];
+          // Try to extract just the number
+          const numberMatch = numberPart.match(/^\d+/);
+          if (numberMatch) {
+            numero = numberMatch[0];
+            // Everything after the number is complement
+            const afterNumber = numberPart.substring(numero.length).trim();
+            if (afterNumber) {
+              complemento = afterNumber;
+            }
           } else {
-            cidade = lastPart;
-          }
-        } else if (dashParts.length === 1) {
-          const lastPart = dashParts[0];
-          const cityStateParts = lastPart.split(' - ').map(p => p.trim());
-          if (cityStateParts.length === 2) {
-            bairro = cityStateParts[0];
-            cidade = cityStateParts[0];
-            estado = cityStateParts[1];
-          } else {
-            bairro = lastPart;
+            // If no number found, treat whole part as number
+            numero = numberPart;
           }
         }
+
+        // Any additional parts before the dash are complement
+        if (commaParts.length >= 3) {
+          const additionalComplements = commaParts.slice(2).join(', ');
+          complemento = complemento
+            ? `${complemento}, ${additionalComplements}`
+            : additionalComplements;
+        }
+
+        // Process location part (everything after first dash)
+        // Can be: "VL. MARIA, Francisco Beltrão - SP" or "Bela Vista, São Paulo - SP"
+        const locationPart = mainParts.slice(1).join(' - ');
+        const locationParts = locationPart.split(',').map(p => p.trim());
+
+        if (locationParts.length >= 1) {
+          // First part is neighborhood
+          bairro = locationParts[0];
+        }
+
+        if (locationParts.length >= 2) {
+          // Second part contains "City - State"
+          const cityStatePart = locationParts[locationParts.length - 1];
+          const cityStateMatch = cityStatePart.match(/^(.+?)\s*-\s*([A-Z]{2})$/);
+          if (cityStateMatch) {
+            cidade = cityStateMatch[1].trim();
+            estado = cityStateMatch[2].trim();
+          } else {
+            cidade = cityStatePart;
+          }
+        } else if (locationParts.length === 1) {
+          // Only one part, try to extract "Neighborhood - State" or just neighborhood
+          const singlePart = locationParts[0];
+          const stateMatch = singlePart.match(/^(.+?)\s*-\s*([A-Z]{2})$/);
+          if (stateMatch) {
+            bairro = stateMatch[1].trim();
+            estado = stateMatch[2].trim();
+          }
+        }
+      } else {
+        // No dash separator, treat entire address as street
+        logradouro = fullAddress;
       }
 
       const result = { logradouro, numero, complemento, bairro, cidade, estado };
@@ -322,21 +341,26 @@ Deno.serve(async (req: Request) => {
       };
     });
 
+    // Generate a readable reference number using timestamp + last 4 digits of phone
+    const timestamp = Date.now();
+    const phoneDigits = (customer.phone || '').replace(/\D/g, '').slice(-4) || '0000';
+    const referenceNumber = `${timestamp}${phoneDigits}`;
+
     const payload: SischefPayload = {
       id: order.id,
       idUnicoIntegracao: order.id,
       dataPedido: orderDateTime,
       createdAt: now,
-      descricao: `Pedido ${order.meal_type} - ${customer.name}`,
+      descricao: `Pedido ${order.meal_type}`,
       tipoPedido: 'DELIVERY',
       situacao: 'CONFIRMADO',
       identificador: {
-        numero: String(customer.id),
+        numero: referenceNumber,
         tipo: 'DELIVERY',
       },
       identificadorSecundario: customer.phone || '',
       cliente: {
-        nome: customer.name,
+        nome: customer.name.toUpperCase(),
         telefone: customer.phone || '',
         cpf: '',
         email: customer.email || '',
@@ -354,7 +378,7 @@ Deno.serve(async (req: Request) => {
       troco: 0,
       valorDesconto: 0,
       valorTotal: parseFloat(totalValue.toFixed(2)),
-      observacoes: `Hor\u00e1rio de entrega: ${deliveryTime}`,
+      observacoes: `Horário de entrega: ${deliveryTime}\nCliente: ${customer.name}`,
     };
 
     // 7. Send to Sischef API
