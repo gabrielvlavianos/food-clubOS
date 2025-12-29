@@ -188,7 +188,7 @@ Deno.serve(async (req: Request) => {
 
     // 6. Build Sischef payload
     const deliveryTime = order.modified_delivery_time || order.delivery_time || delivery?.delivery_time || '12:00:00';
-    const deliveryAddress = order.modified_delivery_address || order.delivery_address || delivery?.delivery_address || customer.address || '';
+    const deliveryAddress = order.modified_delivery_address || order.delivery_address || delivery?.delivery_address || '';
 
     // Validate customer name
     if (!customer.name || customer.name.trim() === '') {
@@ -295,7 +295,6 @@ Deno.serve(async (req: Request) => {
       id: customer.id,
       name: customer.name,
       phone: customer.phone,
-      cpf: customer.cpf,
       email: customer.email
     });
 
@@ -339,7 +338,7 @@ Deno.serve(async (req: Request) => {
       cliente: {
         nome: customer.name,
         telefone: customer.phone || '',
-        cpf: customer.cpf || '',
+        cpf: '',
         email: customer.email || '',
       },
       enderecoEntrega: {
@@ -349,7 +348,7 @@ Deno.serve(async (req: Request) => {
         bairro: addressParts.bairro,
         cidade: addressParts.cidade,
         estado: addressParts.estado,
-        cep: customer.postal_code || '',
+        cep: '',
       },
       itens: itemsWithPrices,
       troco: 0,
