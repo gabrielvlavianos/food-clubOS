@@ -190,12 +190,37 @@ Deno.serve(async (req: Request) => {
     const deliveryTime = order.modified_delivery_time || order.delivery_time || delivery?.delivery_time || '12:00:00';
     const deliveryAddress = order.modified_delivery_address || order.delivery_address || delivery?.delivery_address || '';
 
+    console.log('=== DEBUG: Building payload ===');
+    console.log('Order data:', {
+      id: order.id,
+      customer_id: order.customer_id,
+      delivery_time: order.delivery_time,
+      modified_delivery_time: order.modified_delivery_time,
+      delivery_address: order.delivery_address,
+      modified_delivery_address: order.modified_delivery_address,
+    });
+    console.log('Delivery schedule:', delivery);
+    console.log('Final deliveryTime:', deliveryTime);
+    console.log('Final deliveryAddress:', deliveryAddress);
+    console.log('Customer:', {
+      id: customer.id,
+      name: customer.name,
+      phone: customer.phone,
+      email: customer.email,
+      address: customer.address,
+    });
+
     // Validate customer name
     if (!customer.name || customer.name.trim() === '') {
+      console.error('VALIDATION FAILED: Customer name is empty');
       return new Response(
         JSON.stringify({
           error: 'Nome do cliente não encontrado',
-          message: 'O cliente precisa ter um nome cadastrado para enviar ao Sischef'
+          message: 'O cliente precisa ter um nome cadastrado para enviar ao Sischef',
+          debug: {
+            customer_id: customer.id,
+            customer: customer,
+          }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -203,10 +228,23 @@ Deno.serve(async (req: Request) => {
 
     // Validate delivery address
     if (!deliveryAddress || deliveryAddress.trim() === '') {
+      console.error('VALIDATION FAILED: Delivery address is empty');
+      console.error('Order delivery_address:', order.delivery_address);
+      console.error('Order modified_delivery_address:', order.modified_delivery_address);
+      console.error('Delivery schedule delivery_address:', delivery?.delivery_address);
+      console.error('Customer address:', customer.address);
       return new Response(
         JSON.stringify({
           error: 'Endereço de entrega não encontrado',
-          message: 'O pedido precisa ter um endereço de entrega cadastrado'
+          message: 'O pedido precisa ter um endereço de entrega cadastrado',
+          debug: {
+            order_id: order.id,
+            customer_id: customer.id,
+            order_delivery_address: order.delivery_address,
+            modified_delivery_address: order.modified_delivery_address,
+            schedule_delivery_address: delivery?.delivery_address,
+            customer_address: customer.address,
+          }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -217,7 +255,7 @@ Deno.serve(async (req: Request) => {
 
     // Extract CEP from address string
     const extractCep = (address: string): string => {
-      const cepMatch = address.match(/CEP\s*[:.]?\s*(\d{5}[-.]?\d{3})/i);
+      const cepMatch = address.match(/CEP\s*[:.?]?\s*(\d{5}[-.?]?\d{3})/i);
       if (cepMatch) {
         return cepMatch[1].replace(/\D/g, '');
       }
@@ -237,7 +275,7 @@ Deno.serve(async (req: Request) => {
       let cep = extractCep(fullAddress);
 
       // Remove CEP from address for parsing
-      let addressWithoutCep = fullAddress.replace(/,?\s*CEP\s*[:.]?\s*\d{5}[-.]?\d{3}/gi, '').trim();
+      let addressWithoutCep = fullAddress.replace(/,?\s*CEP\s*[:.?]?\s*\d{5}[-.?]?\d{3}/gi, '').trim();
 
       // Find the last dash which separates the state
       const lastDashIndex = addressWithoutCep.lastIndexOf(' - ');
