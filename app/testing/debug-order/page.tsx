@@ -241,7 +241,7 @@ export default function DebugOrderPage() {
             'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ orderId: selectedOrder.id })
+          body: JSON.stringify({ order_id: selectedOrder.id })
         }
       );
 
