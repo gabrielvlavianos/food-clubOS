@@ -365,6 +365,25 @@ Deno.serve(async (req: Request) => {
       sischefResponse = { raw: responseText };
     }
 
+    // 8. Salvar ID do Sischef no pedido
+    console.log('8. Salvando ID do Sischef no pedido...');
+    const sischefOrderId = sischefResponse?.id || sischefResponse?.pedidoId || sischefResponse?.orderId || null;
+
+    if (sischefOrderId) {
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ sischef_order_id: String(sischefOrderId) })
+        .eq('id', order_id);
+
+      if (updateError) {
+        console.error('Erro ao salvar ID do Sischef:', updateError);
+      } else {
+        console.log('✅ ID do Sischef salvo:', sischefOrderId);
+      }
+    } else {
+      console.log('⚠️ ID do Sischef não encontrado na resposta');
+    }
+
     console.log('✅ PEDIDO ENVIADO COM SUCESSO!');
     console.log('===== FIM DO ENVIO =====');
 
@@ -372,6 +391,7 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         success: true,
         message: 'Pedido enviado com sucesso para o Sischef',
+        sischef_order_id: sischefOrderId,
         payload,
         sischef_response: sischefResponse,
       }),

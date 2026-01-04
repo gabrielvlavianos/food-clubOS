@@ -37,6 +37,7 @@ interface KitchenOrder {
   isCancelled?: boolean;
   hasModifiedProtein?: boolean;
   hasModifiedCarb?: boolean;
+  sischefOrderId?: string | null;
 }
 
 export default function KitchenDashboardPage() {
@@ -301,6 +302,7 @@ export default function KitchenDashboardPage() {
           const isCancelled = modifiedOrder.is_cancelled || modifiedOrder.status === 'cancelled';
 
           kitchenOrders.push({
+            id: modifiedOrder.id,
             customer,
             deliverySchedule,
             menuRecipes: customMenuRecipes,
@@ -309,6 +311,7 @@ export default function KitchenDashboardPage() {
             isCancelled,
             hasModifiedProtein,
             hasModifiedCarb,
+            sischefOrderId: modifiedOrder.sischef_order_id,
           });
         } else {
           const deliverySchedule = customerData.delivery_schedules?.find(
@@ -457,11 +460,22 @@ export default function KitchenDashboardPage() {
         return;
       }
 
+      const wasAlreadySent = orders.find(o => o.customer.id === customerOrder.customer.id)?.sischefOrderId;
+
       alert(
         result.sischef_response
-          ? `Pedido enviado com sucesso para o Sischef!\n\n${JSON.stringify(result.sischef_response, null, 2)}`
-          : `Pedido validado com sucesso!\n\n${result.message || ''}\n\nPayload:\n${JSON.stringify(result.payload, null, 2)}`
+          ? `Pedido ${wasAlreadySent ? 'atualizado' : 'enviado'} com sucesso para o Sischef!${result.sischef_order_id ? `\n\nID no Sischef: ${result.sischef_order_id}` : ''}`
+          : `Pedido validado com sucesso!\n\n${result.message || ''}`
       );
+
+      // Atualizar estado local com o novo sischef_order_id
+      if (result.sischef_order_id) {
+        setOrders(prev => prev.map(o =>
+          o.customer.id === customerOrder.customer.id
+            ? { ...o, sischefOrderId: result.sischef_order_id }
+            : o
+        ));
+      }
     } catch (error) {
       console.error('Error sending to Sischef:', error);
       alert(`Erro ao enviar para Sischef: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
@@ -650,10 +664,18 @@ export default function KitchenDashboardPage() {
                           disabled={sendingToSischef === order.customer.id}
                           variant="outline"
                           size="sm"
-                          className="w-[160px] border-2 border-orange-500 text-orange-700 hover:bg-orange-50"
+                          className={`w-[160px] border-2 ${
+                            order.sischefOrderId
+                              ? 'border-green-500 text-green-700 hover:bg-green-50'
+                              : 'border-orange-500 text-orange-700 hover:bg-orange-50'
+                          }`}
                         >
                           <Send className="h-3 w-3 mr-1" />
-                          {sendingToSischef === order.customer.id ? 'Enviando...' : 'Enviar Sischef'}
+                          {sendingToSischef === order.customer.id
+                            ? 'Enviando...'
+                            : order.sischefOrderId
+                              ? '✓ Reenviar'
+                              : 'Enviar Sischef'}
                         </Button>
                       )}
                     </div>
