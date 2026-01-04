@@ -277,9 +277,9 @@ Deno.serve(async (req: Request) => {
     // 6. Montar payload
     console.log('6. Montando payload...');
     const orderDateTime = `${order.order_date}T${deliveryTime}`;
-    const timestamp = Date.now();
-    const phoneDigits = (customer.phone || '').replace(/\D/g, '').slice(-4) || '0000';
-    const referenceNumber = `${timestamp}${phoneDigits}`;
+
+    // Usar order_id como referência fixa (evita duplicatas no Sischef)
+    const referenceNumber = `${order.id}`;
 
     // Montar endereço completo como string
     const enderecoCompleto = [
