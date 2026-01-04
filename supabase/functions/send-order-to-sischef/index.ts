@@ -18,37 +18,36 @@ interface SischefItem {
 }
 
 interface SischefPayload {
-  id: string;
   idUnicoIntegracao: string;
-  dataPedido: string;
-  createdAt: string;
-  descricao: string;
-  tipoPedido: 'DELIVERY';
   situacao: 'CONFIRMADO';
+  dataPedido: string;
+  troco: number;
+  valorDesconto: number;
+  valorTotal: number;
+  valorTaxaEntrega: number;
+  endereco: string;
+  cep: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  municipio: {
+    nome: string;
+  };
+  estado: {
+    sigla: string;
+  };
+  pessoa: {
+    id: null;
+    nome: string;
+    telefone: string;
+  };
   identificador: {
     numero: string;
     tipo: 'DELIVERY';
   };
-  cliente: {
-    nome: string;
-    telefone: string;
-    cpf: string;
-    email: string;
-  };
-  enderecoEntrega: {
-    logradouro: string;
-    numero: string;
-    complemento: string;
-    bairro: string;
-    cidade: string;
-    estado: string;
-    cep: string;
-  };
   itens: SischefItem[];
-  troco: number;
-  valorDesconto: number;
-  valorTotal: number;
-  observacoes: string;
+  tipoPedido: 'DELIVERY';
+  tipoDelivery: 'ENTREGA';
 }
 
 Deno.serve(async (req: Request) => {
@@ -277,42 +276,57 @@ Deno.serve(async (req: Request) => {
 
     // 6. Montar payload
     console.log('6. Montando payload...');
-    const now = new Date().toISOString();
     const orderDateTime = `${order.order_date}T${deliveryTime}`;
     const timestamp = Date.now();
     const phoneDigits = (customer.phone || '').replace(/\D/g, '').slice(-4) || '0000';
     const referenceNumber = `${timestamp}${phoneDigits}`;
 
+    // Montar endereço completo como string
+    const enderecoCompleto = [
+      addressParts.logradouro,
+      addressParts.numero,
+      addressParts.complemento,
+    ].filter(p => p && p !== 'S/N').join(', ');
+
     const payload: SischefPayload = {
-      id: order.id,
       idUnicoIntegracao: order.id,
-      dataPedido: orderDateTime,
-      createdAt: now,
-      descricao: `Pedido de ${order.meal_type === 'lunch' ? 'Almoço' : 'Jantar'}`,
-      tipoPedido: 'DELIVERY',
       situacao: 'CONFIRMADO',
+      dataPedido: orderDateTime,
+      troco: 0,
+      valorDesconto: 0,
+      valorTotal: parseFloat(totalValue.toFixed(2)),
+      valorTaxaEntrega: 0,
+      endereco: enderecoCompleto,
+      cep: addressParts.cep || '',
+      numero: addressParts.numero || 'S/N',
+      complemento: addressParts.complemento || '',
+      bairro: addressParts.bairro || '',
+      municipio: {
+        nome: addressParts.cidade || '',
+      },
+      estado: {
+        sigla: addressParts.estado || '',
+      },
+      pessoa: {
+        id: null,
+        nome: customer.name.trim(),
+        telefone: (customer.phone || '').replace(/\D/g, ''),
+      },
       identificador: {
         numero: referenceNumber,
         tipo: 'DELIVERY',
       },
-      cliente: {
-        nome: customer.name.trim(),
-        telefone: (customer.phone || '').replace(/\D/g, ''),
-        cpf: '',
-        email: customer.email || '',
-      },
-      enderecoEntrega: addressParts,
       itens: items,
-      troco: 0,
-      valorDesconto: 0,
-      valorTotal: parseFloat(totalValue.toFixed(2)),
-      observacoes: `Horário: ${deliveryTime}\nCliente: ${customer.name}${customer.phone ? '\nTel: ' + customer.phone : ''}`,
+      tipoPedido: 'DELIVERY',
+      tipoDelivery: 'ENTREGA',
     };
 
     console.log('✅ Payload montado com sucesso');
-    console.log('Nome do cliente:', payload.cliente.nome);
-    console.log('Telefone:', payload.cliente.telefone);
-    console.log('Endereço completo:', addressParts);
+    console.log('Nome do cliente:', payload.pessoa.nome);
+    console.log('Telefone:', payload.pessoa.telefone);
+    console.log('Endereço completo:', enderecoCompleto);
+    console.log('Município:', payload.municipio.nome);
+    console.log('Estado:', payload.estado.sigla);
 
     // 7. Enviar para Sischef
     console.log('7. Enviando para Sischef...');
