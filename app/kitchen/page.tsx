@@ -55,6 +55,7 @@ export default function KitchenDashboardPage() {
     salad_amount: 100,
     salad_dressing_amount: 30,
   });
+  const [driverPrepTime, setDriverPrepTime] = useState(10);
 
   useEffect(() => {
     loadGlobalSettings();
@@ -62,7 +63,7 @@ export default function KitchenDashboardPage() {
 
   useEffect(() => {
     loadOrders();
-  }, [selectedDate, selectedMealType, globalSettings]);
+  }, [selectedDate, selectedMealType, globalSettings, driverPrepTime]);
 
   async function loadGlobalSettings() {
     try {
@@ -78,6 +79,22 @@ export default function KitchenDashboardPage() {
           salad_amount: (data as any).salad_amount,
           salad_dressing_amount: (data as any).salad_dressing_amount,
         });
+      }
+
+      const { data: driverTimeData } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'driver_prep_time_minutes')
+        .maybeSingle();
+
+      if (driverTimeData) {
+        const value = (driverTimeData as any).value;
+        if (value) {
+          const parsedValue = parseInt(value);
+          if (!isNaN(parsedValue)) {
+            setDriverPrepTime(parsedValue);
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading global settings:', error);
@@ -139,11 +156,25 @@ export default function KitchenDashboardPage() {
     };
   }
 
-  function calculateProductionTimeRange(deliveryTime: string | null, travelTimeMinutes: number | null) {
+  function calculatePickupTime(deliveryTime: string | null, travelTimeMinutes: number | null, driverPrepTime: number): string | null {
     if (!deliveryTime) return null;
 
-    const travelTime = travelTimeMinutes || 0;
+    const travelTime = travelTimeMinutes || 20;
     const [hours, minutes] = deliveryTime.split(':').map(Number);
+    const totalMinutes = hours * 60 + minutes - (travelTime + driverPrepTime);
+    const pickupHours = Math.floor(totalMinutes / 60);
+    const pickupMinutes = totalMinutes % 60;
+    return `${String(pickupHours).padStart(2, '0')}:${String(pickupMinutes).padStart(2, '0')}`;
+  }
+
+  function calculateProductionTimeRange(deliveryTime: string | null, travelTimeMinutes: number | null, driverPrepTime: number = 10) {
+    if (!deliveryTime) return null;
+
+    const pickupTime = calculatePickupTime(deliveryTime, travelTimeMinutes, driverPrepTime);
+    if (!pickupTime) return null;
+
+    const travelTime = travelTimeMinutes || 20;
+    const [hours, minutes] = pickupTime.split(':').map(Number);
 
     const endDate = new Date();
     endDate.setHours(hours, minutes, 0, 0);
@@ -330,7 +361,8 @@ export default function KitchenDashboardPage() {
 
           const productionTimeRange = calculateProductionTimeRange(
             deliverySchedule.delivery_time,
-            deliverySchedule.travel_time_minutes
+            deliverySchedule.travel_time_minutes,
+            driverPrepTime
           );
 
           kitchenOrders.push({
@@ -369,7 +401,8 @@ export default function KitchenDashboardPage() {
 
             const productionTimeRange = calculateProductionTimeRange(
               deliverySchedule.delivery_time,
-              deliverySchedule.travel_time_minutes
+              deliverySchedule.travel_time_minutes,
+              driverPrepTime
             );
 
             kitchenOrders.push({
