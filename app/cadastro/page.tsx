@@ -100,10 +100,10 @@ export default function CadastroPage() {
       </section>
 
       {showForm && (
-        <section id="form-section" className="min-h-screen py-16 px-4 bg-stone-50">
+        <section id="form-section" className="min-h-screen py-8 sm:py-16 px-4 bg-stone-50">
           <div className="max-w-3xl mx-auto">
-            <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 p-8 md:p-12">
-              <h2 className="text-3xl font-bold mb-8 text-center" style={{ color: '#3D3D3D' }}>
+            <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-stone-200 p-4 sm:p-8 md:p-12">
+              <h2 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 text-center" style={{ color: '#3D3D3D' }}>
                 Vamos começar seu cadastro
               </h2>
 

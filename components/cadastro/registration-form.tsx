@@ -247,6 +247,15 @@ export function RegistrationForm() {
           });
           return false;
         }
+      } else if (currentSection === 1) {
+        if (!mainGoal) {
+          toast({
+            title: 'Campo obrigatório',
+            description: 'Selecione seu objetivo principal',
+            variant: 'destructive'
+          });
+          return false;
+        }
       } else if (currentSection === 2) {
         if (!height || !currentWeight || !goalWeight) {
           toast({
@@ -456,42 +465,42 @@ export function RegistrationForm() {
 
   if (step === 'choice') {
     return (
-      <div className="space-y-8">
-        <div className="text-center space-y-3">
-          <h2 className="text-2xl font-semibold text-slate-900">
+      <div className="space-y-6 sm:space-y-8">
+        <div className="text-center space-y-2 sm:space-y-3 px-2">
+          <h2 className="text-xl sm:text-2xl font-semibold text-slate-900">
             Você tem acompanhamento nutricional?
           </h2>
-          <p className="text-slate-600">
+          <p className="text-sm sm:text-base text-slate-600">
             Isso nos ajudará a personalizar melhor seu atendimento
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <Card
-            className="p-8 cursor-pointer hover:shadow-lg transition-all hover:scale-105 border-2 hover:border-[#5F7469]"
+            className="p-6 sm:p-8 cursor-pointer hover:shadow-lg transition-all hover:scale-105 border-2 hover:border-[#5F7469]"
             onClick={() => handleNutritionistChoice(true)}
           >
-            <div className="text-center space-y-4">
-              <div className="text-5xl">👩‍⚕️</div>
-              <h3 className="text-xl font-semibold text-slate-900">
+            <div className="text-center space-y-3 sm:space-y-4">
+              <div className="text-4xl sm:text-5xl">👩‍⚕️</div>
+              <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
                 Sim, tenho nutricionista
               </h3>
-              <p className="text-sm text-slate-600">
+              <p className="text-xs sm:text-sm text-slate-600">
                 Você poderá enviar seu plano alimentar e trabalharemos junto com sua nutricionista
               </p>
             </div>
           </Card>
 
           <Card
-            className="p-8 cursor-pointer hover:shadow-lg transition-all hover:scale-105 border-2 hover:border-[#5F7469]"
+            className="p-6 sm:p-8 cursor-pointer hover:shadow-lg transition-all hover:scale-105 border-2 hover:border-[#5F7469]"
             onClick={() => handleNutritionistChoice(false)}
           >
-            <div className="text-center space-y-4">
-              <div className="text-5xl">🎯</div>
-              <h3 className="text-xl font-semibold text-slate-900">
+            <div className="text-center space-y-3 sm:space-y-4">
+              <div className="text-4xl sm:text-5xl">🎯</div>
+              <h3 className="text-lg sm:text-xl font-semibold text-slate-900">
                 Não tenho nutricionista
               </h3>
-              <p className="text-sm text-slate-600">
+              <p className="text-xs sm:text-sm text-slate-600">
                 Calcularemos seus macronutrientes com base nas suas informações e objetivos
               </p>
             </div>
@@ -520,13 +529,13 @@ export function RegistrationForm() {
   const isLastSection = currentSection === sections.length - 1;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      <div className="flex items-center justify-between mb-8">
+    <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
+      <div className="flex items-center justify-between mb-6 sm:mb-8">
         <div className="flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             {sections.map((section, idx) => (
               <div key={idx} className="flex items-center flex-1">
-                <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${
+                <div className={`flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full text-xs sm:text-sm font-semibold ${
                   idx === currentSection
                     ? 'text-white'
                     : idx < currentSection
@@ -537,14 +546,14 @@ export function RegistrationForm() {
                   {idx + 1}
                 </div>
                 {idx < sections.length - 1 && (
-                  <div className={`flex-1 h-1 mx-2 ${
+                  <div className={`flex-1 h-0.5 sm:h-1 mx-1 sm:mx-2 ${
                     idx < currentSection ? 'bg-stone-300' : 'bg-stone-200'
                   }`} />
                 )}
               </div>
             ))}
           </div>
-          <div className="mt-2 text-sm font-medium text-slate-700">
+          <div className="mt-2 text-xs sm:text-sm font-medium text-slate-700">
             {sections[currentSection].title}
           </div>
         </div>
@@ -944,25 +953,25 @@ export function RegistrationForm() {
         )}
 
         {isLastSection && (
-          <div className="space-y-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-900 font-medium mb-2">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+              <p className="text-xs sm:text-sm text-blue-900 font-medium mb-2">
                 Como funciona:
               </p>
-              <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+              <ol className="text-xs sm:text-sm text-blue-800 space-y-1 list-decimal list-inside">
                 <li>Selecione os dias e turnos que deseja receber suas refeições</li>
                 <li>Preencha horário, CEP e endereço para cada dia selecionado</li>
                 <li>Use o botão "Replicar" para copiar endereços entre os mesmos turnos</li>
               </ol>
             </div>
 
-            <div className="border rounded-lg p-4 bg-white">
-              <h4 className="font-semibold text-slate-900 mb-4">Selecione os dias e turnos</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="border rounded-lg p-3 sm:p-4 bg-white">
+              <h4 className="font-semibold text-slate-900 mb-3 sm:mb-4 text-sm sm:text-base">Selecione os dias e turnos</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {DAYS_OF_WEEK.map(({ key: day, label: dayLabel }) => (
                   <div key={day} className="space-y-2">
-                    <p className="font-medium text-slate-700">{dayLabel}</p>
-                    <div className="flex gap-4 pl-3">
+                    <p className="font-medium text-slate-700 text-sm sm:text-base">{dayLabel}</p>
+                    <div className="flex gap-3 sm:gap-4 pl-2 sm:pl-3">
                       {MEAL_TYPES.map(({ key: meal, label: mealLabel }) => (
                         <div key={meal} className="flex items-center space-x-2">
                           <Checkbox
@@ -972,7 +981,7 @@ export function RegistrationForm() {
                           />
                           <label
                             htmlFor={`select-${day}-${meal}`}
-                            className="text-sm font-medium leading-none cursor-pointer"
+                            className="text-xs sm:text-sm font-medium leading-none cursor-pointer"
                           >
                             {mealLabel}
                           </label>
@@ -985,8 +994,8 @@ export function RegistrationForm() {
             </div>
 
             {Object.entries(selectedDaysMeals).some(([_, selected]) => selected) && (
-              <div className="border rounded-lg p-4 bg-white space-y-4">
-                <h4 className="font-semibold text-slate-900">Configure horário e endereço</h4>
+              <div className="border rounded-lg p-3 sm:p-4 bg-white space-y-4">
+                <h4 className="font-semibold text-slate-900 text-sm sm:text-base">Configure horário e endereço</h4>
 
                 {DAYS_OF_WEEK.map(({ key: day, label: dayLabel }) => (
                   <div key={day}>
@@ -998,9 +1007,9 @@ export function RegistrationForm() {
                       const isLoadingThisCep = loadingCep === dayMealKey;
 
                       return (
-                        <div key={dayMealKey} className="border-l-4 border-l-blue-500 bg-slate-50 rounded-lg p-4 mb-3 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <h5 className="font-medium text-slate-900">
+                        <div key={dayMealKey} className="border-l-4 border-l-blue-500 bg-slate-50 rounded-lg p-3 sm:p-4 mb-3 space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+                            <h5 className="font-medium text-slate-900 text-sm sm:text-base">
                               {dayLabel} - {mealLabel}
                             </h5>
                             <Button
@@ -1009,16 +1018,16 @@ export function RegistrationForm() {
                               variant="outline"
                               onClick={() => replicateAddress(day, meal)}
                               disabled={!schedule?.cep || !schedule?.number}
-                              className="text-xs"
+                              className="text-xs w-full sm:w-auto"
                             >
-                              Replicar para todos os {meal === 'lunch' ? 'almoços' : 'jantares'}
+                              Replicar {meal === 'lunch' ? 'almoços' : 'jantares'}
                             </Button>
                           </div>
 
-                          <div className="grid md:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <Label htmlFor={`${dayMealKey}-time`} className="text-sm">
-                                Horário de entrega * ({meal === 'lunch' ? '11:30-14:00' : '18:00-21:00'})
+                              <Label htmlFor={`${dayMealKey}-time`} className="text-xs sm:text-sm">
+                                Horário * <span className="text-xs text-slate-500">({meal === 'lunch' ? '11:30-14:00' : '18:00-21:00'})</span>
                               </Label>
                               <Input
                                 id={`${dayMealKey}-time`}
@@ -1028,11 +1037,12 @@ export function RegistrationForm() {
                                 min={meal === 'lunch' ? '11:30' : '18:00'}
                                 max={meal === 'lunch' ? '14:00' : '21:00'}
                                 required
+                                className="text-sm"
                               />
                             </div>
 
                             <div>
-                              <Label htmlFor={`${dayMealKey}-cep`} className="text-sm">
+                              <Label htmlFor={`${dayMealKey}-cep`} className="text-xs sm:text-sm">
                                 CEP *
                               </Label>
                               <div className="flex gap-2">
@@ -1050,10 +1060,11 @@ export function RegistrationForm() {
                                   maxLength={8}
                                   required
                                   disabled={isLoadingThisCep}
+                                  className="text-sm"
                                 />
                                 {isLoadingThisCep && (
                                   <div className="flex items-center">
-                                    <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full" />
+                                    <div className="animate-spin h-4 w-4 sm:h-5 sm:w-5 border-2 border-blue-500 border-t-transparent rounded-full" />
                                   </div>
                                 )}
                               </div>
@@ -1064,12 +1075,12 @@ export function RegistrationForm() {
                             <div className="space-y-3 bg-white p-3 rounded border">
                               <div>
                                 <Label className="text-xs text-slate-600">Endereço encontrado</Label>
-                                <p className="text-sm font-medium text-slate-900">{schedule.address}</p>
+                                <p className="text-xs sm:text-sm font-medium text-slate-900 break-words">{schedule.address}</p>
                               </div>
 
-                              <div className="grid md:grid-cols-2 gap-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
-                                  <Label htmlFor={`${dayMealKey}-number`} className="text-sm">
+                                  <Label htmlFor={`${dayMealKey}-number`} className="text-xs sm:text-sm">
                                     Número *
                                   </Label>
                                   <Input
@@ -1078,11 +1089,12 @@ export function RegistrationForm() {
                                     onChange={(e) => handleDeliveryScheduleChange(day, meal, 'number', e.target.value)}
                                     placeholder="123"
                                     required
+                                    className="text-sm"
                                   />
                                 </div>
 
                                 <div>
-                                  <Label htmlFor={`${dayMealKey}-complement`} className="text-sm">
+                                  <Label htmlFor={`${dayMealKey}-complement`} className="text-xs sm:text-sm">
                                     Complemento
                                   </Label>
                                   <Input
@@ -1090,6 +1102,7 @@ export function RegistrationForm() {
                                     value={schedule.complement || ''}
                                     onChange={(e) => handleDeliveryScheduleChange(day, meal, 'complement', e.target.value)}
                                     placeholder="Apto 101, Bloco A"
+                                    className="text-sm"
                                   />
                                 </div>
                               </div>
@@ -1106,12 +1119,13 @@ export function RegistrationForm() {
         )}
       </div>
 
-      <div className="flex justify-between pt-6 border-t">
+      <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-6 border-t">
         <Button
           type="button"
           variant="outline"
           onClick={prevSection}
           disabled={currentSection === 0 || loading}
+          className="w-full sm:w-auto"
         >
           <ChevronLeft className="w-4 h-4 mr-2" />
           Voltar
@@ -1122,12 +1136,13 @@ export function RegistrationForm() {
             type="button"
             onClick={nextSection}
             disabled={loading}
+            className="w-full sm:w-auto"
           >
             Próximo
             <ChevronRight className="w-4 h-4 ml-2" />
           </Button>
         ) : (
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading} className="w-full sm:w-auto">
             {loading ? 'Enviando...' : 'Finalizar Cadastro'}
           </Button>
         )}
