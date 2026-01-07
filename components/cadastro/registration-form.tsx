@@ -289,8 +289,29 @@ export function RegistrationForm() {
     setCurrentSection(prev => prev - 1);
   };
 
+  // Helper para garantir que valores vazios sejam null
+  const sanitizeValue = (value: string | undefined | null) => {
+    if (!value || value.trim() === '') return null;
+    return value;
+  };
+
+  // Helper para converter números de forma segura
+  const safeParseFloat = (value: string | undefined | null) => {
+    if (!value || value.trim() === '') return null;
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? null : parsed;
+  };
+
+  const safeParseInt = (value: string | undefined | null) => {
+    if (!value || value.trim() === '') return null;
+    const parsed = parseInt(value);
+    return isNaN(parsed) ? null : parsed;
+  };
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    console.log('🚀 Iniciando cadastro...');
 
     if (!hasNutritionist && !mainGoal) {
       toast({
@@ -329,9 +350,11 @@ export function RegistrationForm() {
     setLoading(true);
 
     try {
+      console.log('📝 Validações passaram, iniciando inserção no banco...');
       let mealPlanFileUrl: string | null = null;
 
       if (mealPlanFile && hasNutritionist) {
+        console.log('📤 Fazendo upload do arquivo...');
         const fileExt = mealPlanFile.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `${fileName}`;
@@ -344,7 +367,7 @@ export function RegistrationForm() {
           });
 
         if (uploadError) {
-          console.error('Upload error:', uploadError);
+          console.error('❌ Upload error:', uploadError);
           throw new Error('Erro ao fazer upload do arquivo');
         }
 
@@ -353,45 +376,59 @@ export function RegistrationForm() {
           .getPublicUrl(filePath);
 
         mealPlanFileUrl = publicUrl;
+        console.log('✅ Upload concluído');
       }
+
+      console.log('👤 Criando cliente no banco...');
+      const customerPayload = {
+        name: sanitizeValue(name),
+        phone: sanitizeValue(phone),
+        email: sanitizeValue(email),
+        birth_date: sanitizeValue(birthDate),
+        gender: sanitizeValue(gender),
+        has_nutritionist: hasNutritionist,
+        status: 'pending_approval',
+        nutritionist_name: hasNutritionist ? sanitizeValue(nutritionistName) : null,
+        nutritionist_phone: hasNutritionist ? sanitizeValue(nutritionistPhone) : null,
+        meal_plan_file_url: sanitizeValue(mealPlanFileUrl),
+        main_goal: sanitizeValue(mainGoal),
+        allergies: selectedAllergies.length > 0 ? selectedAllergies : null,
+        other_allergies: sanitizeValue(otherAllergies),
+        food_restrictions: sanitizeValue(foodRestrictions),
+        clinical_conditions: sanitizeValue(clinicalConditions),
+        medication_use: sanitizeValue(medicationUse),
+        dietary_notes: sanitizeValue(dietaryNotes),
+        height_cm: !hasNutritionist ? safeParseFloat(height) : null,
+        current_weight_kg: !hasNutritionist ? safeParseFloat(currentWeight) : null,
+        goal_weight_kg: !hasNutritionist ? safeParseFloat(goalWeight) : null,
+        body_fat_percentage: !hasNutritionist ? safeParseFloat(bodyFat) : null,
+        skeletal_muscle_mass: !hasNutritionist ? safeParseFloat(muscleMass) : null,
+        work_routine: !hasNutritionist ? sanitizeValue(workRoutine) : null,
+        aerobic_frequency: !hasNutritionist ? sanitizeValue(aerobicFrequency) : null,
+        aerobic_intensity: !hasNutritionist ? sanitizeValue(aerobicIntensity) : null,
+        strength_frequency: !hasNutritionist ? sanitizeValue(strengthFrequency) : null,
+        strength_intensity: !hasNutritionist ? sanitizeValue(strengthIntensity) : null,
+        meals_per_day: !hasNutritionist ? safeParseInt(mealsPerDay) : null,
+      };
+
+      console.log('📦 Payload do cliente:', customerPayload);
 
       const { data: customerData, error: customerError } = await (supabase as any)
         .from('customers')
-        .insert([{
-          name,
-          phone: phone || null,
-          email: email || null,
-          birth_date: birthDate || null,
-          gender: gender || null,
-          has_nutritionist: hasNutritionist,
-          status: 'pending_approval',
-          nutritionist_name: hasNutritionist ? nutritionistName : null,
-          nutritionist_phone: hasNutritionist ? nutritionistPhone : null,
-          meal_plan_file_url: mealPlanFileUrl,
-          main_goal: mainGoal || null,
-          allergies: selectedAllergies,
-          other_allergies: otherAllergies || null,
-          food_restrictions: foodRestrictions || null,
-          clinical_conditions: clinicalConditions || null,
-          medication_use: medicationUse || null,
-          dietary_notes: dietaryNotes || null,
-          height_cm: !hasNutritionist && height ? parseFloat(height) : null,
-          current_weight_kg: !hasNutritionist && currentWeight ? parseFloat(currentWeight) : null,
-          goal_weight_kg: !hasNutritionist && goalWeight ? parseFloat(goalWeight) : null,
-          body_fat_percentage: !hasNutritionist && bodyFat ? parseFloat(bodyFat) : null,
-          skeletal_muscle_mass: !hasNutritionist && muscleMass ? parseFloat(muscleMass) : null,
-          work_routine: !hasNutritionist ? workRoutine : null,
-          aerobic_frequency: !hasNutritionist ? aerobicFrequency : null,
-          aerobic_intensity: !hasNutritionist ? aerobicIntensity : null,
-          strength_frequency: !hasNutritionist ? strengthFrequency : null,
-          strength_intensity: !hasNutritionist ? strengthIntensity : null,
-          meals_per_day: !hasNutritionist && mealsPerDay ? parseInt(mealsPerDay) : null,
-        }])
+        .insert([customerPayload])
         .select()
         .single();
 
-      if (customerError) throw customerError;
-      if (!customerData) throw new Error('Customer data not returned');
+      if (customerError) {
+        console.error('❌ Erro ao criar cliente:', customerError);
+        throw customerError;
+      }
+      if (!customerData) {
+        console.error('❌ Customer data não retornado');
+        throw new Error('Customer data not returned');
+      }
+
+      console.log('✅ Cliente criado:', customerData.id);
 
       const dayKeyToNumber: Record<string, number> = {
         'monday': 1,
@@ -403,6 +440,7 @@ export function RegistrationForm() {
         'sunday': 7,
       };
 
+      console.log('📅 Criando agendas de entrega...');
       const schedules = selectedKeys.map(key => {
         const [day, meal] = key.split('_');
         const schedule = deliverySchedules[key];
@@ -420,15 +458,22 @@ export function RegistrationForm() {
         };
       });
 
+      console.log('📦 Payload das agendas:', schedules);
+
       if (schedules.length > 0) {
         const { error: scheduleError } = await supabase
           .from('delivery_schedules')
           .insert(schedules as any);
 
-        if (scheduleError) throw scheduleError;
+        if (scheduleError) {
+          console.error('❌ Erro ao criar agendas:', scheduleError);
+          throw scheduleError;
+        }
+        console.log('✅ Agendas criadas');
       }
 
       if (mealPlanFileUrl && mealPlanFile) {
+        console.log('📄 Salvando documento...');
         const { error: documentError } = await (supabase as any)
           .from('customer_documents')
           .insert({
@@ -440,9 +485,13 @@ export function RegistrationForm() {
           });
 
         if (documentError) {
-          console.error('Error saving document:', documentError);
+          console.error('⚠️ Erro ao salvar documento:', documentError);
+        } else {
+          console.log('✅ Documento salvo');
         }
       }
+
+      console.log('🎉 Cadastro concluído com sucesso!');
 
       toast({
         title: 'Cadastro realizado!',
@@ -451,11 +500,28 @@ export function RegistrationForm() {
 
       window.location.href = '/cadastro/sucesso';
     } catch (error: any) {
-      console.error('Error creating customer:', error);
+      console.error('❌ Erro no cadastro:', error);
+      console.error('Detalhes do erro:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        full: error
+      });
+
+      let errorMessage = 'Não foi possível completar seu cadastro. Tente novamente.';
+
+      if (error.message?.includes('unique') || error.code === '23505') {
+        errorMessage = 'Já existe um cadastro com este telefone ou e-mail.';
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
 
       toast({
         title: 'Erro no cadastro',
-        description: 'Não foi possível completar seu cadastro. Tente novamente.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
