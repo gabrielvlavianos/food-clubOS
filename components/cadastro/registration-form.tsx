@@ -219,19 +219,30 @@ export function RegistrationForm() {
   const validateCurrentSection = (): boolean => {
     if (hasNutritionist) {
       if (currentSection === 0) {
-        if (!name || !phone || !email || !birthDate || !gender) {
+        const missingFields = [];
+        if (!name?.trim()) missingFields.push('Nome Completo');
+        if (!phone?.trim()) missingFields.push('Telefone');
+        if (!email?.trim()) missingFields.push('Email');
+        if (!birthDate?.trim()) missingFields.push('Data de Nascimento');
+        if (!gender?.trim()) missingFields.push('Gênero');
+
+        if (missingFields.length > 0) {
           toast({
-            title: 'Campos obrigatórios',
-            description: 'Preencha todos os campos obrigatórios da seção',
+            title: 'Campos obrigatórios faltando',
+            description: `Preencha: ${missingFields.join(', ')}`,
             variant: 'destructive'
           });
           return false;
         }
       } else if (currentSection === 1) {
-        if (!nutritionistName || !nutritionistPhone) {
+        const missingFields = [];
+        if (!nutritionistName?.trim()) missingFields.push('Nome da Nutricionista');
+        if (!nutritionistPhone?.trim()) missingFields.push('Telefone da Nutricionista');
+
+        if (missingFields.length > 0) {
           toast({
-            title: 'Campos obrigatórios',
-            description: 'Preencha os dados da nutricionista',
+            title: 'Campos obrigatórios faltando',
+            description: `Preencha: ${missingFields.join(', ')}`,
             variant: 'destructive'
           });
           return false;
@@ -239,37 +250,56 @@ export function RegistrationForm() {
       }
     } else {
       if (currentSection === 0) {
-        if (!name || !phone || !email || !birthDate || !gender) {
+        const missingFields = [];
+        if (!name?.trim()) missingFields.push('Nome Completo');
+        if (!phone?.trim()) missingFields.push('Telefone');
+        if (!email?.trim()) missingFields.push('Email');
+        if (!birthDate?.trim()) missingFields.push('Data de Nascimento');
+        if (!gender?.trim()) missingFields.push('Gênero');
+
+        if (missingFields.length > 0) {
           toast({
-            title: 'Campos obrigatórios',
-            description: 'Preencha todos os campos obrigatórios da seção',
+            title: 'Campos obrigatórios faltando',
+            description: `Preencha: ${missingFields.join(', ')}`,
             variant: 'destructive'
           });
           return false;
         }
       } else if (currentSection === 1) {
-        if (!mainGoal) {
+        if (!mainGoal?.trim()) {
           toast({
-            title: 'Campo obrigatório',
-            description: 'Selecione seu objetivo principal',
+            title: 'Campo obrigatório faltando',
+            description: 'Selecione seu Objetivo Principal',
             variant: 'destructive'
           });
           return false;
         }
       } else if (currentSection === 2) {
-        if (!height || !currentWeight || !goalWeight) {
+        const missingFields = [];
+        if (!height?.trim()) missingFields.push('Altura');
+        if (!currentWeight?.trim()) missingFields.push('Peso Atual');
+        if (!goalWeight?.trim()) missingFields.push('Meta de Peso');
+
+        if (missingFields.length > 0) {
           toast({
-            title: 'Campos obrigatórios',
-            description: 'Preencha altura, peso atual e meta de peso',
+            title: 'Campos obrigatórios faltando',
+            description: `Preencha: ${missingFields.join(', ')}`,
             variant: 'destructive'
           });
           return false;
         }
       } else if (currentSection === 3) {
-        if (!workRoutine || !aerobicFrequency || !aerobicIntensity || !strengthFrequency || !strengthIntensity) {
+        const missingFields = [];
+        if (!workRoutine?.trim()) missingFields.push('Rotina de Trabalho');
+        if (!aerobicFrequency?.trim()) missingFields.push('Frequência Aeróbico');
+        if (!aerobicIntensity?.trim()) missingFields.push('Intensidade Aeróbico');
+        if (!strengthFrequency?.trim()) missingFields.push('Frequência Musculação');
+        if (!strengthIntensity?.trim()) missingFields.push('Intensidade Musculação');
+
+        if (missingFields.length > 0) {
           toast({
-            title: 'Campos obrigatórios',
-            description: 'Preencha todos os campos de rotina e atividade física',
+            title: 'Campos obrigatórios faltando',
+            description: `Preencha: ${missingFields.join(', ')}`,
             variant: 'destructive'
           });
           return false;
