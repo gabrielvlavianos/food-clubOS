@@ -318,6 +318,8 @@ export interface Database {
           meal_type: 'lunch' | 'dinner';
           delivery_time: string | null;
           delivery_address: string | null;
+          travel_time_minutes: number | null;
+          is_active: boolean;
           created_at: string;
         };
         Insert: {
@@ -327,6 +329,8 @@ export interface Database {
           meal_type: 'lunch' | 'dinner';
           delivery_time?: string | null;
           delivery_address?: string | null;
+          travel_time_minutes?: number | null;
+          is_active?: boolean;
           created_at?: string;
         };
         Update: {
@@ -336,6 +340,8 @@ export interface Database {
           meal_type?: 'lunch' | 'dinner';
           delivery_time?: string | null;
           delivery_address?: string | null;
+          travel_time_minutes?: number | null;
+          is_active?: boolean;
           created_at?: string;
         };
       };

@@ -38,6 +38,10 @@ interface KitchenOrder {
   hasModifiedProtein?: boolean;
   hasModifiedCarb?: boolean;
   sischefOrderId?: string | null;
+  productionTimeRange?: {
+    start: string;
+    end: string;
+  };
 }
 
 export default function KitchenDashboardPage() {
@@ -132,6 +136,29 @@ export default function KitchenDashboardPage() {
       protein: Math.round(totalProtein * 10) / 10,
       carbs: Math.round(totalCarbs * 10) / 10,
       fat: Math.round(totalFat * 10) / 10,
+    };
+  }
+
+  function calculateProductionTimeRange(deliveryTime: string | null, travelTimeMinutes: number | null) {
+    if (!deliveryTime) return null;
+
+    const travelTime = travelTimeMinutes || 0;
+    const [hours, minutes] = deliveryTime.split(':').map(Number);
+
+    const endDate = new Date();
+    endDate.setHours(hours, minutes, 0, 0);
+    endDate.setMinutes(endDate.getMinutes() + travelTime);
+
+    const startDate = new Date(endDate);
+    startDate.setMinutes(startDate.getMinutes() - 10);
+
+    const formatHHMM = (date: Date) => {
+      return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    };
+
+    return {
+      start: formatHHMM(startDate),
+      end: formatHHMM(endDate),
     };
   }
 
@@ -301,6 +328,11 @@ export default function KitchenDashboardPage() {
 
           const isCancelled = modifiedOrder.is_cancelled || modifiedOrder.status === 'cancelled';
 
+          const productionTimeRange = calculateProductionTimeRange(
+            deliverySchedule.delivery_time,
+            deliverySchedule.travel_time_minutes
+          );
+
           kitchenOrders.push({
             id: modifiedOrder.id,
             customer,
@@ -312,6 +344,7 @@ export default function KitchenDashboardPage() {
             hasModifiedProtein,
             hasModifiedCarb,
             sischefOrderId: modifiedOrder.sischef_order_id,
+            productionTimeRange: productionTimeRange || undefined,
           });
         } else {
           const deliverySchedule = customerData.delivery_schedules?.find(
@@ -334,20 +367,26 @@ export default function KitchenDashboardPage() {
 
             const orderStatus = statusMap.get(customerData.id);
 
+            const productionTimeRange = calculateProductionTimeRange(
+              deliverySchedule.delivery_time,
+              deliverySchedule.travel_time_minutes
+            );
+
             kitchenOrders.push({
               customer,
               deliverySchedule,
               menuRecipes,
               quantities,
               status: orderStatus?.kitchen_status || 'pending',
+              productionTimeRange: productionTimeRange || undefined,
             });
           }
         }
       }
 
       kitchenOrders.sort((a, b) => {
-        const timeA = a.deliverySchedule.delivery_time || '';
-        const timeB = b.deliverySchedule.delivery_time || '';
+        const timeA = a.productionTimeRange?.end || a.deliverySchedule.delivery_time || '';
+        const timeB = b.productionTimeRange?.end || b.deliverySchedule.delivery_time || '';
         return timeA.localeCompare(timeB);
       });
 
@@ -610,6 +649,15 @@ export default function KitchenDashboardPage() {
                           <span className="font-semibold">Horário:</span>
                           <span className="text-base font-bold text-orange-600">{formatTime(order.deliverySchedule.delivery_time)}</span>
                         </div>
+                        {order.productionTimeRange && (
+                          <div className="flex items-center gap-2 bg-green-50 border-2 border-green-500 rounded-lg px-3 py-2 mt-1">
+                            <ChefHat className="h-5 w-5 text-green-700" />
+                            <span className="font-bold text-green-900">Janela de Produção:</span>
+                            <span className="text-base font-bold text-green-700">
+                              {formatTime(order.productionTimeRange.start)} - {formatTime(order.productionTimeRange.end)}
+                            </span>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2">
                           <MapPin className="h-4 w-4" />
                           <span>{order.deliverySchedule.delivery_address}</span>
