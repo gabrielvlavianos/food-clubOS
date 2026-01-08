@@ -93,6 +93,7 @@ export function EditRecipeDialog({ recipe, open, onOpenChange, onUpdated }: Edit
         protein_per_100g: parseFloat(formData.protein_per_100g),
         carb_per_100g: parseFloat(formData.carb_per_100g),
         fat_per_100g: parseFloat(formData.fat_per_100g),
+        cost_per_100g: parseFloat(formData.price_per_kg) || 0,
         price_per_kg: parseFloat(formData.price_per_kg) || 0,
         allergens: allergens.length > 0 ? allergens : ['nenhum'],
         notes: formData.notes || null,

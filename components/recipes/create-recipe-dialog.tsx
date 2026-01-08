@@ -54,6 +54,7 @@ export function CreateRecipeDialog({
         protein_per_100g: parseFloat(protein),
         carb_per_100g: parseFloat(carb),
         fat_per_100g: parseFloat(fat),
+        cost_per_100g: parseFloat(price) || 0,
         price_per_kg: parseFloat(price) || 0,
       }] as any);
 
